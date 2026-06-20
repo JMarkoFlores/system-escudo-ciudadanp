@@ -9,11 +9,11 @@ const nextConfig = {
     return [
       {
         source: '/api/agents/:path*',
-        destination: 'http://localhost:8000/v1/:path*',
+        destination: 'http://agent-api:8000/v1/:path*',
       },
       {
         source: '/api/web3/:path*',
-        destination: 'http://localhost:8001/v1/:path*',
+        destination: 'http://web3-backend:8001/v1/:path*',
       },
     ];
   },

@@ -18,15 +18,15 @@ Recibir y validar denuncias ingresadas por canales oficiales (WhatsApp, Telegram
 5. Si la denuncia NO es de extorsión, marcar como `valido: false` con justificación.
 
 ## FORMATO DE SALIDA (JSON obligatorio)
-{
+{{
   "valido": bool,
   "categoria_preliminar": str,
   "prioridad_inicial": int (1-5),
   "entidades_detectadas": [
-    {"tipo": "telefono|cuenta_bancaria|nombre|ubicacion|otro", "valor": str, "confianza": float}
+    {{"tipo": "telefono|cuenta_bancaria|nombre|ubicacion|otro", "valor": str, "confianza": float}}
   ],
   "notas": str
-}
+}}
 
 ## CONTEXTO
 Canal: {canal}
@@ -47,14 +47,14 @@ Analizar imágenes o documentos escaneados relacionados con denuncias de extorsi
 - Extracción de datos estructurados: números de teléfono, cuentas CLABE, montos, fechas.
 
 ## FORMATO DE SALIDA (JSON)
-{
+{{
   "texto_extraido": str,
   "idioma_detectado": str,
   "confianza": float (0.0-1.0),
   "entidades": [
-    {"tipo": str, "valor": str, "coordenadas_bbox": [x1,y1,x2,y2]}
+    {{"tipo": str, "valor": str, "coordenadas_bbox": [x1,y1,x2,y2]}}
   ]
-}
+}}
 
 ## NOTA
 El texto ya ha sido pre-procesado por Tesseract/AWS Textract. Tu tarea es validar, corregir errores OCR, y estructurar la información.
@@ -75,7 +75,7 @@ Analizar transcripciones de audio de denuncias de extorsión. Evaluar el conteni
 - Detección de fondo: ruido ambiental, otras voces, música.
 
 ## FORMATO DE SALIDA (JSON)
-{
+{{
   "transcripcion": str,
   "idioma_detectado": str,
   "duracion_segundos": float,
@@ -83,7 +83,7 @@ Analizar transcripciones de audio de denuncias de extorsión. Evaluar el conteni
   "emocion_detectada": str (miedo|ira|calma|estrés|neutro),
   "indicadores_amenaza": [str],
   "observaciones_forenses": str
-}
+}}
 """
 
 # ==========================================
@@ -101,17 +101,17 @@ Analizar textualmente el contenido de denuncias de extorsión para extraer inten
 4. Generar resumen ejecutivo en máximo 3 oraciones.
 
 ## FORMATO DE SALIDA (JSON)
-{
+{{
   "intencion": str,
   "sentimiento": str (positivo|negativo|neutro|miedo|amenaza|desesperación),
   "entidades": [
-    {"tipo": str, "valor": str, "inicio": int, "fin": int}
+    {{"tipo": str, "valor": str, "inicio": int, "fin": int}}
   ],
   "resumen": str,
   "palabras_clave": [str],
   "indicadores_extorsion": [str],
   "score_amenaza": float (0.0-1.0)
-}
+}}
 """
 
 # ==========================================
@@ -129,20 +129,20 @@ Correlacionar una denuncia con el histórico de casos para identificar patrones,
 - Identificación de modus operandi mediante patrones de lenguaje.
 
 ## FORMATO DE SALIDA (JSON)
-{
+{{
   "correlaciones": [
-    {
+    {{
       "denuncia_relacionada_id": str,
       "score_similitud": float (0.0-1.0),
       "tipo_match": str (telefono|cuenta_bancaria|patron_linguistico|ubicacion|modus_operandi),
       "evidencia_match": str
-    }
+    }}
   ],
   "red_criminal_detectada": bool,
   "modus_operandi_id": str (opcional),
   "score_red": float (0.0-1.0),
   "recomendacion_investigativa": str
-}
+}}
 """
 
 # ==========================================
@@ -165,15 +165,15 @@ Enriquecer la información de la denuncia mediante consulta de fuentes OSINT leg
 - Documentar SIEMPRE la fuente consultada.
 
 ## FORMATO DE SALIDA (JSON)
-{
-  "telefonos": [{"numero": str, "reportes_previos": int, "riesgo": str, "fuentes": [str]}],
-  "cuentas_bancarias": [{"cuenta": str, "entidad": str, "tipo": str, "reportes": int}],
-  "redes_sociales": [{"plataforma": str, "perfil": str, "exposicion": str}],
-  "dispositivos": [{"tipo": str, "info": str}],
+{{
+  "telefonos": [{{"numero": str, "reportes_previos": int, "riesgo": str, "fuentes": [str]}}],
+  "cuentas_bancarias": [{{"cuenta": str, "entidad": str, "tipo": str, "reportes": int}}],
+  "redes_sociales": [{{"plataforma": str, "perfil": str, "exposicion": str}}],
+  "dispositivos": [{{"tipo": str, "info": str}}],
   "fuentes_consultadas": [str],
   "riesgo_osint": int (1-5),
   "observaciones": str
-}
+}}
 """
 
 # ==========================================
@@ -198,14 +198,14 @@ Integrar TODOS los resultados previos de los agentes para calcular un nivel de r
 - CRITICO: Amenaza de muerte/secuestro inminente, capacidad operativa confirmada.
 
 ## FORMATO DE SALIDA (JSON)
-{
+{{
   "nivel_riesgo": str (bajo|medio|alto|critico),
   "score_numerico": float (0.0-1.0),
   "factores": [str],
   "recomendacion_operativa": str,
   "requiere_accion_inmediata": bool,
   "tiempo_respuesta_sugerido_minutos": int
-}
+}}
 """
 
 # ==========================================
@@ -224,7 +224,7 @@ Generar alertas oficiales cuando el Risk Agent determine un riesgo ALTO o CRITIC
 5. Formato claro, sin lenguaje técnico innecesario.
 
 ## FORMATO DE SALIDA (JSON)
-{
+{{
   "alerta_generada": bool,
   "alerta_id": str (uuid),
   "titulo": str,
@@ -232,7 +232,7 @@ Generar alertas oficiales cuando el Risk Agent determine un riesgo ALTO o CRITIC
   "recomendacion": str,
   "canales_notificacion": [str],
   "mensaje_alerta": str (versión corta para SMS/push)
-}
+}}
 """
 
 # Mapa centralizado

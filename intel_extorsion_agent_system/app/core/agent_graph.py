@@ -31,6 +31,9 @@ def get_llm():
         )
     return _llm
 
+# Variable de conveniencia para imports directos en agentes individuales
+llm = get_llm()
+
 # ==========================================
 # Funciones utilitarias para nodos
 # ==========================================
@@ -46,7 +49,15 @@ def _parse_llm_json(content: str) -> Dict[str, Any]:
         import re
         match = re.search(r'\{.*\}', content, re.DOTALL)
         if match:
-            return json.loads(match.group())
+            try:
+                return json.loads(match.group())
+            except json.JSONDecodeError:
+                # Intentar encontrar el primer objeto JSON válido (non-greedy)
+                for m in re.finditer(r'\{.*?\}', content, re.DOTALL):
+                    try:
+                        return json.loads(m.group())
+                    except json.JSONDecodeError:
+                        continue
         return {"error": "No se pudo parsear JSON", "raw": content}
 
 def _build_messages(system_prompt: str, user_content: str, state: AgenteState) -> List[Dict[str, Any]]:
@@ -217,6 +228,8 @@ async def node_risk(state: AgenteState) -> Dict[str, Any]:
     
     # Actualizar estado de riesgo
     nivel = result.get("nivel_riesgo", "bajo")
+    if isinstance(nivel, str):
+        nivel = nivel.lower().strip()
     if nivel in ["alto", "critico"]:
         state.requiere_escalamiento = True
     state.nivel_riesgo = NivelRiesgo(nivel)
@@ -232,7 +245,10 @@ async def node_alert(state: AgenteState) -> Dict[str, Any]:
         return {"resultado_alerta": None}
     
     riesgo = state.resultado_riesgo or {}
-    if riesgo.get("nivel_riesgo") not in ["alto", "critico"]:
+    nivel = riesgo.get("nivel_riesgo", "")
+    if isinstance(nivel, str):
+        nivel = nivel.lower().strip()
+    if nivel not in ["alto", "critico"]:
         return {
             "resultado_alerta": {
                 "alerta_generada": False,

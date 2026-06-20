@@ -16,6 +16,8 @@ import {
   CheckCircle2,
   Loader2,
   ArrowLeft,
+  X,
+  FileText,
 } from 'lucide-react';
 
 interface ChatMessage {
@@ -25,6 +27,12 @@ interface ChatMessage {
   timestamp: Date;
   metadata?: Record<string, unknown>;
 }
+
+type FileAttachment = {
+  file: File;
+  type: 'imagen' | 'audio' | 'documento';
+  preview?: string;
+};
 
 export default function PortalPage() {
   const { account, isConnected, connect, did } = useWalletStore();
@@ -40,19 +48,49 @@ export default function PortalPage() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState<'whatsapp' | 'telegram' | 'discord' | 'web'>('web');
+  const [attachment, setAttachment] = useState<FileAttachment | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, type: 'imagen' | 'audio' | 'documento') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const attach: FileAttachment = { file, type };
+
+    if (type === 'imagen' && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        attach.preview = reader.result as string;
+        setAttachment(attach);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setAttachment(attach);
+    }
+
+    e.target.value = '';
+  };
+
+  const removeAttachment = () => setAttachment(null);
+
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() && !attachment) return;
+
+    const displayContent = attachment
+      ? `${input || ''}\n[Archivo adjunto: ${attachment.file.name} (${attachment.type})]`.trim()
+      : input;
 
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: input,
+      content: displayContent,
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, userMsg]);
@@ -60,12 +98,22 @@ export default function PortalPage() {
     setLoading(true);
 
     try {
-      // Crear denuncia vía API
+      const tipoContenido = attachment ? attachment.type : 'texto';
+      const contenidoRaw = input.trim() || `[Denuncia con archivo adjunto: ${attachment?.file.name}]`;
+
       const { data } = await denunciaService.crear({
         canal: selectedChannel,
-        tipo_contenido: 'texto',
-        contenido_raw: input,
+        tipo_contenido: tipoContenido,
+        contenido_raw: contenidoRaw,
         did_denunciante: did || undefined,
+        metadata: attachment
+          ? {
+              filename: attachment.file.name,
+              filetype: attachment.file.type,
+              filesize: attachment.file.size,
+              attachment_type: attachment.type,
+            }
+          : undefined,
       });
 
       const agentMsg: ChatMessage = {
@@ -81,6 +129,7 @@ export default function PortalPage() {
       toast.error(err.response?.data?.detail || 'Error al registrar denuncia');
     } finally {
       setLoading(false);
+      setAttachment(null);
     }
   };
 
@@ -156,7 +205,7 @@ export default function PortalPage() {
                       : 'bg-green-50 text-green-800 border border-green-100 rounded-bl-none'
                   }`}
                 >
-                  <p className="leading-relaxed">{msg.content}</p>
+                  <p className="leading-relaxed whitespace-pre-line">{msg.content}</p>
                   <span className="text-[10px] opacity-70 mt-1 block">
                     {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
@@ -176,14 +225,65 @@ export default function PortalPage() {
 
           {/* Input */}
           <div className="border-t p-3">
+            {/* Attachment preview */}
+            {attachment && (
+              <div className="mb-2 flex items-center space-x-2 bg-slate-50 border rounded-lg px-3 py-2">
+                {attachment.type === 'imagen' && attachment.preview ? (
+                  <img src={attachment.preview} alt="preview" className="h-8 w-8 object-cover rounded" />
+                ) : attachment.type === 'audio' ? (
+                  <Mic size={16} className="text-slate-500" />
+                ) : (
+                  <FileText size={16} className="text-slate-500" />
+                )}
+                <span className="text-xs text-slate-600 truncate flex-1">{attachment.file.name}</span>
+                <button onClick={removeAttachment} className="text-slate-400 hover:text-red-500">
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
             <div className="flex items-center space-x-2">
-              <button className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100">
+              {/* Hidden file inputs */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={(e) => handleFileSelect(e, 'documento')}
+              />
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleFileSelect(e, 'imagen')}
+              />
+              <input
+                ref={audioInputRef}
+                type="file"
+                accept="audio/*"
+                className="hidden"
+                onChange={(e) => handleFileSelect(e, 'audio')}
+              />
+
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
+                title="Adjuntar archivo"
+              >
                 <Paperclip size={18} />
               </button>
-              <button className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100">
+              <button
+                onClick={() => imageInputRef.current?.click()}
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
+                title="Adjuntar imagen"
+              >
                 <ImageIcon size={18} />
               </button>
-              <button className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100">
+              <button
+                onClick={() => audioInputRef.current?.click()}
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
+                title="Adjuntar audio"
+              >
                 <Mic size={18} />
               </button>
               <input
@@ -196,7 +296,7 @@ export default function PortalPage() {
               />
               <button
                 onClick={handleSend}
-                disabled={!input.trim() || loading}
+                disabled={(!input.trim() && !attachment) || loading}
                 className="p-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white rounded-full transition"
               >
                 <Send size={18} />

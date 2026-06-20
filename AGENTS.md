@@ -33,6 +33,33 @@
 - **Solución implementada:** Se reemplazó `OpenAIEmbeddings` por `FastEmbedLocal` (modelo ONNX `sentence-transformers/all-MiniLM-L6-v2`) que funciona completamente local sin API key
 - **Resultado:** 6/9 tests pasan (antes eran 5/9). La búsqueda semántica ahora funciona sin API key.
 
+### Sesión de Corrección (2026-06-19) - Fix Denuncia y Portal Ciudadano
+- **Solicitud del usuario:** El portal ciudadano mostraba "Error al registrar denuncia"
+- **Problemas corregidos:**
+  1. **Bug crítico en prompts:** Los placeholders de tipo (`{bool}`, `{str}`, `{int}`, `{float}`, `{uuid}`) en los ejemplos JSON de `system_prompts.py` rompían el `.format()` de Python al ser interpretados como variables de formato. Se escaparon a `{{bool}}`, `{{str}}`, etc.
+  2. **Import roto en agentes:** `intake_agent.py` (y otros 7 agentes) importaban `llm` desde `agent_graph.py`, pero la variable no existía (solo `get_llm()`). Se añadió `llm = get_llm()` para compatibilidad.
+  3. **Normalización de riesgo:** El LLM de Groq devuelve `"ALTO"` en mayúsculas, pero el enum `NivelRiesgo` espera `"alto"`. Se añadió `.lower().strip()` en `node_risk` y `node_alert`.
+  4. **Parsing JSON robusto:** `_parse_llm_json` mejorado con fallback non-greedy para evitar errores cuando el LLM devuelve texto extra después del JSON.
+  5. **Conectividad Frontend→Backend en Docker:** Los rewrites de `next.config.mjs` apuntaban a `localhost:8000`, pero desde dentro del contenedor Docker `localhost` es el propio contenedor. Se cambió a `http://agent-api:8000` y `http://web3-backend:8001` (nombres de servicio Docker).
+- **Resultado:** El flujo completo de denuncia (crear + procesar con 8 agentes) ahora funciona. Se generan alertas para riesgo alto/crítico.
+
+### Sesión de Integración (2026-06-19) - Dashboard Policial y Adjuntos
+- **Solicitud del usuario:** 
+  1. Dashboard policial no mostraba denuncias registradas.
+  2. Botones de adjuntar archivos en portal ciudadano no funcionaban.
+- **Problemas corregidos:**
+  1. **Endpoint faltante `GET /v1/denuncias`:** La API no tenía endpoint para listar denuncias. El dashboard llamaba `denunciaService.listar()` que hacía `GET /api/agents/denuncias` y recibía 404. Se agregó `GET /v1/denuncias` con filtros por `estado`, `canal`, `limit` y `offset`.
+  2. **Endpoints faltantes del dashboard:** `GET /v1/dashboard/metricas` y `GET /v1/alertas` no existían. Se implementaron ambos con queries agregadas a PostgreSQL.
+  3. **Adjuntar archivos en portal:** Los botones de Paperclip, Image y Mic no tenían handlers. Se implementó:
+     - Inputs file ocultos para cada tipo (documento, imagen, audio)
+     - Preview de archivo adjunto con nombre y tipo
+     - Envío correcto de `tipo_contenido` (`imagen`/`audio`/`documento`) según el archivo
+     - Metadata del archivo incluida en la denuncia
+- **Resultado:** 
+  - Dashboard policial ahora carga denuncias reales desde PostgreSQL.
+  - Métricas del dashboard son dinámicas (total denuncias, hoy, alertas críticas, etc.).
+  - Portal ciudadano permite adjuntar imágenes, audios y documentos.
+
 ---
 
 ## 3. Estado Actual de Componentes (Post-Migración)
@@ -179,12 +206,12 @@ CONTRACT_TOKEN=0x...
 
 | # | Problema | Severidad | Workaround / Solución |
 |---|----------|-----------|----------------------|
-| 1 | `test_crear_denuncia_y_procesar` falla con `KeyError` en prompt formatting | **MEDIA** | Bug preexistente en `AGENT_PROMPTS` dict, NO relacionado con Groq. El parsing de JSON en prompts tiene un `
-` que rompe el `.format()`. Corregir los prompts en `app/prompts/system_prompts.py` |
+| 1 | ~~`test_crear_denuncia_y_procesar` falla con `KeyError` en prompt formatting~~ | **RESUELTO** | ✅ Corregido: Se escaparon placeholders JSON (`{{bool}}`, `{{str}}`, etc.) en `system_prompts.py`. Se normalizó `nivel_riesgo` a minúsculas. Se reparó import `llm` en `agent_graph.py`. |
 | 2 | Smart Contracts no desplegados | **MEDIA** | Requieren deploy en Rollux Testnet/Mainnet. Sin addresses reales, Web3 Backend devuelve 500 en endpoints de contrato. La arquitectura está lista. |
 | 3 | `asyncpg` requiere compilador C en Windows | **BAJA** | Solo afecta desarrollo local en Windows. En Docker Linux funciona perfectamente. |
 | 4 | Descarga de modelo fastembed en primer arranque | **BAJA** | En contenedores sin internet, precargar el modelo en el Dockerfile. |
 | 5 | Frontend no tiene axios/lucide-react types instalados | **BAJA** | Errores LSP pero no afectan build/runtime. `npm run build` funciona. |
+| 6 | Rate limits de GroqCloud (TPM) | **BAJA** | El modelo `llama-3.3-70b-versatile` tiene límite de 12k tokens/minuto. En flujos con muchos agentes puede dar 429. Esperar unos segundos y reintentar. |
 
 ---
 
@@ -240,7 +267,7 @@ pytest tests/test_agents.py -v
 ## 10. Próximos Pasos Pendientes (Priorizados)
 
 1. **Obtener GROQ_API_KEY** y validar procesamiento completo de denuncias
-2. **Corregir bug de parsing** en `AGENT_PROMPTS` (`system_prompts.py`) para que `test_crear_denuncia_y_procesar` pase
+2. ~~**Corregir bug de parsing** en `AGENT_PROMPTS` (`system_prompts.py`)~~ ✅ RESUELTO
 3. **Desplegar Smart Contracts** en Rollux Testnet y obtener addresses reales
 4. **Completar .env** con CONTRACT_* addresses y PRIVATE_KEY
 5. **Integración Pali Wallet** en frontend para funcionalidad Web3 completa
@@ -275,4 +302,4 @@ pytest tests/test_agents.py -v
 ---
 
 *Última actualización: 2026-06-19*
-*Contexto generado tras sesión de migración OpenAI → GroqCloud*
+*Contexto generado tras sesión de corrección de bugs en portal ciudadano y flujo de denuncias*

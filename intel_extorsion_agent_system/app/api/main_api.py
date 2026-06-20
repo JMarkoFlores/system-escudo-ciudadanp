@@ -119,6 +119,38 @@ async def procesar_denuncia(
 # Consultas
 # ==========================================
 
+@app.get("/v1/denuncias")
+async def listar_denuncias(
+    estado: Optional[str] = Query(None, description="Filtrar por estado"),
+    canal: Optional[str] = Query(None, description="Filtrar por canal"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Lista denuncias registradas en el sistema, ordenadas por fecha descendente.
+    """
+    query = select(Denuncia).order_by(desc(Denuncia.created_at))
+    if estado:
+        query = query.where(Denuncia.estado == estado)
+    if canal:
+        query = query.where(Denuncia.canal == canal)
+    
+    result = await db.execute(query.limit(limit).offset(offset))
+    rows = result.scalars().all()
+    
+    return [
+        DenunciaResponse(
+            id=d.id,
+            canal=d.canal,
+            estado=d.estado.value,
+            tipo_contenido=d.tipo_contenido.value,
+            created_at=d.created_at,
+            resultados=[]
+        )
+        for d in rows
+    ]
+
 @app.get("/v1/denuncias/{denuncia_id}", response_model=DenunciaResponse)
 async def obtener_denuncia(
     denuncia_id: uuid.UUID,
@@ -195,6 +227,96 @@ async def obtener_alertas(
             }
             for a in rows
         ]
+    }
+
+# ==========================================
+# Alertas Globales
+# ==========================================
+
+@app.get("/v1/alertas")
+async def listar_alertas(
+    nivel: Optional[str] = Query(None, description="Filtrar por nivel de riesgo"),
+    leida: Optional[bool] = Query(None, description="Filtrar por estado de lectura"),
+    limit: int = Query(50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Lista todas las alertas generadas por el sistema.
+    """
+    query = select(Alerta).order_by(desc(Alerta.created_at))
+    if nivel:
+        query = query.where(Alerta.nivel == nivel)
+    if leida is not None:
+        query = query.where(Alerta.leida == leida)
+    
+    result = await db.execute(query.limit(limit))
+    rows = result.scalars().all()
+    
+    return [
+        {
+            "id": str(a.id),
+            "denuncia_id": str(a.denuncia_id),
+            "nivel": a.nivel.value,
+            "titulo": a.titulo,
+            "descripcion": a.descripcion,
+            "recomendacion": a.recomendacion,
+            "leida": a.leida,
+            "atendida": a.atendida,
+            "created_at": a.created_at.isoformat()
+        }
+        for a in rows
+    ]
+
+# ==========================================
+# Dashboard - Métricas
+# ==========================================
+
+@app.get("/v1/dashboard/metricas")
+async def obtener_metricas(db: AsyncSession = Depends(get_db)):
+    """
+    Devuelve métricas agregadas para el dashboard policial.
+    """
+    from sqlalchemy import func, cast, Date
+    from datetime import datetime, timedelta
+
+    # Total denuncias
+    total_result = await db.execute(select(func.count(Denuncia.id)))
+    total_denuncias = total_result.scalar() or 0
+
+    # Denuncias hoy
+    hoy = datetime.utcnow().date()
+    hoy_result = await db.execute(
+        select(func.count(Denuncia.id)).where(
+            cast(Denuncia.created_at, Date) == hoy
+        )
+    )
+    denuncias_hoy = hoy_result.scalar() or 0
+
+    # Alertas críticas (alto + critico)
+    alertas_result = await db.execute(
+        select(func.count(Alerta.id)).where(Alerta.nivel.in_(["alto", "critico"]))
+    )
+    alertas_criticas = alertas_result.scalar() or 0
+
+    # Casos resueltos / archivados
+    resueltos_result = await db.execute(
+        select(func.count(Denuncia.id)).where(Denuncia.estado == "archivado")
+    )
+    casos_resueltos = resueltos_result.scalar() or 0
+
+    # Evidencias registradas = denuncias con url_archivo no nulo
+    evidencias_result = await db.execute(
+        select(func.count(Denuncia.id)).where(Denuncia.url_archivo.isnot(None))
+    )
+    evidencias_registradas = evidencias_result.scalar() or 0
+
+    return {
+        "total_denuncias": total_denuncias,
+        "denuncias_hoy": denuncias_hoy,
+        "alertas_criticas": alertas_criticas,
+        "casos_resueltos": casos_resueltos,
+        "tiempo_promedio_respuesta_min": 12,  # Placeholder hasta tener métricas reales
+        "evidencias_registradas": evidencias_registradas,
     }
 
 # ==========================================
