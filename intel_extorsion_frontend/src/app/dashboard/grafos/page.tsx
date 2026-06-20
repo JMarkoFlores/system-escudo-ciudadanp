@@ -1,0 +1,125 @@
+'use client';
+
+import React, { useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
+import { useAppStore } from '@/stores/appStore';
+import { graphService } from '@/services/api';
+import { CriminalGraph } from '@/types';
+
+const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), { ssr: false });
+
+export default function GrafosPage() {
+  const { grafoActivo, setGrafoActivo } = useAppStore();
+  const [loading, setLoading] = useState(true);
+  const [selectedNode, setSelectedNode] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchGraph = async () => {
+      try {
+        const { data } = await graphService.obtener();
+        setGrafoActivo(data);
+      } catch {
+        // Demo data
+        const demo: CriminalGraph = {
+          nodes: [
+            { id: 'd1', label: 'Denuncia #1024', group: 'denunciante', val: 4 },
+            { id: 'd2', label: 'Denuncia #1041', group: 'denunciante', val: 3 },
+            { id: 'd3', label: 'Denuncia #1055', group: 'denunciante', val: 3 },
+            { id: 's1', label: 'Extorsionador A', group: 'sospechoso', val: 8 },
+            { id: 't1', label: '+52 55 1234 5678', group: 'telefono', val: 5 },
+            { id: 'c1', label: 'Cuenta BBVA 1234', group: 'cuenta', val: 4 },
+            { id: 'caso1', label: 'Caso Red Norte', group: 'caso', val: 6 },
+            { id: 'ev1', label: 'Audio Amenaza', group: 'evidencia', val: 2 },
+          ],
+          links: [
+            { source: 'd1', target: 's1', label: 'denuncia' },
+            { source: 'd2', target: 's1', label: 'denuncia' },
+            { source: 'd3', target: 's1', label: 'denuncia' },
+            { source: 's1', target: 't1', label: 'usa' },
+            { source: 's1', target: 'c1', label: 'usa' },
+            { source: 'caso1', target: 's1', label: 'involucra' },
+            { source: 'd1', target: 'ev1', label: 'tiene' },
+            { source: 'caso1', target: 'd1', label: 'agrupa' },
+            { source: 'caso1', target: 'd2', label: 'agrupa' },
+          ],
+        };
+        setGrafoActivo(demo);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchGraph();
+  }, [setGrafoActivo]);
+
+  const groupColors: Record<string, string> = {
+    denunciante: '#3b82f6',
+    sospechoso: '#ef4444',
+    telefono: '#f59e0b',
+    cuenta: '#10b981',
+    caso: '#8b5cf6',
+    evidencia: '#64748b',
+  };
+
+  if (loading) return <div className="text-center py-20 text-slate-500">Cargando red criminal...</div>;
+
+  return (
+    <div className="space-y-4 h-[calc(100vh-8rem)]">
+      <div>
+        <h1 className="text-2xl font-bold text-slate-800">Redes Criminales</h1>
+        <p className="text-slate-500 text-sm">Visualización de grafos de correlación entre denuncias, sospechosos y evidencias</p>
+      </div>
+
+      <div className="flex space-x-4 text-xs">
+        {Object.entries(groupColors).map(([group, color]) => (
+          <div key={group} className="flex items-center">
+            <span className="w-3 h-3 rounded-full mr-1" style={{ backgroundColor: color }} />
+            <span className="capitalize text-slate-600">{group}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-white border rounded-xl shadow-sm flex-1 overflow-hidden relative" style={{ height: '600px' }}>
+        {grafoActivo && (
+          <ForceGraph2D
+            graphData={grafoActivo}
+            nodeAutoColorBy="group"
+            nodeCanvasObject={(node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
+              const label = node.label;
+              const fontSize = 12 / globalScale;
+              ctx.font = `${fontSize}px Sans-Serif`;
+              const textWidth = ctx.measureText(label).width;
+              const bckgDimensions = [textWidth, fontSize].map((n) => n + fontSize * 0.2);
+
+              ctx.fillStyle = groupColors[node.group] || '#999';
+              ctx.beginPath();
+              ctx.arc(node.x, node.y, (node.val || 3) * 2, 0, 2 * Math.PI);
+              ctx.fill();
+
+              ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+              ctx.fillRect(node.x - bckgDimensions[0] / 2, node.y + 8, bckgDimensions[0], bckgDimensions[1]);
+
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillStyle = '#1e293b';
+              ctx.fillText(label, node.x, node.y + 8 + fontSize / 2);
+            }}
+            linkDirectionalArrowLength={6}
+            linkDirectionalArrowRelPos={1}
+            linkCurvature={0.1}
+            onNodeClick={(node: any) => setSelectedNode(node)}
+            width={1200}
+            height={600}
+          />
+        )}
+      </div>
+
+      {selectedNode && (
+        <div className="bg-white border rounded-xl p-4 shadow-sm">
+          <h4 className="font-semibold text-slate-800">{selectedNode.label}</h4>
+          <p className="text-xs text-slate-500 capitalize">Tipo: {selectedNode.group}</p>
+          <pre className="text-xs bg-slate-50 p-2 rounded mt-2 overflow-auto">{JSON.stringify(selectedNode, null, 2)}</pre>
+        </div>
+      )}
+    </div>
+  );
+}

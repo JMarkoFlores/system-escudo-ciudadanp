@@ -1,0 +1,84 @@
+version: "3.9"
+
+services:
+  # ==================================================
+  # PostgreSQL - Datos transaccionales y memoria SQL
+  # ==================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: intel_extorsion_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: agent_user
+      POSTGRES_PASSWORD: agent_pass
+      POSTGRES_DB: intel_extorsion
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agent_user -d intel_extorsion"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ==================================================
+  # Qdrant - Vector DB para memoria semántica
+  # ==================================================
+  qdrant:
+    image: qdrant/qdrant:v1.9.1
+    container_name: intel_extorsion_qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  # ==================================================
+  # Redis - Caché y broker de checkpoints (opcional)
+  # ==================================================
+  redis:
+    image: redis:7-alpine
+    container_name: intel_extorsion_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  # ==================================================
+  # Agent System API - FastAPI + LangGraph
+  # ==================================================
+  agent-api:
+    build:
+      context: .
+      dockerfile: deployments/Dockerfile
+    container_name: intel_extorsion_agent_api
+    restart: unless-stopped
+    environment:
+      API_HOST: "0.0.0.0"
+      API_PORT: "8000"
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GROQ_MODEL: "llama-3.3-70b-versatile"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: intel_extorsion
+      POSTGRES_USER: agent_user
+      POSTGRES_PASSWORD: agent_pass
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6333"
+      REDIS_URL: "redis://redis:6379/0"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      redis:
+        condition: service_started
+    volumes:
+      - ./app:/app/app:ro
+
+volumes:
+  postgres_data:
+  qdrant_data:

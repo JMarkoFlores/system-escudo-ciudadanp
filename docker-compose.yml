@@ -1,0 +1,155 @@
+version: "3.9"
+
+# ============================================================
+# IntelExtorsión - Docker Compose Consolidado
+# Orquesta todos los subsistemas:
+#   - PostgreSQL + Qdrant (Infraestructura compartida)
+#   - Agent System API (FastAPI + LangGraph)
+#   - Web3 Backend API (FastAPI + Web3.py)
+#   - Next.js Frontend
+# ============================================================
+
+services:
+  # ----------------------------------------------------------
+  # INFRAESTRUCTURA COMPARTIDA
+  # ----------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: intel_extorsion_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-agent_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agent_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-intel_extorsion}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-agent_user} -d ${POSTGRES_DB:-intel_extorsion}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - intel_extorsion_network
+
+  qdrant:
+    image: qdrant/qdrant:v1.9.1
+    container_name: intel_extorsion_qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - intel_extorsion_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: intel_extorsion_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - intel_extorsion_network
+
+  # ----------------------------------------------------------
+  # SUBSISTEMA DE AGENTES AUTÓNOMOS
+  # ----------------------------------------------------------
+  agent-api:
+    build:
+      context: ./intel_extorsion_agent_system
+      dockerfile: deployments/Dockerfile
+    container_name: intel_extorsion_agent_api
+    restart: unless-stopped
+    environment:
+      API_HOST: "0.0.0.0"
+      API_PORT: "8000"
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
+      GROQ_TEMPERATURE: "0.2"
+      GROQ_MAX_TOKENS: "4096"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-intel_extorsion}
+      POSTGRES_USER: ${POSTGRES_USER:-agent_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agent_pass}
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6333"
+      REDIS_URL: "redis://redis:6379/0"
+      DEBUG: "false"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      redis:
+        condition: service_started
+    networks:
+      - intel_extorsion_network
+    volumes:
+      - ./intel_extorsion_agent_system/app:/app/app:ro
+
+  # ----------------------------------------------------------
+  # SUBSISTEMA WEB3
+  # ----------------------------------------------------------
+  web3-backend:
+    build:
+      context: ./intel_extorsion_web3_system/backend
+      dockerfile: Dockerfile
+    container_name: intel_extorsion_web3_backend
+    restart: unless-stopped
+    environment:
+      API_HOST: "0.0.0.0"
+      API_PORT: "8001"
+      WEB3_PROVIDER_URL: ${WEB3_PROVIDER_URL:-https://rpc.rollux.com}
+      CHAIN_ID: ${CHAIN_ID:-570}
+      PRIVATE_KEY: ${PRIVATE_KEY}
+      CONTRACT_EVIDENCE_REGISTRY: ${CONTRACT_EVIDENCE_REGISTRY}
+      CONTRACT_CASE_MANAGER: ${CONTRACT_CASE_MANAGER}
+      CONTRACT_DID_REGISTRY: ${CONTRACT_DID_REGISTRY}
+      CONTRACT_TOKEN: ${CONTRACT_TOKEN}
+      IPFS_JWT: ${IPFS_JWT}
+      AGENT_SYSTEM_API_URL: http://agent-api:8000
+    ports:
+      - "8001:8001"
+    depends_on:
+      - agent-api
+    networks:
+      - intel_extorsion_network
+
+  # ----------------------------------------------------------
+  # FRONTEND NEXT.JS
+  # ----------------------------------------------------------
+  frontend:
+    build:
+      context: ./intel_extorsion_frontend
+      dockerfile: Dockerfile
+    container_name: intel_extorsion_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_AGENT_API_URL: http://localhost:8000
+      NEXT_PUBLIC_WEB3_API_URL: http://localhost:8001
+      NEXT_PUBLIC_RPC_URL: ${WEB3_PROVIDER_URL:-https://rpc.rollux.com}
+      NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID:-570}
+      NEXT_PUBLIC_CONTRACT_EVIDENCE_REGISTRY: ${CONTRACT_EVIDENCE_REGISTRY}
+      NEXT_PUBLIC_CONTRACT_CASE_MANAGER: ${CONTRACT_CASE_MANAGER}
+      NEXT_PUBLIC_CONTRACT_DID_REGISTRY: ${CONTRACT_DID_REGISTRY}
+      NEXT_PUBLIC_CONTRACT_TOKEN: ${CONTRACT_TOKEN}
+    depends_on:
+      - agent-api
+      - web3-backend
+    networks:
+      - intel_extorsion_network
+
+volumes:
+  postgres_data:
+  qdrant_data:
+
+networks:
+  intel_extorsion_network:
+    driver: bridge

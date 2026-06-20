@@ -1,0 +1,107 @@
+version: "3.9"
+
+services:
+  # ==================================================
+  # PostgreSQL (compartido con Agent System)
+  # ==================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: intel_extorsion_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: agent_user
+      POSTGRES_PASSWORD: agent_pass
+      POSTGRES_DB: intel_extorsion
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agent_user -d intel_extorsion"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ==================================================
+  # Qdrant (compartido con Agent System)
+  # ==================================================
+  qdrant:
+    image: qdrant/qdrant:v1.9.1
+    container_name: intel_extorsion_qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  # ==================================================
+  # Agent System API (desde subsistema anterior)
+  # ==================================================
+  agent-api:
+    build:
+      context: ../intel_extorsion_agent_system
+      dockerfile: deployments/Dockerfile
+    container_name: intel_extorsion_agent_api
+    restart: unless-stopped
+    environment:
+      API_HOST: "0.0.0.0"
+      API_PORT: "8000"
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: intel_extorsion
+      POSTGRES_USER: agent_user
+      POSTGRES_PASSWORD: agent_pass
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6333"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+
+  # ==================================================
+  # Web3 Backend API
+  # ==================================================
+  web3-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: intel_extorsion_web3_backend
+    restart: unless-stopped
+    environment:
+      API_HOST: "0.0.0.0"
+      API_PORT: "8001"
+      WEB3_PROVIDER_URL: ${WEB3_PROVIDER_URL:-https://rpc.rollux.com}
+      CHAIN_ID: ${CHAIN_ID:-570}
+      PRIVATE_KEY: ${PRIVATE_KEY}
+      CONTRACT_EVIDENCE_REGISTRY: ${CONTRACT_EVIDENCE_REGISTRY}
+      CONTRACT_CASE_MANAGER: ${CONTRACT_CASE_MANAGER}
+      CONTRACT_DID_REGISTRY: ${CONTRACT_DID_REGISTRY}
+      CONTRACT_TOKEN: ${CONTRACT_TOKEN}
+      IPFS_JWT: ${IPFS_JWT}
+      AGENT_SYSTEM_API_URL: http://agent-api:8000
+    ports:
+      - "8001:8001"
+    depends_on:
+      - agent-api
+
+  # ==================================================
+  # DApp (React + Nginx)
+  # ==================================================
+  dapp:
+    build:
+      context: ./dapp
+      dockerfile: Dockerfile
+    container_name: intel_extorsion_dapp
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - web3-backend
+
+volumes:
+  postgres_data:
+  qdrant_data:

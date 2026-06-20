@@ -1,0 +1,38 @@
+{
+  "name": "intel-extorsion-dapp",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.23.1",
+    "ethers": "^6.13.0",
+    "axios": "^1.7.2",
+    "react-dropzone": "^14.2.3",
+    "tailwindcss": "^3.4.4",
+    "@heroicons/react": "^2.1.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.3.1",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}
