@@ -2,7 +2,7 @@ import React from 'react';
 import { usePaliWallet } from '../hooks/usePaliWallet';
 
 const WalletConnect = () => {
-  const { account, isConnected, error, connect, disconnect, switchToRollux } = usePaliWallet();
+  const { account, isConnected, error, connect, disconnect, switchToZkSYS } = usePaliWallet();
 
   return (
     <div className="bg-white rounded-lg shadow p-6 mb-6">
@@ -11,12 +11,12 @@ const WalletConnect = () => {
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
           {error}
-          {error.includes('Rollux') && (
+          {error.includes('zkSYS') && (
             <button 
-              onClick={switchToRollux}
+              onClick={switchToZkSYS}
               className="ml-2 underline font-semibold"
             >
-              Cambiar a Rollux
+              Cambiar a zkSYS Genesis Testnet
             </button>
           )}
         </div>

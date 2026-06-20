@@ -40,6 +40,8 @@ python-dotenv==1.0.1
 tenacity==8.4.1
 structlog==24.2.0
 orjson==3.10.5
+aiofiles==24.1.0
+groq==0.9.0
 
 # Testing
 pytest==8.2.2

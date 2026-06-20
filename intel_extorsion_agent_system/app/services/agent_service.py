@@ -14,7 +14,7 @@ from app.schemas.agent_schemas import (
     AgenteState, DenunciaIngestaRequest, ProcesarDenunciaRequest,
     EjecucionGrafoResponse
 )
-from app.models.database import Denuncia, ResultadoAgente, Alerta, EstadoProcesamiento, NivelRiesgo as NivelRiesgoDB
+from app.models.database import Denuncia, ResultadoAgente, Alerta, EstadoDenuncia, NivelRiesgo as NivelRiesgoDB
 from app.memory.hybrid_memory import memory_system
 from app.config.settings import settings
 
@@ -67,7 +67,7 @@ class AgentExecutionService:
         
         # Si modo selectivo, marcar agentes a saltar
         if modo == "selectivo" and agentes_selectivos:
-            all_agents = ["intake", "ocr", "speech", "nlp", "correlation", "osint", "risk", "alert"]
+            all_agents = ["intake", "ocr", "speech", "nlp", "correlation", "osint", "risk", "seal", "alert", "respond"]
             initial_state.saltar_agentes = [a for a in all_agents if a not in agentes_selectivos]
         
         # Ejecutar grafo
@@ -84,7 +84,9 @@ class AgentExecutionService:
             "correlation": final_state.resultado_correlacion,
             "osint": final_state.resultado_osint,
             "risk": final_state.resultado_riesgo,
+            "seal": final_state.resultado_seal,
             "alert": final_state.resultado_alerta,
+            "respond": final_state.resultado_respond,
         }
         
         for agent_name, res in agent_results_map.items():
@@ -102,6 +104,22 @@ class AgentExecutionService:
                     "nivel_riesgo": final_state.nivel_riesgo.value if final_state.nivel_riesgo else None
                 }
             )
+        
+        # Guardar tracking_code
+        if final_state.tracking_code:
+            denuncia.tracking_code = final_state.tracking_code
+        
+        # Guardar datos de sellado blockchain
+        if final_state.seal_tx_hash:
+            denuncia.seal_tx_hash = final_state.seal_tx_hash
+        if final_state.seal_block:
+            denuncia.seal_block = final_state.seal_block
+        if final_state.seal_status:
+            denuncia.seal_status = final_state.seal_status
+        
+        # Guardar nivel de riesgo
+        if final_state.nivel_riesgo:
+            denuncia.nivel_riesgo = NivelRiesgoDB(final_state.nivel_riesgo.value)
         
         # Actualizar estado denuncia
         denuncia.estado = self._mapear_estado_final(final_state)
@@ -142,19 +160,21 @@ class AgentExecutionService:
             nivel=NivelRiesgoDB(nivel_str),
             titulo=alerta_data.get("titulo", "Alerta sin título"),
             descripcion=alerta_data.get("descripcion", ""),
-            recomendacion=alerta_data.get("recomendacion", "")
+            recomendacion=alerta_data.get("recomendacion", ""),
+            zona=alerta_data.get("zona"),
+            tx_hash=alerta_data.get("tx_hash") or alerta_data.get("seal_tx_hash")
         )
         self.db.add(alerta)
         await self.db.commit()
         return 1
     
-    def _mapear_estado_final(self, state: AgenteState) -> EstadoProcesamiento:
+    def _mapear_estado_final(self, state: AgenteState) -> EstadoDenuncia:
         if state.resultado_alerta and state.resultado_alerta.get("alerta_generada"):
-            return EstadoProcesamiento.ALERTA_GENERADA
+            return EstadoDenuncia.alerta_generada
         if state.resultado_riesgo:
-            return EstadoProcesamiento.RIESGO_EVALUADO
+            return EstadoDenuncia.riesgo_evaluado
         if state.resultado_correlacion:
-            return EstadoProcesamiento.CORRELACIONADO
+            return EstadoDenuncia.correlacionado
         if state.resultado_nlp:
-            return EstadoProcesamiento.PROCESADO
-        return EstadoProcesamiento.EN_ANALISIS
+            return EstadoDenuncia.procesado
+        return EstadoDenuncia.en_analisis

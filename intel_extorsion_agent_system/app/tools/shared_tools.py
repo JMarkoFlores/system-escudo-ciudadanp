@@ -94,12 +94,12 @@ class OCRInput(BaseModel):
 
 class OCRTool(BaseTool):
     name: str = "extraer_texto_ocr"
-    description: str = "Extrae texto de una imagen usando OCR (Tesseract o servicio cloud)"
+    description: str = "Extrae texto de una imagen usando OCR (Tesseract)"
     args_schema: Type[BaseModel] = OCRInput
     
     async def _arun(self, image_url: str, idioma: str = "spa"):
-        # En producción: descargar imagen, aplicar pytesseract o AWS Textract
-        return {"texto": "[OCR SIMULADO] Texto extraído de la imagen", "confianza": 0.92, "idioma": idioma}
+        from app.services.ocr_service import extract_text_from_image
+        return await extract_text_from_image(image_url, idioma=idioma)
     
     def _run(self, **kwargs):
         raise NotImplementedError("Usar versión async")
@@ -114,17 +114,12 @@ class TranscribirAudioInput(BaseModel):
 
 class TranscribirAudioTool(BaseTool):
     name: str = "transcribir_audio"
-    description: str = "Transcribe un archivo de audio a texto usando Whisper"
+    description: str = "Transcribe un archivo de audio a texto usando Groq Whisper"
     args_schema: Type[BaseModel] = TranscribirAudioInput
     
     async def _arun(self, audio_url: str, idioma: str = "es"):
-        # En producción: descargar y pasar por Whisper
-        return {
-            "transcripcion": "[TRANSCRIPCIÓN SIMULADA] Dame el dinero o te mato a tu familia",
-            "idioma": idioma,
-            "duracion_segundos": 45.2,
-            "confianza": 0.88
-        }
+        from app.services.stt_service import transcribe_audio
+        return await transcribe_audio(audio_url, idioma=idioma)
     
     def _run(self, **kwargs):
         raise NotImplementedError("Usar versión async")

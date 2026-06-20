@@ -10,12 +10,12 @@ interface WalletState {
   error: string | null;
   connect: () => Promise<void>;
   disconnect: () => void;
-  switchToRollux: () => Promise<void>;
+  switchToZkSYS: () => Promise<void>;
   setDID: (did: string) => void;
 }
 
-const ROLLUX_CHAIN_ID = 570;
-const ROLLUX_HEX = '0x23a';
+const ZKSYS_CHAIN_ID = 5700;
+const ZKSYS_HEX = '0x1644';
 
 export const useWalletStore = create<WalletState>((set, get) => ({
   account: null,
@@ -42,11 +42,11 @@ export const useWalletStore = create<WalletState>((set, get) => ({
         chainId,
         provider: pali,
         isConnected: true,
-        error: chainId !== ROLLUX_CHAIN_ID ? 'Por favor cambia a la red Syscoin Rollux (Chain ID 570)' : null,
+        error: chainId !== ZKSYS_CHAIN_ID ? 'Por favor cambia a la red zkSYS Genesis Testnet (Chain ID 5700)' : null,
       });
 
       // Auto-resolve DID
-      const did = `did:ethr:rollux:${accounts[0]}`;
+      const did = `did:zksys:${accounts[0]}`;
       set({ did });
     } catch (err: any) {
       set({ error: err.message || 'Error al conectar' });
@@ -65,13 +65,13 @@ export const useWalletStore = create<WalletState>((set, get) => ({
     });
   },
 
-  switchToRollux: async () => {
+  switchToZkSYS: async () => {
     const pali = (window as any).pali;
     if (!pali) return;
     try {
       await pali.request({
         method: 'wallet_switchEthereumChain',
-        params: [{ chainId: ROLLUX_HEX }],
+        params: [{ chainId: ZKSYS_HEX }],
       });
     } catch (switchError: any) {
       if (switchError.code === 4902) {
@@ -79,11 +79,11 @@ export const useWalletStore = create<WalletState>((set, get) => ({
           method: 'wallet_addEthereumChain',
           params: [
             {
-              chainId: ROLLUX_HEX,
-              chainName: 'Syscoin Rollux Mainnet',
+              chainId: ZKSYS_HEX,
+              chainName: 'zkSYS Genesis Testnet',
               nativeCurrency: { name: 'Syscoin', symbol: 'SYS', decimals: 18 },
-              rpcUrls: ['https://rpc.rollux.com'],
-              blockExplorerUrls: ['https://explorer.rollux.com'],
+              rpcUrls: ['https://rpc.genesis.zksys.io'],
+              blockExplorerUrls: ['https://explorer.genesis.zksys.io'],
             },
           ],
         });

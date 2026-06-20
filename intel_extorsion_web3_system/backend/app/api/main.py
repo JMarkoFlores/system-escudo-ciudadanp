@@ -91,6 +91,20 @@ class LinkEvidenceRequest(BaseModel):
     case_id: int
     evidence_id: int
 
+class SealEvidenceRequest(BaseModel):
+    content_hash: str = Field(..., description="SHA-256 hash del contenido a sellar")
+    case_id: int = Field(..., description="ID del caso asociado")
+    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
+
+class SealEvidenceResponse(BaseModel):
+    success: bool
+    evidence_hash: str
+    tx_hash: Optional[str] = None
+    block_number: Optional[int] = None
+    evidence_id: Optional[int] = None
+    case_id: Optional[int] = None
+    message: Optional[str] = None
+
 # ==========================================
 # Endpoints
 # ==========================================
@@ -144,6 +158,34 @@ async def store_evidence(
         ipfs_cid=ipfs_cid,
         timestamp=""
     )
+
+@app.post("/v1/evidencias/seal", response_model=SealEvidenceResponse)
+async def seal_evidence(req: SealEvidenceRequest):
+    """
+    Sella un hash de evidencia en blockchain (usado por agentes autónomos).
+    Acepta JSON: content_hash + case_id.
+    """
+    try:
+        result = web3_service.seal_evidence_by_hash(
+            evidence_hash=req.content_hash,
+            case_id=req.case_id,
+            metadata=req.metadata
+        )
+        return SealEvidenceResponse(
+            success=result.get("success", False),
+            evidence_hash=result.get("evidence_hash", ""),
+            tx_hash=result.get("tx_hash"),
+            block_number=result.get("block_number"),
+            evidence_id=result.get("evidence_id"),
+            case_id=result.get("case_id"),
+            message=result.get("message")
+        )
+    except Exception as e:
+        return SealEvidenceResponse(
+            success=False,
+            evidence_hash=req.content_hash,
+            message=f"Error al sellar evidencia: {str(e)}"
+        )
 
 @app.post("/v1/evidencias/verify", response_model=VerifyEvidenceResponse)
 async def verify_evidence(

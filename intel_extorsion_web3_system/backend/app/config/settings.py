@@ -12,9 +12,9 @@ class Settings(BaseSettings):
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8001
     
-    # Blockchain (Syscoin Rollux L2)
-    WEB3_PROVIDER_URL: str = "https://rpc.rollux.com"
-    CHAIN_ID: int = 570
+    # Blockchain (zkSYS Genesis Testnet para desarrollo/demo)
+    WEB3_PROVIDER_URL: str = "https://rpc.genesis.zksys.io"
+    CHAIN_ID: int = 5700
     
     # Cuenta institucional (backend signer)
     # EN PRODUCCION: usar AWS KMS / HashiCorp Vault / HSM

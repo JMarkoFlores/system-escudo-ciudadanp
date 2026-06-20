@@ -60,6 +60,14 @@ class Settings(BaseSettings):
     OSINT_ENABLED: bool = True
     OSINT_MAX_REQUESTS_PER_MINUTE: int = 30
     
+    # Web3 Backend
+    WEB3_BACKEND_URL: str = "http://web3-backend:8001"
+    
+    # File Upload
+    UPLOAD_DIR: str = "/app/uploads"
+    UPLOAD_MAX_SIZE_MB: int = 50
+    ALLOWED_MIME_TYPES: list = ["image/jpeg", "image/png", "image/webp", "application/pdf", "audio/mpeg", "audio/ogg", "audio/wav", "video/mp4", "text/plain"]
+
     # Alertas
     ALERT_WEBHOOK_URL: Optional[str] = None
     ALERT_EMAIL_SMTP_HOST: Optional[str] = None

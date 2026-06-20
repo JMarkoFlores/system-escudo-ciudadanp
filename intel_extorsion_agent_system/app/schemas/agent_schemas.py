@@ -68,13 +68,29 @@ class AgenteState(BaseModel):
     resultado_correlacion: Optional[Dict[str, Any]] = None
     resultado_osint: Optional[Dict[str, Any]] = None
     resultado_riesgo: Optional[Dict[str, Any]] = None
+    resultado_seal: Optional[Dict[str, Any]] = None
     resultado_alerta: Optional[Dict[str, Any]] = None
+    resultado_respond: Optional[Dict[str, Any]] = None
     
     # Control de flujo
     errores: List[str] = Field(default_factory=list)
     saltar_agentes: List[str] = Field(default_factory=list)
     requiere_escalamiento: bool = False
     nivel_riesgo: Optional[NivelRiesgo] = None
+    
+    # Blockchain seal
+    content_hash: Optional[str] = None
+    seal_tx_hash: Optional[str] = None
+    seal_block: Optional[int] = None
+    seal_status: Optional[str] = None
+    
+    # Alertas
+    alert_sent: bool = False
+    zona_detectada: Optional[str] = None
+    cluster_id: Optional[str] = None
+    
+    # Tracking
+    tracking_code: Optional[str] = None
     
     # Memoria conversacional (checkpoint)
     mensajes: List[Dict[str, Any]] = Field(default_factory=list)
@@ -146,6 +162,18 @@ class AlertResult(BaseModel):
     alerta_id: Optional[uuid.UUID] = None
     canales_notificacion: List[str] = Field(default_factory=list)
     mensaje_alerta: Optional[str] = None
+
+class SealResult(BaseModel):
+    agente: Literal["seal"] = "seal"
+    sellado: bool
+    tx_hash: Optional[str] = None
+    block_number: Optional[int] = None
+    red: str = "zkSYS Genesis Testnet"
+
+class RespondResult(BaseModel):
+    agente: Literal["respond"] = "respond"
+    tracking_code: str
+    mensaje_ciudadano: str
 
 # ==========================================
 # Respuestas API

@@ -59,7 +59,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# lib/  # COMMENTED OUT: Frontend needs src/lib/utils for cn.ts
 lib64/
 parts/
 sdist/

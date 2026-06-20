@@ -4,8 +4,9 @@ Endpoints del Subsistema de Agentes Autónomos
 """
 from typing import Optional, List
 import uuid
+from pathlib import Path
 
-from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, Query
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, Query, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
@@ -178,6 +179,72 @@ async def obtener_denuncia(
         resultados=resultados
     )
 
+@app.get("/v1/denuncias/tracking/{tracking_code}")
+async def obtener_denuncia_por_tracking(
+    tracking_code: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Busca una denuncia por su código de seguimiento TRJ-XXXX.
+    """
+    from sqlalchemy import select
+    result = await db.execute(
+        select(Denuncia).where(Denuncia.tracking_code == tracking_code)
+    )
+    denuncia = result.scalar_one_or_none()
+    if not denuncia:
+        raise HTTPException(status_code=404, detail="Código de seguimiento no encontrado")
+
+    return DenunciaResponse(
+        id=denuncia.id,
+        canal=denuncia.canal,
+        estado=denuncia.estado.value,
+        tipo_contenido=denuncia.tipo_contenido.value,
+        created_at=denuncia.created_at,
+        resultados=[]
+    )
+
+@app.post("/v1/denuncias/{denuncia_id}/adjuntar", status_code=201)
+async def adjuntar_archivo(
+    denuncia_id: uuid.UUID,
+    file: UploadFile = File(...),
+    tipo_evidencia: Optional[str] = Query(None, description="Tipo de evidencia (imagen/audio/documento)"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Adjunta un archivo de evidencia a una denuncia existente.
+    Calcula SHA-256, almacena en disco y actualiza el registro.
+    """
+    from app.services.file_service import save_upload
+
+    result = await db.execute(select(Denuncia).where(Denuncia.id == denuncia_id))
+    denuncia = result.scalar_one_or_none()
+    if not denuncia:
+        raise HTTPException(status_code=404, detail="Denuncia no encontrada")
+
+    filepath, file_hash, file_size = await save_upload(file, str(denuncia_id))
+
+    denuncia.url_archivo = filepath
+    denuncia.hash_archivo = file_hash
+    if tipo_evidencia:
+        denuncia.tipo_contenido = tipo_evidencia
+    denuncia.metadata_json = {
+        **(denuncia.metadata_json or {}),
+        "file_size": file_size,
+        "file_mime": file.content_type,
+        "file_name": file.filename,
+    }
+    await db.commit()
+
+    return {
+        "status": "ok",
+        "denuncia_id": str(denuncia_id),
+        "file_hash": file_hash,
+        "file_path": filepath,
+        "file_size": file_size,
+        "mime_type": file.content_type,
+    }
+
 @app.get("/v1/denuncias/{denuncia_id}/resultados")
 async def obtener_resultados_agentes(
     denuncia_id: uuid.UUID,
@@ -340,6 +407,22 @@ async def busqueda_semantica(
     return {"query": q, "resultados": results}
 
 # ==========================================
+# ==========================================
+# SSE Push para Dashboard
+# ==========================================
+
+from fastapi.responses import JSONResponse
+
+@app.post("/v1/dashboard/push")
+async def dashboard_push(payload: dict):
+    """
+    Endpoint interno para que los agentes envíen push al dashboard.
+    Los clientes SSE pueden suscribirse a /v1/dashboard/stream.
+    """
+    # En producción: reenviar via SSE o WebSocket a clientes conectados
+    return JSONResponse({"status": "received", "tipo": payload.get("tipo")})
+
+
 # Background Task Wrapper
 # ==========================================
 

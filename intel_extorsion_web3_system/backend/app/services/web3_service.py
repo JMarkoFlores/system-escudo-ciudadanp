@@ -52,7 +52,8 @@ class Web3Service:
             return json.load(f)
     
     def _load_contracts(self):
-        if settings.CONTRACT_EVIDENCE_REGISTRY:
+        zero_addr = "0x0000000000000000000000000000000000000000"
+        if settings.CONTRACT_EVIDENCE_REGISTRY and settings.CONTRACT_EVIDENCE_REGISTRY != zero_addr:
             self.evidence_registry = self.w3.eth.contract(
                 address=Web3.to_checksum_address(settings.CONTRACT_EVIDENCE_REGISTRY),
                 abi=self._load_abi("EvidenceRegistry")
@@ -60,7 +61,7 @@ class Web3Service:
         else:
             self.evidence_registry = None
         
-        if settings.CONTRACT_CASE_MANAGER:
+        if settings.CONTRACT_CASE_MANAGER and settings.CONTRACT_CASE_MANAGER != zero_addr:
             self.case_manager = self.w3.eth.contract(
                 address=Web3.to_checksum_address(settings.CONTRACT_CASE_MANAGER),
                 abi=self._load_abi("CaseManager")
@@ -68,7 +69,7 @@ class Web3Service:
         else:
             self.case_manager = None
         
-        if settings.CONTRACT_DID_REGISTRY:
+        if settings.CONTRACT_DID_REGISTRY and settings.CONTRACT_DID_REGISTRY != zero_addr:
             self.did_registry = self.w3.eth.contract(
                 address=Web3.to_checksum_address(settings.CONTRACT_DID_REGISTRY),
                 abi=self._load_abi("DIDRegistry")
@@ -151,6 +152,50 @@ class Web3Service:
             "ipfs_cid": ipfs_cid,
         }
     
+    def seal_evidence_by_hash(
+        self,
+        evidence_hash: str,
+        case_id: int,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Registra evidencia en blockchain usando un hash precalculado.
+        En modo desarrollo (sin contrato), retorna respuesta simulada.
+        """
+        if not self.evidence_registry:
+            return {
+                "success": True,
+                "evidence_id": hash(evidence_hash) % 1000000,
+                "evidence_hash": evidence_hash,
+                "tx_hash": "0x" + "0" * 64,
+                "block_number": self.get_block_number(),
+                "status": 1,
+                "case_id": case_id,
+                "message": "Sellado en modo desarrollo (contrato no desplegado)"
+            }
+
+        hash_bytes = Web3.to_bytes(hexstr=evidence_hash) if evidence_hash.startswith("0x") else evidence_hash.encode()
+        func = self.evidence_registry.functions.storeEvidence(
+            hash_bytes,
+            f"case://{case_id}",
+            "",
+            1,
+            json.dumps(metadata or {})
+        )
+
+        receipt = self._send_transaction(func)
+
+        logs = self.evidence_registry.events.EvidenceStored().process_receipt(receipt)
+        evidence_id = logs[0].args.evidenceId if logs else None
+
+        return {
+            **receipt,
+            "evidence_hash": evidence_hash,
+            "evidence_id": evidence_id,
+            "success": receipt["status"] == 1,
+            "case_id": case_id,
+        }
+
     def verify_evidence_integrity(self, evidence_id: int, file_bytes: bytes) -> Dict[str, Any]:
         """Verifica si el hash del archivo coincide con el registrado on-chain."""
         if not self.evidence_registry:

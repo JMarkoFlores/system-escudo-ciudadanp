@@ -23,6 +23,9 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Crear directorio de uploads
+RUN mkdir -p /app/uploads/evidencias
+
 # Copiar código fuente
 COPY app/ ./app/
 COPY main.py .

@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 
-const ROLLUX_CHAIN_ID = 570;
-const ROLLUX_TESTNET_CHAIN_ID = 57000;
+const ZKSYS_CHAIN_ID = 5700;
 
 export const usePaliWallet = () => {
   const [account, setAccount] = useState(null);
@@ -35,9 +34,8 @@ export const usePaliWallet = () => {
       setIsConnected(true);
 
       // Verificar red correcta
-      const validChain = [ROLLUX_CHAIN_ID, ROLLUX_TESTNET_CHAIN_ID];
-      if (!validChain.includes(parseInt(currentChainId, 16))) {
-        setError('Por favor conecta Pali Wallet a la red Syscoin Rollux (Chain ID 570)');
+      if (parseInt(currentChainId, 16) !== ZKSYS_CHAIN_ID) {
+        setError('Por favor conecta Pali Wallet a la red zkSYS Genesis Testnet (Chain ID 5700)');
       }
     } catch (err) {
       setError(err.message || 'Error al conectar con Pali Wallet');
@@ -52,13 +50,13 @@ export const usePaliWallet = () => {
     setError(null);
   }, []);
 
-  const switchToRollux = useCallback(async () => {
+  const switchToZkSYS = useCallback(async () => {
     const pali = checkPali();
     if (!pali) return;
     try {
       await pali.request({
         method: 'wallet_switchEthereumChain',
-        params: [{ chainId: '0x23a' }], // 570 en hex
+        params: [{ chainId: '0x1644' }], // 5700 en hex
       });
     } catch (switchError) {
       // Si la red no está agregada, agregarla
@@ -67,15 +65,15 @@ export const usePaliWallet = () => {
           method: 'wallet_addEthereumChain',
           params: [
             {
-              chainId: '0x23a',
-              chainName: 'Syscoin Rollux Mainnet',
+              chainId: '0x1644',
+              chainName: 'zkSYS Genesis Testnet',
               nativeCurrency: {
                 name: 'Syscoin',
                 symbol: 'SYS',
                 decimals: 18,
               },
-              rpcUrls: ['https://rpc.rollux.com'],
-              blockExplorerUrls: ['https://explorer.rollux.com'],
+              rpcUrls: ['https://rpc.genesis.zksys.io'],
+              blockExplorerUrls: ['https://explorer.genesis.zksys.io'],
             },
           ],
         });
@@ -124,6 +122,6 @@ export const usePaliWallet = () => {
     error,
     connect,
     disconnect,
-    switchToRollux,
+    switchToZkSYS,
   };
 };

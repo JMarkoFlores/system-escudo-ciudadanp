@@ -106,7 +106,7 @@ src/
 ### Wallet Store
 - `account`, `chainId`, `isConnected`, `provider`
 - `did`, `reputation`
-- `connect()`, `disconnect()`, `switchToRollux()`
+- `connect()`, `disconnect()`, `switchToZkSYS()`
 
 ## Servicios API
 
@@ -124,9 +124,9 @@ Todos los servicios están centralizados en `services/api.ts`:
 La store `walletStore` gestiona:
 1. Detección de `window.pali`
 2. Conexión vía `eth_requestAccounts`
-3. Validación de red (Chain ID 570 = Rollux)
-4. Cambio automático a red Rollux (`wallet_addEthereumChain`)
-5. Generación automática de DID: `did:ethr:rollux:<address>`
+ 3. Validación de red (Chain ID 5700 = zkSYS Genesis Testnet)
+ 4. Cambio automático a red zkSYS (`wallet_addEthereumChain`)
+ 5. Generación automática de DID: `did:zksys:<address>`
 
 ### Contratos
 Las direcciones de contratos se configuran en variables de entorno:
@@ -160,8 +160,8 @@ npm start
 ```
 NEXT_PUBLIC_AGENT_API_URL=http://localhost:8000
 NEXT_PUBLIC_WEB3_API_URL=http://localhost:8001
-NEXT_PUBLIC_RPC_URL=https://rpc.rollux.com
-NEXT_PUBLIC_CHAIN_ID=570
+NEXT_PUBLIC_RPC_URL=https://rpc.genesis.zksys.io
+NEXT_PUBLIC_CHAIN_ID=5700
 NEXT_PUBLIC_CONTRACT_EVIDENCE_REGISTRY=0x...
 NEXT_PUBLIC_CONTRACT_CASE_MANAGER=0x...
 NEXT_PUBLIC_CONTRACT_DID_REGISTRY=0x...
@@ -195,7 +195,7 @@ Frontend (Next.js)
           POST /v1/casos
           GET  /v1/did/{did}
           │
-          └──► Syscoin Rollux L2 (JSON-RPC)
+          └──► zkSYS Genesis Testnet (JSON-RPC)
 ```
 
 ---

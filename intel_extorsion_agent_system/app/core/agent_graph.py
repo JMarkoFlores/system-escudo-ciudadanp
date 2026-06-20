@@ -14,6 +14,8 @@ from app.config.settings import settings
 from app.schemas.agent_schemas import AgenteState, NivelRiesgo
 from app.prompts.system_prompts import AGENT_PROMPTS
 from app.tools.shared_tools import AGENT_TOOLS
+from app.agents.seal_agent import node_seal
+from app.agents.respond_agent import node_respond
 
 # ==========================================
 # LLM Configuración (Lazy)
@@ -86,47 +88,72 @@ async def node_intake(state: AgenteState) -> Dict[str, Any]:
     response = await get_llm().ainvoke(messages)
     result = _parse_llm_json(response.content)
     
-    # Decisión de flujo
-    if not result.get("valido", True):
-        state.saltar_agentes = ["ocr", "speech", "nlp", "correlation", "osint", "risk", "alert"]
-        state.errores.append(f"Intake rechazado: {result.get('notas', 'Sin justificación')}")
-    
-    return {
+    updates = {
         "resultado_intake": result,
         "mensajes": [{"role": "assistant", "content": response.content}]
     }
+    
+    if not result.get("valido", True):
+        updates["saltar_agentes"] = ["ocr", "speech", "nlp", "correlation", "osint", "risk", "alert"]
+        updates["errores"] = [f"Intake rechazado: {result.get('notas', 'Sin justificación')}"]
+    
+    return updates
 
 async def node_ocr(state: AgenteState) -> Dict[str, Any]:
     """
     NODO 2: OCR Agent
-    Procesa imágenes/documentos si aplica.
+    Procesa imágenes/documentos usando Tesseract OCR + LLM para estructuración.
     """
     if "ocr" in state.saltar_agentes or state.tipo_contenido not in ["imagen", "documento", "mixto"]:
         return {"resultado_ocr": None}
     
+    from app.services.ocr_service import extract_text_from_image
+
+    ocr_result = {}
+    if state.url_archivo:
+        ocr_result = await extract_text_from_image(state.url_archivo, idioma="spa")
+    
     prompt = AGENT_PROMPTS["ocr"]
-    user_msg = f"URL del archivo: {state.url_archivo}\nHash: {state.hash_archivo}\nTexto pre-extraído por OCR engine: [PENDIENTE - ingesta raw]"
+    user_msg = (
+        f"URL del archivo: {state.url_archivo}\n"
+        f"Hash: {state.hash_archivo}\n"
+        f"Texto extraído por Tesseract OCR:\n{ocr_result.get('texto_extraido', 'Sin texto extraído')}\n"
+        f"Confianza OCR: {ocr_result.get('confianza', 0)}"
+    )
     
     messages = _build_messages(prompt, user_msg, state)
     response = await get_llm().ainvoke(messages)
     result = _parse_llm_json(response.content)
+    result["tesseract_raw"] = ocr_result
     
     return {"resultado_ocr": result}
 
 async def node_speech(state: AgenteState) -> Dict[str, Any]:
     """
     NODO 3: Speech Agent
-    Transcribe y analiza audio.
+    Transcribe audio usando Groq Whisper + LLM para análisis forense.
     """
     if "speech" in state.saltar_agentes or state.tipo_contenido not in ["audio", "video", "mixto"]:
         return {"resultado_speech": None}
     
+    from app.services.stt_service import transcribe_audio
+
+    stt_result = {}
+    if state.url_archivo:
+        stt_result = await transcribe_audio(state.url_archivo, idioma="es")
+    
     prompt = AGENT_PROMPTS["speech"]
-    user_msg = f"URL del audio: {state.url_archivo}\nDuración estimada: {state.metadata.get('duracion_seg', 'desconocida')}"
+    user_msg = (
+        f"URL del audio: {state.url_archivo}\n"
+        f"Duración estimada: {state.metadata.get('duracion_seg', stt_result.get('duracion_segundos', 'desconocida'))}\n"
+        f"Transcripción Groq Whisper:\n{stt_result.get('transcripcion', 'Sin transcripción')}\n"
+        f"Confianza STT: {stt_result.get('confianza', 0)}"
+    )
     
     messages = _build_messages(prompt, user_msg, state)
     response = await get_llm().ainvoke(messages)
     result = _parse_llm_json(response.content)
+    result["whisper_raw"] = stt_result
     
     return {"resultado_speech": result}
 
@@ -226,20 +253,20 @@ async def node_risk(state: AgenteState) -> Dict[str, Any]:
     response = await get_llm().ainvoke(messages)
     result = _parse_llm_json(response.content)
     
-    # Actualizar estado de riesgo
     nivel = result.get("nivel_riesgo", "bajo")
     if isinstance(nivel, str):
         nivel = nivel.lower().strip()
-    if nivel in ["alto", "critico"]:
-        state.requiere_escalamiento = True
-    state.nivel_riesgo = NivelRiesgo(nivel)
     
-    return {"resultado_riesgo": result}
+    return {
+        "resultado_riesgo": result,
+        "nivel_riesgo": NivelRiesgo(nivel),
+        "requiere_escalamiento": nivel in ["alto", "critico"]
+    }
 
 async def node_alert(state: AgenteState) -> Dict[str, Any]:
     """
     NODO 8: Alert Agent
-    Emite alertas si el riesgo es alto/crítico.
+    Emite alertas si el riesgo es alto/crítico y hace push SSE al dashboard.
     """
     if "alert" in state.saltar_agentes:
         return {"resultado_alerta": None}
@@ -262,6 +289,26 @@ async def node_alert(state: AgenteState) -> Dict[str, Any]:
     messages = _build_messages(prompt, user_msg, state)
     response = await get_llm().ainvoke(messages)
     result = _parse_llm_json(response.content)
+    
+    # Push SSE al dashboard
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            await client.post(
+                f"http://{settings.API_HOST}:{settings.API_PORT}/v1/dashboard/push",
+                json={
+                    "tipo": "alerta",
+                    "denuncia_id": str(state.denuncia_id),
+                    "nivel": nivel,
+                    "zona": state.zona_detectada or riesgo.get("zona_detectada"),
+                    "tracking_code": state.tracking_code,
+                    "seal_tx_hash": state.seal_tx_hash,
+                    "mensaje": result.get("descripcion", ""),
+                },
+                timeout=2.0
+            )
+    except Exception:
+        pass
     
     return {"resultado_alerta": result}
 
@@ -288,6 +335,12 @@ def router_post_intake(state: AgenteState) -> str:
     else:
         return "nlp"
 
+def router_post_risk(state: AgenteState) -> str:
+    """Después de risk, decide si sellar en blockchain o ir directo a respond"""
+    if state.nivel_riesgo and state.nivel_riesgo.value in ["alto", "critico"]:
+        return "seal"
+    return "respond"
+
 # ==========================================
 # Construcción del Grafo
 # ==========================================
@@ -302,7 +355,9 @@ workflow.add_node("nlp", node_nlp)
 workflow.add_node("correlation", node_correlation)
 workflow.add_node("osint", node_osint)
 workflow.add_node("risk", node_risk)
+workflow.add_node("seal", node_seal)
 workflow.add_node("alert", node_alert)
+workflow.add_node("respond", node_respond)
 
 # Entry point
 workflow.set_entry_point("intake")
@@ -334,11 +389,24 @@ workflow.add_edge("correlation", "osint")
 # Desde OSINT -> Risk
 workflow.add_edge("osint", "risk")
 
-# Desde Risk -> Alert
-workflow.add_edge("risk", "alert")
+# Desde Risk -> [seal | respond] según nivel de riesgo
+workflow.add_conditional_edges(
+    "risk",
+    router_post_risk,
+    {
+        "seal": "seal",
+        "respond": "respond"
+    }
+)
+
+# Desde Seal -> Alert (solo si riesgo ALTO/CRÍTICO)
+workflow.add_edge("seal", "alert")
+
+# Desde Alert -> Respond
+workflow.add_edge("alert", "respond")
 
 # Fin
-workflow.add_edge("alert", END)
+workflow.add_edge("respond", END)
 
 # Checkpoint en memoria (puede persistirse en PostgreSQL con LangGraph checkpointer)
 memory_saver = MemorySaver()
