@@ -1,10 +1,10 @@
 require('@nomicfoundation/hardhat-toolbox');
-require('dotenv').config();
+require('dotenv').config({ path: '../.env' });
 
 const PRIVATE_KEY = process.env.PRIVATE_KEY || '0x0000000000000000000000000000000000000000000000000000000000000000';
 const SYSCOIN_RPC = process.env.SYSCOIN_RPC || 'https://rpc.rollux.com';
 const SYSCOIN_TESTNET_RPC = process.env.SYSCOIN_TESTNET_RPC || 'https://rpc-testnet.rollux.com';
-const ZKSYS_RPC = process.env.WEB3_PROVIDER_URL || 'https://rpc.genesis.zksys.io';
+const ZKSYS_RPC = process.env.WEB3_PROVIDER_URL || 'https://rpc-zk.tanenbaum.io';
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
@@ -28,7 +28,7 @@ module.exports = {
     },
     zkSYSTestnet: {
       url: ZKSYS_RPC,
-      chainId: 5700,
+      chainId: 57057,
       accounts: [PRIVATE_KEY],
       gasPrice: 'auto',
     },

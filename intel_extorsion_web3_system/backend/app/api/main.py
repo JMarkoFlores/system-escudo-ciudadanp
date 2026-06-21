@@ -3,14 +3,19 @@ Web3 Backend API - FastAPI
 Endpoints para integración blockchain, DApp y Agent System
 """
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from pydantic import BaseModel, Field
+import io
 from typing import Optional, List, Dict, Any
 import hashlib
 import httpx
 
 from app.config.settings import settings
 from app.services.web3_service import web3_service
+from app.services.acta_service import acta_service
+from app.services.audit_seal_service import audit_seal_service
 
 app = FastAPI(
     title="IntelExtorsión Web3 Backend API",
@@ -25,6 +30,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+async def startup_event():
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(audit_seal_service.seal_daily_audit_log, 'cron', hour=0, minute=0)
+    scheduler.start()
 
 # ==========================================
 # Schemas
@@ -104,6 +115,21 @@ class SealEvidenceResponse(BaseModel):
     evidence_id: Optional[int] = None
     case_id: Optional[int] = None
     message: Optional[str] = None
+
+class RevokeEvidenceRequest(BaseModel):
+    evidence_id: int
+    motivo: str
+
+class AssignOfficerRequest(BaseModel):
+    oficial_address: str
+
+class ChangeCaseStatusRequest(BaseModel):
+    nuevo_estado: int
+    motivo: str
+
+class MintTokenRequest(BaseModel):
+    to_address: str
+    amount: int
 
 # ==========================================
 # Endpoints
@@ -211,6 +237,21 @@ async def transfer_custody(
     result = web3_service.transfer_custody(evidence_id, new_custodian, motivo)
     return {"success": result["status"] == 1, **result}
 
+@app.post("/v1/evidencias/revocar")
+async def revoke_evidence(req: RevokeEvidenceRequest):
+    result = web3_service.revoke_evidence(req.evidence_id, req.motivo)
+    return {"success": result["status"] == 1, **result}
+
+@app.get("/v1/evidencias/{evidence_id}/acta-pdf")
+async def download_acta_pdf(evidence_id: int):
+    datos = web3_service.get_evidence(evidence_id)
+    pdf_bytes = acta_service.generar_acta_pdf(datos)
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes), 
+        media_type="application/pdf", 
+        headers={"Content-Disposition": f"attachment; filename=Acta_Forense_{evidence_id}.pdf"}
+    )
+
 # --------- Casos ---------
 
 @app.post("/v1/casos", response_model=CreateCaseResponse)
@@ -240,6 +281,16 @@ async def get_case(case_id: int):
         raise HTTPException(status_code=404, detail="Caso no encontrado")
     return caso
 
+@app.post("/v1/casos/{case_id}/asignar")
+async def assign_officer(case_id: int, req: AssignOfficerRequest):
+    result = web3_service.assign_officer(case_id, req.oficial_address)
+    return {"success": result["status"] == 1, **result}
+
+@app.post("/v1/casos/{case_id}/estado")
+async def change_case_status(case_id: int, req: ChangeCaseStatusRequest):
+    result = web3_service.change_case_status(case_id, req.nuevo_estado, req.motivo)
+    return {"success": result["status"] == 1, **result}
+
 # --------- DID ---------
 
 @app.get("/v1/did/{did}", response_model=ResolveDIDResponse)
@@ -255,6 +306,22 @@ async def resolve_did(did: str):
 async def verify_credential(credential_hash: str):
     result = web3_service.verify_credential(credential_hash)
     return result
+
+# --------- Token ---------
+
+@app.get("/v1/token/{address}/balance")
+async def get_token_balance(address: str):
+    balance = web3_service.get_token_balance(address)
+    return {"address": address, "balance": balance}
+
+@app.post("/v1/token/mint")
+async def mint_achievement(req: MintTokenRequest):
+    result = web3_service.mint_achievement(req.to_address, req.amount)
+    return {"success": result["status"] == 1, **result}
+
+@app.post("/v1/admin/seal-audit-log")
+async def manual_seal_audit_log():
+    return audit_seal_service.seal_daily_audit_log()
 
 # ==========================================
 # Helpers

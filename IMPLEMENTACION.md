@@ -320,11 +320,11 @@ async def seal_daily_audit_log():
 
 #### 4.2.8 Criterios de aceptación
 
-- [ ] `npx hardhat run scripts/deploy.js --network zkSYSTestnet` sin errores
-- [ ] Addresses reales verificadas con `ethers.getCode(address) !== "0x"`
-- [ ] `POST /v1/evidencias/seal` devuelve `tx_hash` real visible en explorador
-- [ ] `evidenceExists(hash)` devuelve `true` tras sellado
-- [ ] Sellado diario de log funciona (cron cada 24h)
+- [x] `npx hardhat run scripts/deploy.js --network zkSYSTestnet` sin errores
+- [x] Addresses reales verificadas con `ethers.getCode(address) !== "0x"`
+- [x] `POST /v1/evidencias/seal` devuelve `tx_hash` real visible en explorador
+- [x] `evidenceExists(hash)` devuelve `true` tras sellado
+- [x] Sellado diario de log funciona (cron cada 24h)
 
 ---
 
@@ -719,7 +719,7 @@ SEED_DENUNCIAS = [
 |------|--------|-----------------|------------------|--------|-------------|--------|
 | 0 | Migración a zkSYS Genesis Testnet | 1–2 | — | Semana 1 | P1 | ✅ Completada |
 | 1 | Agente Autónomo End-to-End | 3–4 | +4 | Semana 1–2 | P1 | ✅ Completada (tareas adicionales ⏳) |
-| 2 | Smart Contracts + Sellado Real | 3–4 | +9.5 | Semana 2–4 | P2 | ⏳ Pendiente |
+| 2 | Smart Contracts + Sellado Real | 3–4 | +9.5 | Semana 2–4 | P2 | ✅ Completada |
 | 3 | Canales Externos + DApp + Separación Frontends | 4–5 | +7 | Semana 4–6 | P3 | ⏳ Pendiente |
 | 4 | NLP Forense + Clustering + Ontología + OSINT | 3–4 | +15 | Semana 6–9 | P4 + P1 | ⏳ Pendiente |
 | 5 | Integración Final + QA + Seguridad + Demo | 2–3 | +18.5 | Semana 9–13 | P5 | ⏳ Pendiente |

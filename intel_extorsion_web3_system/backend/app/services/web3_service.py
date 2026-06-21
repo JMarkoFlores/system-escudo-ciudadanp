@@ -8,6 +8,7 @@ from pathlib import Path
 
 from web3 import Web3
 from web3.middleware import geth_poa_middleware
+import threading
 from eth_account import Account
 
 from app.config.settings import settings
@@ -44,6 +45,7 @@ class Web3Service:
         
         # Cargar ABIs y contratos
         self._load_contracts()
+        self._nonce_lock = threading.Lock()
         self._initialized = True
     
     def _load_abi(self, name: str) -> List[Dict[str, Any]]:
@@ -76,6 +78,14 @@ class Web3Service:
             )
         else:
             self.did_registry = None
+            
+        if hasattr(settings, 'CONTRACT_TOKEN') and settings.CONTRACT_TOKEN and settings.CONTRACT_TOKEN != zero_addr:
+            self.token = self.w3.eth.contract(
+                address=Web3.to_checksum_address(settings.CONTRACT_TOKEN),
+                abi=self._load_abi("IntelExtorsionToken")
+            )
+        else:
+            self.token = None
     
     def is_connected(self) -> bool:
         return self.w3.is_connected()
@@ -88,25 +98,37 @@ class Web3Service:
         if not self.account:
             raise RuntimeError("No backend private key configured")
         
-        tx = tx_function.build_transaction({
-            "from": self.backend_address,
-            "nonce": self.w3.eth.get_transaction_count(self.backend_address),
-            "gas": 500000,
-            "gasPrice": self.w3.to_wei("0.01", "gwei"),  # Rollux tiene fees ultra bajos
-            "chainId": settings.CHAIN_ID,
-            "value": value,
-        })
-        
-        signed_tx = self.w3.eth.account.sign_transaction(tx, self.account.key)
-        tx_hash = self.w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        with self._nonce_lock:
+            nonce = self.w3.eth.get_transaction_count(self.backend_address, 'pending')
+            gas_price = self.w3.eth.gas_price
+            
+            try:
+                gas_limit = tx_function.estimate_gas({"from": self.backend_address, "value": value})
+                gas_limit = int(gas_limit * 1.2) # 20% buffer
+            except Exception:
+                gas_limit = 500000 # fallback
+                
+            tx = tx_function.build_transaction({
+                "from": self.backend_address,
+                "nonce": nonce,
+                "gas": gas_limit,
+                "gasPrice": gas_price,
+                "chainId": settings.CHAIN_ID,
+                "value": value,
+            })
+            
+            signed_tx = self.w3.eth.account.sign_transaction(tx, self.account.key)
+            tx_hash = self.w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            
         receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
         
-        return {
+        receipt_dict = {
             "tx_hash": tx_hash.hex(),
             "block_number": receipt.blockNumber,
             "status": receipt.status,
             "gas_used": receipt.gasUsed,
         }
+        return receipt_dict, receipt
     
     # ==========================================
     # EvidenceRegistry Methods
@@ -139,14 +161,14 @@ class Web3Service:
             metadata_uri
         )
         
-        receipt = self._send_transaction(func)
+        receipt_dict, raw_receipt = self._send_transaction(func)
         
         # Parsear evento EvidenceStored para obtener evidenceId
-        logs = self.evidence_registry.events.EvidenceStored().process_receipt(receipt)
+        logs = self.evidence_registry.events.EvidenceStored().process_receipt(raw_receipt)
         evidence_id = logs[0].args.evidenceId if logs else None
         
         return {
-            **receipt,
+            **receipt_dict,
             "evidence_hash": evidence_hash,
             "evidence_id": evidence_id,
             "ipfs_cid": ipfs_cid,
@@ -163,16 +185,19 @@ class Web3Service:
         En modo desarrollo (sin contrato), retorna respuesta simulada.
         """
         if not self.evidence_registry:
-            return {
-                "success": True,
-                "evidence_id": hash(evidence_hash) % 1000000,
-                "evidence_hash": evidence_hash,
-                "tx_hash": "0x" + "0" * 64,
-                "block_number": self.get_block_number(),
-                "status": 1,
-                "case_id": case_id,
-                "message": "Sellado en modo desarrollo (contrato no desplegado)"
-            }
+            if getattr(settings, 'DEV_MODE', False):
+                return {
+                    "success": True,
+                    "evidence_id": hash(evidence_hash) % 1000000,
+                    "evidence_hash": evidence_hash,
+                    "tx_hash": "0x" + "0" * 64,
+                    "block_number": self.get_block_number(),
+                    "status": 1,
+                    "case_id": case_id,
+                    "message": "Sellado en modo desarrollo (contrato no desplegado)"
+                }
+            else:
+                raise RuntimeError("EvidenceRegistry contract not configured and DEV_MODE is disabled")
 
         hash_bytes = Web3.to_bytes(hexstr=evidence_hash) if evidence_hash.startswith("0x") else evidence_hash.encode()
         func = self.evidence_registry.functions.storeEvidence(
@@ -183,13 +208,13 @@ class Web3Service:
             json.dumps(metadata or {})
         )
 
-        receipt = self._send_transaction(func)
+        receipt_dict, raw_receipt = self._send_transaction(func)
 
-        logs = self.evidence_registry.events.EvidenceStored().process_receipt(receipt)
+        logs = self.evidence_registry.events.EvidenceStored().process_receipt(raw_receipt)
         evidence_id = logs[0].args.evidenceId if logs else None
 
         return {
-            **receipt,
+            **receipt_dict,
             "evidence_hash": evidence_hash,
             "evidence_id": evidence_id,
             "success": receipt["status"] == 1,
@@ -220,6 +245,24 @@ class Web3Service:
             "block_number_at_verify": self.get_block_number(),
         }
     
+    def get_evidence(self, evidence_id: int) -> Dict[str, Any]:
+        """Obtiene datos puros de una evidencia sin necesidad de bytes."""
+        if not self.evidence_registry:
+            raise RuntimeError("EvidenceRegistry contract not configured")
+        
+        ev = self.evidence_registry.functions.evidencias(evidence_id).call()
+        return {
+            "evidence_id": evidence_id,
+            "on_chain_hash": ev[1].hex() if isinstance(ev[1], bytes) else ev[1],
+            "ipfs_cid": ev[2],
+            "did_denunciante": ev[3],
+            "custodian": ev[4],
+            "timestamp": ev[7],
+            "active": ev[8],
+            "tx_hash": "N/A (Historical)",
+            "block_number": self.get_block_number()
+        }
+
     def get_custody_history(self, evidence_id: int) -> List[Dict[str, Any]]:
         """Obtiene historial de transferencias de custodia."""
         if not self.evidence_registry:
@@ -241,8 +284,16 @@ class Web3Service:
         if not self.evidence_registry:
             raise RuntimeError("EvidenceRegistry contract not configured")
         
-        func = self.evidence_registry.functions.transferCustody(evidence_id, new_custodian, motivo)
-        return self._send_transaction(func)
+        receipt_dict, _ = self._send_transaction(func)
+        return receipt_dict
+        
+    def revoke_evidence(self, evidence_id: int, motivo: str) -> Dict[str, Any]:
+        """Revoca o invalida una evidencia en blockchain."""
+        if not self.evidence_registry:
+            raise RuntimeError("EvidenceRegistry contract not configured")
+        
+        receipt_dict, _ = self._send_transaction(func)
+        return receipt_dict
     
     # ==========================================
     # CaseManager Methods
@@ -260,20 +311,20 @@ class Web3Service:
             raise RuntimeError("CaseManager contract not configured")
         
         func = self.case_manager.functions.createCase(did_denunciante, nivel_riesgo, resumen, metadata_uri)
-        receipt = self._send_transaction(func)
+        receipt_dict, raw_receipt = self._send_transaction(func)
         
-        logs = self.case_manager.events.CasoCreado().process_receipt(receipt)
+        logs = self.case_manager.events.CasoCreado().process_receipt(raw_receipt)
         case_id = logs[0].args.caseId if logs else None
         
-        return {**receipt, "case_id": case_id}
+        return {**receipt_dict, "case_id": case_id}
     
     def link_evidence_to_case(self, case_id: int, evidence_id: int) -> Dict[str, Any]:
         """Vincula una evidencia registrada a un caso."""
         if not self.case_manager:
             raise RuntimeError("CaseManager contract not configured")
         
-        func = self.case_manager.functions.vincularEvidencia(case_id, evidence_id)
-        return self._send_transaction(func)
+        receipt_dict, _ = self._send_transaction(func)
+        return receipt_dict
     
     def get_case(self, case_id: int) -> Dict[str, Any]:
         """Obtiene datos de un caso."""
@@ -293,6 +344,22 @@ class Web3Service:
             "active": c[8],
             "metadata_uri": c[9],
         }
+
+    def assign_officer(self, case_id: int, oficial_address: str) -> Dict[str, Any]:
+        """Asigna un oficial a un caso."""
+        if not self.case_manager:
+            raise RuntimeError("CaseManager contract not configured")
+            
+        receipt_dict, _ = self._send_transaction(func)
+        return receipt_dict
+        
+    def change_case_status(self, case_id: int, nuevo_estado: int, motivo: str) -> Dict[str, Any]:
+        """Cambia el estado de un caso."""
+        if not self.case_manager:
+            raise RuntimeError("CaseManager contract not configured")
+            
+        receipt_dict, _ = self._send_transaction(func)
+        return receipt_dict
     
     # ==========================================
     # DID Methods
@@ -326,6 +393,22 @@ class Web3Service:
         
         valid, status = self.did_registry.functions.verifyCredential(credential_hash).call()
         return {"valid": valid, "status": status}
+
+    # ==========================================
+    # IntelToken Methods
+    # ==========================================
+    
+    def get_token_balance(self, address: str) -> int:
+        if not hasattr(self, 'token') or not self.token:
+            return 0
+        return self.token.functions.balanceOf(Web3.to_checksum_address(address)).call()
+        
+    def mint_achievement(self, to_address: str, amount: int) -> Dict[str, Any]:
+        if not hasattr(self, 'token') or not self.token:
+            raise RuntimeError("Token contract not configured")
+            
+        receipt_dict, _ = self._send_transaction(func)
+        return receipt_dict
 
 # Singleton
 web3_service = Web3Service()
