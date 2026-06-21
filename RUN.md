@@ -78,6 +78,35 @@ curl -X POST http://localhost:8000/v1/denuncias/{id}/procesar \
 
 ---
 
+## Iniciar Canales de Denuncia (Bots de Telegram, Discord y WhatsApp)
+
+El sistema de agentes (`agent-api`) levanta e integra automáticamente los canales conversacionales si sus respectivos tokens están configurados en el archivo `.env`.
+
+### 1. Telegram
+- El bot de Telegram inicia de forma nativa e integrada en segundo plano dentro de `agent-api`.
+- Solo requiere configurar `TELEGRAM_BOT_TOKEN` en el `.env`.
+
+### 2. Discord
+- El bot de Discord inicia en segundo plano dentro de `agent-api`.
+- Requiere configurar `DISCORD_BOT_TOKEN` en el `.env` y activar los **"Privileged Gateway Intents"** en el Discord Developer Portal (especialmente *Message Content Intent*).
+
+### 3. WhatsApp (Whapi.cloud)
+El canal de WhatsApp requiere redirigir las solicitudes webhook de Whapi hacia tu servidor local mediante un túnel como **ngrok**:
+
+1. Configura `WHATSAPP_API_TOKEN` en el `.env`.
+2. Inicia tu túnel local exponiendo el puerto `8000`:
+   ```bash
+   ngrok http 8000
+   # O si tienes un dominio reservado:
+   ngrok http --url=tu-dominio-reservado.ngrok-free.dev 8000
+   ```
+3. Copia la URL pública generada (ej. `https://xxxx.ngrok-free.dev`).
+4. Ve al dashboard de **Whapi.cloud** y configura la URL del Webhook a:
+   `https://xxxx.ngrok-free.dev/v1/channels/whatsapp/webhook`
+5. Activa los eventos de **messages** y guarda los cambios.
+
+---
+
 ## Iniciar Blockchain Local (Desarrollo)
 
 ```bash

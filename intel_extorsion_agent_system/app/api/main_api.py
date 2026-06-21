@@ -2,11 +2,14 @@
 API REST - FastAPI
 Endpoints del Subsistema de Agentes Autónomos
 """
+import logging
 from typing import Optional, List
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, Query, UploadFile, File
+logger = logging.getLogger(__name__)
+
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, Query, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
@@ -43,9 +46,60 @@ app.add_middleware(
 # Health & Startup
 # ==========================================
 
+bot_client = None
+discord_bot_client = None
+whatsapp_bot_client = None
+
 @app.on_event("startup")
 async def startup():
+    print("FastAPI startup: inicializando base de datos...", flush=True)
     await init_db()
+    
+    # Telegram Bot
+    global bot_client
+    if settings.TELEGRAM_BOT_TOKEN:
+        print(f"FastAPI startup: detectado TELEGRAM_BOT_TOKEN, iniciando bot...", flush=True)
+        from app.channels.telegram_bot import TelegramBot
+        bot_client = TelegramBot(settings.TELEGRAM_BOT_TOKEN)
+        bot_client.start_background()
+    else:
+        print("FastAPI startup: NO se detectó TELEGRAM_BOT_TOKEN en settings", flush=True)
+        
+    # Discord Bot
+    global discord_bot_client
+    if settings.DISCORD_BOT_TOKEN:
+        print(f"FastAPI startup: detectado DISCORD_BOT_TOKEN, iniciando bot de Discord...", flush=True)
+        import asyncio
+        from app.channels.discord_bot import DiscordBot
+        discord_bot_client = DiscordBot(settings.DISCORD_BOT_TOKEN)
+        asyncio.create_task(discord_bot_client.start(settings.DISCORD_BOT_TOKEN))
+    else:
+        print("FastAPI startup: NO se detectó DISCORD_BOT_TOKEN en settings", flush=True)
+        
+    # WhatsApp Bot
+    global whatsapp_bot_client
+    if settings.WHATSAPP_API_TOKEN:
+        print(f"FastAPI startup: detectado WHATSAPP_API_TOKEN, iniciando bot de WhatsApp...", flush=True)
+        from app.channels.whatsapp_bot import WhatsAppBot
+        whatsapp_bot_client = WhatsAppBot(settings.WHATSAPP_API_TOKEN)
+    else:
+        print("FastAPI startup: NO se detectó WHATSAPP_API_TOKEN en settings", flush=True)
+
+@app.on_event("shutdown")
+async def shutdown():
+    global bot_client
+    if bot_client:
+        await bot_client.stop()
+        
+    global discord_bot_client
+    if discord_bot_client:
+        print("FastAPI shutdown: deteniendo bot de Discord...", flush=True)
+        await discord_bot_client.close()
+        
+    global whatsapp_bot_client
+    if whatsapp_bot_client:
+        print("FastAPI shutdown: deteniendo bot de WhatsApp...", flush=True)
+        await whatsapp_bot_client.close()
 
 @app.get("/health", response_model=HealthCheckResponse)
 async def health_check():
@@ -60,6 +114,31 @@ async def health_check():
             "langgraph": "ok"
         }
     )
+
+# Webhook de WhatsApp (Whapi.cloud)
+@app.post("/v1/channels/whatsapp/webhook")
+async def whatsapp_webhook(
+    request: Request,
+    background_tasks: BackgroundTasks
+):
+    """
+    Recibe actualizaciones de mensajes de Whapi.cloud y las procesa en background.
+    """
+    global whatsapp_bot_client
+    if not whatsapp_bot_client:
+        raise HTTPException(status_code=503, detail="Canal de WhatsApp no inicializado")
+        
+    try:
+        payload = await request.json()
+        logger.info(f"Webhook de WhatsApp recibido: {payload}")
+        
+        # Procesar de forma asíncrona en segundo plano para responder de inmediato
+        background_tasks.add_task(whatsapp_bot_client.process_webhook, payload)
+        
+        return {"status": "accepted"}
+    except Exception as e:
+        logger.error(f"Error procesando webhook de WhatsApp: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 # ==========================================
 # Denuncias - Ingesta y Procesamiento
@@ -89,7 +168,7 @@ async def crear_denuncia(
         id=denuncia.id,
         canal=denuncia.canal,
         estado=denuncia.estado.value,
-        tipo_contenido=denuncia.tipo_contenido.value,
+        tipo_contenido=denuncia.tipo_contenido,
         created_at=denuncia.created_at,
         resultados=[]
     )
@@ -124,6 +203,7 @@ async def procesar_denuncia(
 async def listar_denuncias(
     estado: Optional[str] = Query(None, description="Filtrar por estado"),
     canal: Optional[str] = Query(None, description="Filtrar por canal"),
+    did_denunciante: Optional[str] = Query(None, description="Filtrar por DID del denunciante"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db)
@@ -136,18 +216,30 @@ async def listar_denuncias(
         query = query.where(Denuncia.estado == estado)
     if canal:
         query = query.where(Denuncia.canal == canal)
+    if did_denunciante:
+        query = query.where(Denuncia.did_denunciante == did_denunciante)
     
     result = await db.execute(query.limit(limit).offset(offset))
     rows = result.scalars().all()
+    
+    def get_estado_val(est):
+        if est is None:
+            return "creado"
+        return est.value if hasattr(est, "value") else str(est)
     
     return [
         DenunciaResponse(
             id=d.id,
             canal=d.canal,
-            estado=d.estado.value,
-            tipo_contenido=d.tipo_contenido.value,
+            estado=get_estado_val(d.estado),
+            tipo_contenido=d.tipo_contenido,
             created_at=d.created_at,
-            resultados=[]
+            resultados=[],
+            tracking_code=d.tracking_code,
+            nivel_riesgo=d.nivel_riesgo,
+            seal_tx_hash=d.seal_tx_hash,
+            seal_block=d.seal_block,
+            seal_status=d.seal_status
         )
         for d in rows
     ]
@@ -174,7 +266,7 @@ async def obtener_denuncia(
         id=denuncia.id,
         canal=denuncia.canal,
         estado=denuncia.estado.value,
-        tipo_contenido=denuncia.tipo_contenido.value,
+        tipo_contenido=denuncia.tipo_contenido,
         created_at=denuncia.created_at,
         resultados=resultados
     )
@@ -195,13 +287,26 @@ async def obtener_denuncia_por_tracking(
     if not denuncia:
         raise HTTPException(status_code=404, detail="Código de seguimiento no encontrado")
 
+    # Cargar resultados de agentes
+    res_result = await db.execute(
+        select(ResultadoAgente)
+        .where(ResultadoAgente.denuncia_id == denuncia.id)
+        .order_by(ResultadoAgente.created_at)
+    )
+    resultados = [r.resultado_json for r in res_result.scalars().all()]
+
     return DenunciaResponse(
         id=denuncia.id,
         canal=denuncia.canal,
         estado=denuncia.estado.value,
-        tipo_contenido=denuncia.tipo_contenido.value,
+        tipo_contenido=denuncia.tipo_contenido,
         created_at=denuncia.created_at,
-        resultados=[]
+        resultados=resultados,
+        tracking_code=denuncia.tracking_code,
+        nivel_riesgo=denuncia.nivel_riesgo.value if denuncia.nivel_riesgo else None,
+        seal_tx_hash=denuncia.seal_tx_hash,
+        seal_block=denuncia.seal_block,
+        seal_status=denuncia.seal_status
     )
 
 @app.post("/v1/denuncias/{denuncia_id}/adjuntar", status_code=201)
@@ -271,6 +376,32 @@ async def obtener_resultados_agentes(
             for r in rows
         ]
     }
+
+@app.get("/v1/denuncias/{denuncia_id}/archivo")
+async def obtener_archivo_denuncia(
+    denuncia_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retorna el archivo de evidencia adjunto a la denuncia.
+    """
+    from fastapi.responses import FileResponse
+    import os
+
+    result = await db.execute(select(Denuncia).where(Denuncia.id == denuncia_id))
+    denuncia = result.scalar_one_or_none()
+    if not denuncia or not denuncia.url_archivo:
+        raise HTTPException(status_code=404, detail="Archivo de evidencia no encontrado o no registrado")
+    
+    if not os.path.exists(denuncia.url_archivo):
+        raise HTTPException(status_code=404, detail="El archivo no existe físicamente en el servidor")
+    
+    # Determinar el content type a partir de los metadatos o dejar que FastAPI lo deduzca
+    mime_type = None
+    if denuncia.metadata_json and "file_mime" in denuncia.metadata_json:
+        mime_type = denuncia.metadata_json["file_mime"]
+        
+    return FileResponse(denuncia.url_archivo, media_type=mime_type)
 
 @app.get("/v1/denuncias/{denuncia_id}/alertas")
 async def obtener_alertas(

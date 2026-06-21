@@ -102,15 +102,15 @@ Este documento lista **TODAS** las API Keys, tokens y secretos necesarios para e
 
 ## 5. Canales de Denuncia (Bots)
 
-### 5.1 WhatsApp Business API
+### 5.1 WhatsApp Gateway (Whapi.cloud)
 
 | Atributo | Valor |
 |----------|-------|
 | **Nombre variable** | `WHATSAPP_API_TOKEN` |
-| **Propósito** | Autenticación con WhatsApp Business API |
+| **Propósito** | Autenticación con el Gateway de WhatsApp (Whapi.cloud) |
 | **Obligatoria** | Sí (para canal WhatsApp) |
-| **URL oficial** | https://business.facebook.com/products/whatsapp-business-platform |
-| **Pasos** | 1. Crear cuenta Business Manager<br>2. Registrar número de teléfono<br>3. Obtener Permanent Access Token |
+| **URL oficial** | https://whapi.cloud |
+| **Pasos** | 1. Crear cuenta en Whapi.cloud<br>2. Vincular tu cuenta de WhatsApp escaneando el código QR<br>3. Obtener el Token de canal desde el Dashboard e ingresarlo en `.env`<br>4. Configurar el Webhook apuntando a tu URL pública (ej. de ngrok) con la ruta `/v1/channels/whatsapp/webhook` |
 
 ### 5.2 Telegram Bot
 

@@ -116,6 +116,16 @@
   - Seal devuelve dev-mode `tx_hash: 0x000...` (contratos no deployados)
   - Tracking code funcional en `GET /v1/denuncias/tracking/TRJ-AFEZ`
 
+### Sesión de Integración de WhatsApp y Bots de Canales (2026-06-21)
+- **Solicitud del usuario:** Integrar un bot de WhatsApp para recibir denuncias y evidencias usando Whapi.cloud, configurar ngrok y documentar todo.
+- **Cambios realizados:**
+  1. **`app/channels/whatsapp_bot.py`** — Implementada la clase `WhatsAppBot` conectada a Whapi.cloud: descarga y transcripción de audios con Whisper, registro y procesamiento del caso con LangGraph.
+  2. **Webhook en `main_api.py`** — Creado el endpoint `POST /v1/channels/whatsapp/webhook` que recibe los mensajes y los delega asíncronamente en segundo plano.
+  3. **Seguridad y Filtros** — Se ignoran mensajes salientes (`from_me = True`) para evitar bucles infinitos, y se ignoran chats de grupo (`@g.us`) para evitar spam del bot en conversaciones ajenas.
+  4. **Docker Compose y Configuración** — Declarada la variable `WHATSAPP_API_TOKEN` en `docker-compose.yml` y mapeada en `.env` para sincronizarse con el contenedor.
+  5. **Túnel local** — Configuración exitosa de ngrok redirigiendo `https://duckbill-exit-detection.ngrok-free.dev` hacia `http://localhost:8000` para pruebas locales.
+- **Resultado:** Flujo de WhatsApp completado y listo para pruebas o presentación.
+
 ---
 
 ## 3. Estado Actual de Componentes (Post-Migración)
@@ -369,5 +379,5 @@ pytest tests/test_agents.py -v
 
 ---
 
-*Última actualización: 2026-06-20*
-*Contexto generado tras sesión de integración Fase 1 (OCR real, STT, File Upload)*
+*Última actualización: 2026-06-21*
+*Contexto generado tras sesión de integración de WhatsApp (Whapi.cloud) y depuración del bot*

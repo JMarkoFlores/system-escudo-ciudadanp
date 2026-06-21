@@ -186,6 +186,11 @@ class DenunciaResponse(BaseModel):
     tipo_contenido: str
     created_at: datetime
     resultados: List[Dict[str, Any]] = Field(default_factory=list)
+    tracking_code: Optional[str] = None
+    nivel_riesgo: Optional[str] = None
+    seal_tx_hash: Optional[str] = None
+    seal_block: Optional[int] = None
+    seal_status: Optional[str] = None
 
 class EjecucionGrafoResponse(BaseModel):
     denuncia_id: uuid.UUID

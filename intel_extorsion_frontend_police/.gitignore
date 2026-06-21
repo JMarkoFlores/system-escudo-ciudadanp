@@ -59,7 +59,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-# lib/  # COMMENTED OUT: app/models needs lib directory
+# lib/  # COMMENTED OUT: Frontend needs src/lib/utils for cn.ts
 lib64/
 parts/
 sdist/
@@ -230,7 +230,7 @@ $RECYCLE.BIN/
 # 12. ARCHIVOS ESPECÍFICOS DEL PROYECTO
 # =============================================================================
 # Modelos descargados localmente por fastembed (si se usan fuera de Docker)
-/models/
+models/
 *.onnx
 
 # Archivos de test de integración que generan outputs

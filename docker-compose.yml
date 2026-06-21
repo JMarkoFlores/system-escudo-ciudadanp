@@ -1,5 +1,3 @@
-version: "3.9"
-
 # ============================================================
 # IntelExtorsión - Docker Compose Consolidado
 # Orquesta todos los subsistemas:
@@ -22,7 +20,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agent_pass}
       POSTGRES_DB: ${POSTGRES_DB:-intel_extorsion}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -78,6 +76,9 @@ services:
       QDRANT_PORT: "6333"
       REDIS_URL: "redis://redis:6379/0"
       DEBUG: "false"
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
+      WHATSAPP_API_TOKEN: ${WHATSAPP_API_TOKEN}
     ports:
       - "8000:8000"
     depends_on:
@@ -121,27 +122,63 @@ services:
       - intel_extorsion_network
 
   # ----------------------------------------------------------
-  # FRONTEND NEXT.JS
+  # FRONTENDS NEXT.JS
   # ----------------------------------------------------------
-  frontend:
+  frontend-citizen:
     build:
-      context: ./intel_extorsion_frontend
+      context: ./intel_extorsion_frontend_citizen
       dockerfile: Dockerfile
-    container_name: intel_extorsion_frontend
+    container_name: intel_extorsion_frontend_citizen
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
       NEXT_PUBLIC_AGENT_API_URL: http://localhost:8000
       NEXT_PUBLIC_WEB3_API_URL: http://localhost:8001
-      NEXT_PUBLIC_RPC_URL: ${WEB3_PROVIDER_URL:-https://rpc.genesis.zksys.io}
-      NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID:-5700}
+      NEXT_PUBLIC_RPC_URL: ${WEB3_PROVIDER_URL:-https://rpc-zk.tanenbaum.io}
+      NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID:-57057}
       NEXT_PUBLIC_CONTRACT_EVIDENCE_REGISTRY: ${CONTRACT_EVIDENCE_REGISTRY}
       NEXT_PUBLIC_CONTRACT_CASE_MANAGER: ${CONTRACT_CASE_MANAGER}
       NEXT_PUBLIC_CONTRACT_DID_REGISTRY: ${CONTRACT_DID_REGISTRY}
       NEXT_PUBLIC_CONTRACT_TOKEN: ${CONTRACT_TOKEN}
     depends_on:
       - agent-api
+      - web3-backend
+    networks:
+      - intel_extorsion_network
+
+  frontend-police:
+    build:
+      context: ./intel_extorsion_frontend_police
+      dockerfile: Dockerfile
+    container_name: intel_extorsion_frontend_police
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      NEXT_PUBLIC_AGENT_API_URL: http://localhost:8000
+      NEXT_PUBLIC_WEB3_API_URL: http://localhost:8001
+      NEXT_PUBLIC_RPC_URL: ${WEB3_PROVIDER_URL:-https://rpc-zk.tanenbaum.io}
+      NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID:-57057}
+      NEXT_PUBLIC_CONTRACT_EVIDENCE_REGISTRY: ${CONTRACT_EVIDENCE_REGISTRY}
+      NEXT_PUBLIC_CONTRACT_CASE_MANAGER: ${CONTRACT_CASE_MANAGER}
+      NEXT_PUBLIC_CONTRACT_DID_REGISTRY: ${CONTRACT_DID_REGISTRY}
+      NEXT_PUBLIC_CONTRACT_TOKEN: ${CONTRACT_TOKEN}
+    depends_on:
+      - agent-api
+      - web3-backend
+    networks:
+      - intel_extorsion_network
+
+  dapp:
+    build:
+      context: ./intel_extorsion_web3_system/dapp
+      dockerfile: Dockerfile
+    container_name: intel_extorsion_dapp
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
       - web3-backend
     networks:
       - intel_extorsion_network

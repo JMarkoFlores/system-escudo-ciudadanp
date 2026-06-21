@@ -73,6 +73,11 @@ class Settings(BaseSettings):
     ALERT_EMAIL_SMTP_HOST: Optional[str] = None
     ALERT_EMAIL_FROM: Optional[str] = None
     
+    # Canales
+    TELEGRAM_BOT_TOKEN: Optional[str] = None
+    DISCORD_BOT_TOKEN: Optional[str] = None
+    WHATSAPP_API_TOKEN: Optional[str] = None
+    
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
