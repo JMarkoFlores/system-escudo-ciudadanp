@@ -66,7 +66,11 @@ class TelegramBot:
                     if updates:
                         self.offset = updates[-1]["update_id"] + 1
                     return updates
+            else:
+                print(f"[Telegram Bot] Error en getUpdates (HTTP {resp.status_code}): {resp.text}", flush=True)
+                logger.error(f"Error en getUpdates de Telegram (HTTP {resp.status_code}): {resp.text}")
         except Exception as e:
+            print(f"[Telegram Bot] Excepción al conectar con Telegram: {e}", flush=True)
             logger.debug(f"Error al obtener actualizaciones de Telegram: {e}")
         return []
 
