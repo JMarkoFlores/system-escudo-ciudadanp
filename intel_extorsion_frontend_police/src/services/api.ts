@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Denuncia, Alerta, MetricasDashboard, CriminalGraph } from '@/types';
+import { Denuncia, Alerta, MetricasDashboard, CriminalGraph, Cluster, ClusterDenunciaAnonima, HeatmapPoint } from '@/types';
 
 const agentApi = axios.create({
   baseURL: process.env.NEXT_PUBLIC_AGENT_API_URL || '/api/agents',
@@ -89,4 +89,22 @@ export const web3Service = {
 export const graphService = {
   obtener: (denunciaId?: string) =>
     agentApi.get<CriminalGraph>('/grafos/criminal', { params: { denuncia_id: denunciaId } }),
+};
+
+// Clusters
+export const clusterService = {
+  listar: (params?: { estado?: string; zona?: string; nivel_alerta?: string }) =>
+    agentApi.get<Cluster[]>('/clusters', { params }),
+  obtener: (id: number) =>
+    agentApi.get<Cluster>(`/clusters/${id}`),
+  obtenerDenuncias: (id: number) =>
+    agentApi.get<{ alertas: ClusterDenunciaAnonima[] }>(`/clusters/${id}/denuncias`),
+  recalcular: () =>
+    agentApi.post('/clusters/recalculate'),
+};
+
+// Heatmap
+export const heatmapService = {
+  obtener: (params?: { zona?: string; periodo?: number }) =>
+    agentApi.get<{ puntos: HeatmapPoint[] }>('/heatmap', { params }),
 };

@@ -1,20 +1,14 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  LineChart, Line, PieChart, Pie, Cell,
 } from 'recharts';
+import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import { heatmapService } from '@/services/api';
+import { useAppStore } from '@/stores/appStore';
 
 const serieData = [
   { fecha: 'Lun', denuncias: 12, alertas: 3, resueltos: 5 },
@@ -40,12 +34,88 @@ const riesgoData = [
   { name: 'Crítico', value: 7, color: '#7f1d1d' },
 ];
 
+const alertColor = (nivel: string) => {
+  switch (nivel) {
+    case 'critico': return '#7f1d1d';
+    case 'alto': return '#ef4444';
+    case 'medio': return '#f59e0b';
+    default: return '#22c55e';
+  }
+};
+
 export default function DashboardAnaliticoPage() {
+  const { heatmapData, setHeatmapData } = useAppStore();
+  const [periodo, setPeriodo] = useState(30);
+  const [loadingMap, setLoadingMap] = useState(true);
+
+  useEffect(() => {
+    const fetchHeatmap = async () => {
+      try {
+        setLoadingMap(true);
+        const { data } = await heatmapService.obtener({ periodo });
+        setHeatmapData(data.puntos);
+      } catch (e) {
+        console.error('Error cargando heatmap:', e);
+      } finally {
+        setLoadingMap(false);
+      }
+    };
+    fetchHeatmap();
+  }, [periodo, setHeatmapData]);
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-800">Dashboard Analítico</h1>
         <p className="text-slate-500 text-sm">Métricas, tendencias y patrones de denuncias de extorsión</p>
+      </div>
+
+      {/* Mapa de Calor */}
+      <div className="bg-white border rounded-xl p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-slate-800">Mapa de Calor - Zonas de Extorsión (Trujillo/La Libertad)</h3>
+          <select
+            value={periodo}
+            onChange={(e) => setPeriodo(Number(e.target.value))}
+            className="text-sm border rounded px-2 py-1"
+          >
+            <option value={7}>Últimos 7 días</option>
+            <option value={30}>Últimos 30 días</option>
+            <option value={90}>Últimos 90 días</option>
+          </select>
+        </div>
+        {loadingMap ? (
+          <div className="h-96 flex items-center justify-center text-slate-400">Cargando mapa...</div>
+        ) : (
+          <div className="h-96 rounded-lg overflow-hidden border">
+            <MapContainer center={[-8.1, -79.05]} zoom={11} style={{ height: '100%', width: '100%' }}>
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              {heatmapData.map((punto, idx) => (
+                <CircleMarker
+                  key={idx}
+                  center={[punto.lat, punto.lng]}
+                  radius={12 + punto.intensidad * 20}
+                  fillColor={alertColor(punto.nivel_alerta_dominante)}
+                  color={alertColor(punto.nivel_alerta_dominante)}
+                  fillOpacity={0.6}
+                  weight={1}
+                >
+                  <Popup>
+                    <div className="text-sm">
+                      <strong>{punto.zona}</strong><br/>
+                      Denuncias: {punto.total_denuncias}<br/>
+                      Nivel: {punto.nivel_alerta_dominante}<br/>
+                      Tipo: {punto.tipo_zona}
+                    </div>
+                  </Popup>
+                </CircleMarker>
+              ))}
+            </MapContainer>
+          </div>
+        )}
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">

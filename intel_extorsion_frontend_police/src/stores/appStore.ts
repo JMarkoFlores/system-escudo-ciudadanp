@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Denuncia, Alerta, MetricasDashboard, CriminalGraph } from '@/types';
+import { Denuncia, Alerta, MetricasDashboard, CriminalGraph, Cluster, HeatmapPoint } from '@/types';
 
 interface AppState {
   // Denuncias
@@ -21,6 +21,16 @@ interface AppState {
   // Grafos
   grafoActivo: CriminalGraph | null;
   setGrafoActivo: (g: CriminalGraph | null) => void;
+
+  // Clusters
+  clusters: Cluster[];
+  clusterActivo: Cluster | null;
+  setClusters: (c: Cluster[]) => void;
+  setClusterActivo: (c: Cluster | null) => void;
+
+  // Heatmap
+  heatmapData: HeatmapPoint[];
+  setHeatmapData: (h: HeatmapPoint[]) => void;
 
   // UI
   sidebarOpen: boolean;
@@ -54,6 +64,14 @@ export const useAppStore = create<AppState>((set) => ({
 
   grafoActivo: null,
   setGrafoActivo: (grafoActivo) => set({ grafoActivo }),
+
+  clusters: [],
+  clusterActivo: null,
+  setClusters: (clusters) => set({ clusters }),
+  setClusterActivo: (clusterActivo) => set({ clusterActivo }),
+
+  heatmapData: [],
+  setHeatmapData: (heatmapData) => set({ heatmapData }),
 
   sidebarOpen: true,
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),

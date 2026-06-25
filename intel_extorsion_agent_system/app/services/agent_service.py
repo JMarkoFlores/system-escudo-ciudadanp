@@ -14,9 +14,11 @@ from app.schemas.agent_schemas import (
     AgenteState, DenunciaIngestaRequest, ProcesarDenunciaRequest,
     EjecucionGrafoResponse
 )
-from app.models.database import Denuncia, ResultadoAgente, Alerta, EstadoDenuncia, NivelRiesgo as NivelRiesgoDB
+from app.models.database import Denuncia, ResultadoAgente, Alerta, Cluster, EstadoDenuncia, NivelRiesgo as NivelRiesgoDB, EstadoCluster, NivelAlertaCluster
 from app.memory.hybrid_memory import memory_system
 from app.config.settings import settings
+from app.nlp.ner_engine import ner_engine
+from app.nlp.clustering import clustering_engine
 
 class AgentExecutionService:
     """
@@ -82,6 +84,7 @@ class AgentExecutionService:
             "speech": final_state.resultado_speech,
             "nlp": final_state.resultado_nlp,
             "correlation": final_state.resultado_correlacion,
+            "cluster": final_state.resultado_cluster,
             "osint": final_state.resultado_osint,
             "risk": final_state.resultado_riesgo,
             "seal": final_state.resultado_seal,
@@ -120,6 +123,15 @@ class AgentExecutionService:
         # Guardar nivel de riesgo
         if final_state.nivel_riesgo:
             denuncia.nivel_riesgo = NivelRiesgoDB(final_state.nivel_riesgo.value)
+        
+        # Guardar entidades NER y zona detectada
+        if final_state.resultado_cluster:
+            denuncia.nlp_entities_json = final_state.resultado_cluster
+            if final_state.zona_detectada:
+                denuncia.zona_detectada = final_state.zona_detectada
+        
+        # Asignar a clúster (post-grafo)
+        await self._asignar_cluster(denuncia)
         
         # Actualizar estado denuncia
         denuncia.estado = self._mapear_estado_final(final_state)
@@ -168,6 +180,89 @@ class AgentExecutionService:
         await self.db.commit()
         return 1
     
+    async def _asignar_cluster(self, denuncia: Denuncia):
+        """
+        Busca si la denuncia encaja en un clúster existente.
+        Si no, crea uno nuevo si hay suficientes denuncias similares.
+        """
+        from sqlalchemy import select
+        
+        # Obtener todas las denuncias con entidades NER
+        result = await self.db.execute(
+            select(Denuncia).where(Denuncia.nlp_entities_json.isnot(None))
+        )
+        todas_denuncias = result.scalars().all()
+        
+        if len(todas_denuncias) < 3:
+            return
+        
+        # Construir grafo y encontrar clusters
+        clustering_engine.build_graph(todas_denuncias)
+        active_clusters = clustering_engine.find_active_clusters()
+        
+        # Para cada componente conectada, asegurar que existe un Cluster en DB
+        for component in active_clusters:
+            if len(component) < 3:
+                continue
+            
+            # Buscar si ya existe un cluster con estas denuncias
+            denuncia_ids = set(component)
+            existing_cluster = None
+            for d_id in component:
+                d_obj = await self.db.execute(select(Denuncia).where(Denuncia.id == d_id))
+                d_row = d_obj.scalar_one_or_none()
+                if d_row and d_row.cluster_id:
+                    existing_cluster = d_row.cluster_id
+                    break
+            
+            if existing_cluster:
+                # Actualizar cluster existente
+                cluster_obj = await self.db.execute(select(Cluster).where(Cluster.id == existing_cluster))
+                cluster = cluster_obj.scalar_one_or_none()
+                if cluster:
+                    profile = clustering_engine.calculate_cluster_profile(component)
+                    cluster.total_denuncias = profile.get("total_denuncias", 0)
+                    cluster.zona_principal = profile.get("zona_principal")
+                    cluster.monto_min = str(profile.get("monto_min")) if profile.get("monto_min") else None
+                    cluster.monto_max = str(profile.get("monto_max")) if profile.get("monto_max") else None
+                    cluster.cuentas_detectadas = profile.get("cuentas_detectadas")
+                    cluster.jerga_frecuente = profile.get("jerga_frecuente")
+                    cluster.metodos_violencia = profile.get("metodos_violencia")
+                    cluster.nivel_alerta = NivelAlertaCluster(profile.get("nivel_alerta", "bajo"))
+                    # Asignar cluster_id a denuncias sin cluster
+                    for d_id in component:
+                        d_obj = await self.db.execute(select(Denuncia).where(Denuncia.id == d_id))
+                        d_row = d_obj.scalar_one_or_none()
+                        if d_row and not d_row.cluster_id:
+                            d_row.cluster_id = cluster.id
+            else:
+                # Crear nuevo cluster
+                profile = clustering_engine.calculate_cluster_profile(component)
+                codigo = clustering_engine.generar_codigo_cluster()
+                nuevo_cluster = Cluster(
+                    codigo=codigo,
+                    zona_principal=profile.get("zona_principal"),
+                    estado=EstadoCluster.activo,
+                    nivel_alerta=NivelAlertaCluster(profile.get("nivel_alerta", "bajo")),
+                    total_denuncias=profile.get("total_denuncias", 0),
+                    monto_min=str(profile.get("monto_min")) if profile.get("monto_min") else None,
+                    monto_max=str(profile.get("monto_max")) if profile.get("monto_max") else None,
+                    cuentas_detectadas=profile.get("cuentas_detectadas"),
+                    jerga_frecuente=profile.get("jerga_frecuente"),
+                    metodos_violencia=profile.get("metodos_violencia"),
+                    primera_denuncia=profile.get("primera_denuncia"),
+                    ultima_denuncia=profile.get("ultima_denuncia"),
+                )
+                self.db.add(nuevo_cluster)
+                await self.db.flush()  # Para obtener el ID
+                for d_id in component:
+                    d_obj = await self.db.execute(select(Denuncia).where(Denuncia.id == d_id))
+                    d_row = d_obj.scalar_one_or_none()
+                    if d_row:
+                        d_row.cluster_id = nuevo_cluster.id
+        
+        await self.db.commit()
+
     def _mapear_estado_final(self, state: AgenteState) -> EstadoDenuncia:
         if state.resultado_alerta and state.resultado_alerta.get("alerta_generada"):
             return EstadoDenuncia.alerta_generada

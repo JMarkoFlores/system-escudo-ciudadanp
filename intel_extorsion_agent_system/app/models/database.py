@@ -22,6 +22,17 @@ class NivelRiesgo(str, enum.Enum):
     alto = "alto"
     critico = "critico"
 
+class EstadoCluster(str, enum.Enum):
+    activo = "activo"
+    inactivo = "inactivo"
+    resuelto = "resuelto"
+
+class NivelAlertaCluster(str, enum.Enum):
+    bajo = "bajo"
+    medio = "medio"
+    alto = "alto"
+    critico = "critico"
+
 class Denuncia(Base):
     __tablename__ = "denuncias"
 
@@ -38,6 +49,8 @@ class Denuncia(Base):
     url_archivo = Column(String, nullable=True)
     hash_archivo = Column(String, nullable=True)
     metadata_json = Column(JSONB, nullable=True)
+    nlp_entities_json = Column(JSONB, nullable=True)
+    zona_detectada = Column(String(100), nullable=True)
     tracking_code = Column(String(20), nullable=True, index=True)
     seal_tx_hash = Column(String(100), nullable=True)
     seal_block = Column(Integer, nullable=True)
@@ -47,6 +60,8 @@ class Denuncia(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     procesado_at = Column(DateTime(timezone=True), nullable=True)
 
+    cluster_id = Column(Integer, ForeignKey("clusters.id", ondelete="SET NULL"), nullable=True)
+    cluster = relationship("Cluster", back_populates="denuncias")
     resultados = relationship("ResultadoAgente", back_populates="denuncia", cascade="all, delete-orphan")
     alertas = relationship("Alerta", back_populates="denuncia", cascade="all, delete-orphan")
 
@@ -78,6 +93,37 @@ class Alerta(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     denuncia = relationship("Denuncia", back_populates="alertas")
+
+class Cluster(Base):
+    __tablename__ = "clusters"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    codigo = Column(String(20), unique=True, nullable=False)
+    zona_principal = Column(String(100), nullable=True)
+    estado = Column(Enum(EstadoCluster), nullable=False, default=EstadoCluster.activo)
+    nivel_alerta = Column(Enum(NivelAlertaCluster), nullable=False, default=NivelAlertaCluster.bajo)
+    total_denuncias = Column(Integer, default=0, nullable=False)
+    monto_min = Column(String(50), nullable=True)
+    monto_max = Column(String(50), nullable=True)
+    cuentas_detectadas = Column(JSONB, nullable=True)
+    jerga_frecuente = Column(JSONB, nullable=True)
+    metodos_violencia = Column(JSONB, nullable=True)
+    telefonos_detectados = Column(JSONB, nullable=True)
+    primera_denuncia = Column(DateTime(timezone=True), nullable=True)
+    ultima_denuncia = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+
+    denuncias = relationship("Denuncia", back_populates="cluster")
+
+class DenunciaCluster(Base):
+    __tablename__ = "denuncia_cluster"
+
+    denuncia_id = Column(UUID(as_uuid=True), ForeignKey("denuncias.id", ondelete="CASCADE"), primary_key=True)
+    cluster_id = Column(Integer, ForeignKey("clusters.id", ondelete="CASCADE"), primary_key=True)
+    score_vinculo = Column(Integer, default=0, nullable=False)
+    vectores_comunes = Column(JSONB, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
 class MemoriaConversacional(Base):
     __tablename__ = "memoria_conversacional"

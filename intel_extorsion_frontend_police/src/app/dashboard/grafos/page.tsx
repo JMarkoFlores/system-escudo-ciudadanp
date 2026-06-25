@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useAppStore } from '@/stores/appStore';
 import { graphService } from '@/services/api';
@@ -9,7 +9,7 @@ import { CriminalGraph } from '@/types';
 const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), { ssr: false });
 
 export default function GrafosPage() {
-  const { grafoActivo, setGrafoActivo } = useAppStore();
+  const { grafoActivo, setGrafoActivo, clusters, setClusters } = useAppStore();
   const [loading, setLoading] = useState(true);
   const [selectedNode, setSelectedNode] = useState<any>(null);
 
@@ -19,7 +19,7 @@ export default function GrafosPage() {
         const { data } = await graphService.obtener();
         setGrafoActivo(data);
       } catch {
-        // Demo data
+        // Demo data fallback
         const demo: CriminalGraph = {
           nodes: [
             { id: 'd1', label: 'Denuncia #1024', group: 'denunciante', val: 4 },
@@ -117,6 +117,22 @@ export default function GrafosPage() {
         <div className="bg-white border rounded-xl p-4 shadow-sm">
           <h4 className="font-semibold text-slate-800">{selectedNode.label}</h4>
           <p className="text-xs text-slate-500 capitalize">Tipo: {selectedNode.group}</p>
+          {selectedNode.metadata && (
+            <div className="mt-2 text-xs space-y-1">
+              {selectedNode.metadata.zona_principal && (
+                <p><strong>Zona:</strong> {selectedNode.metadata.zona_principal}</p>
+              )}
+              {selectedNode.metadata.nivel_alerta && (
+                <p><strong>Nivel:</strong> {selectedNode.metadata.nivel_alerta}</p>
+              )}
+              {selectedNode.metadata.total_denuncias !== undefined && (
+                <p><strong>Denuncias:</strong> {selectedNode.metadata.total_denuncias}</p>
+              )}
+              {selectedNode.metadata.monto_min && (
+                <p><strong>Monto:</strong> {selectedNode.metadata.monto_min} - {selectedNode.metadata.monto_max}</p>
+              )}
+            </div>
+          )}
           <pre className="text-xs bg-slate-50 p-2 rounded mt-2 overflow-auto">{JSON.stringify(selectedNode, null, 2)}</pre>
         </div>
       )}

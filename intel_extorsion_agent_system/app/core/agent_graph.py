@@ -16,6 +16,7 @@ from app.prompts.system_prompts import AGENT_PROMPTS
 from app.tools.shared_tools import AGENT_TOOLS
 from app.agents.seal_agent import node_seal
 from app.agents.respond_agent import node_respond
+from app.nlp.ner_engine import ner_engine
 
 # ==========================================
 # LLM Configuración (Lazy)
@@ -206,6 +207,34 @@ async def node_correlation(state: AgenteState) -> Dict[str, Any]:
     
     return {"resultado_correlacion": result}
 
+async def node_cluster(state: AgenteState) -> Dict[str, Any]:
+    """
+    NODO 5.5: Cluster / NLP Forense Agent
+    Extrae entidades forenses y detecta zonas usando NER especializado.
+    Se ejecuta entre correlation y osint.
+    """
+    if "cluster" in state.saltar_agentes:
+        return {"resultado_cluster": None}
+    
+    # Consolidar texto de todas las fuentes
+    textos = []
+    if state.contenido_raw:
+        textos.append(state.contenido_raw)
+    if state.resultado_ocr:
+        textos.append(state.resultado_ocr.get("texto_extraido", ""))
+    if state.resultado_speech:
+        textos.append(state.resultado_speech.get("transcripcion", ""))
+    
+    texto_completo = "\n".join(textos) if textos else ""
+    
+    # Ejecutar NER forense
+    ner_result = ner_engine.extract_entities(texto_completo)
+    
+    return {
+        "resultado_cluster": ner_result,
+        "zona_detectada": ner_result.get("zona_detectada"),
+    }
+
 async def node_osint(state: AgenteState) -> Dict[str, Any]:
     """
     NODO 6: OSINT Agent
@@ -353,6 +382,7 @@ workflow.add_node("ocr", node_ocr)
 workflow.add_node("speech", node_speech)
 workflow.add_node("nlp", node_nlp)
 workflow.add_node("correlation", node_correlation)
+workflow.add_node("cluster", node_cluster)
 workflow.add_node("osint", node_osint)
 workflow.add_node("risk", node_risk)
 workflow.add_node("seal", node_seal)
@@ -383,8 +413,9 @@ workflow.add_edge("speech", "nlp")
 # Desde NLP -> Correlation
 workflow.add_edge("nlp", "correlation")
 
-# Desde Correlation -> OSINT
-workflow.add_edge("correlation", "osint")
+# Desde Correlation -> Cluster -> OSINT
+workflow.add_edge("correlation", "cluster")
+workflow.add_edge("cluster", "osint")
 
 # Desde OSINT -> Risk
 workflow.add_edge("osint", "risk")

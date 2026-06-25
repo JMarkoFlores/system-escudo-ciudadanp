@@ -23,15 +23,20 @@ from app.schemas.agent_schemas import (
     HealthCheckResponse
 )
 from app.models.db_session import get_db, init_db
-from app.models.database import Denuncia, ResultadoAgente, Alerta
+from app.models.database import Denuncia, ResultadoAgente, Alerta, Cluster
 from app.services.agent_service import AgentExecutionService
 from app.memory.hybrid_memory import memory_system
+from app.api.clusters_router import router as clusters_router
+from app.api.heatmap_router import router as heatmap_router
 
 app = FastAPI(
     title="IntelExtorsión - Agent System API",
     description="Subsistema de Agentes Autónomos para análisis de denuncias de extorsión",
     version="1.0.0"
 )
+
+app.include_router(clusters_router)
+app.include_router(heatmap_router)
 
 # CORS
 app.add_middleware(
@@ -552,6 +557,74 @@ async def dashboard_push(payload: dict):
     """
     # En producción: reenviar via SSE o WebSocket a clientes conectados
     return JSONResponse({"status": "received", "tipo": payload.get("tipo")})
+
+
+# ==========================================
+# Grafos Criminales (Clusters)
+# ==========================================
+
+@app.get("/v1/grafos/criminal")
+async def obtener_grafo_criminal(
+    denuncia_id: Optional[uuid.UUID] = Query(None, description="Centrar grafo en una denuncia específica"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Devuelve el grafo de red criminal basado en clusters reales.
+    Nodos: clústeres (grandes) y denuncias (pequeñas).
+    Aristas: pertenencia de denuncia a clúster.
+    """
+    from app.nlp.clustering import clustering_engine
+    from sqlalchemy.orm import selectinload
+    
+    result = await db.execute(select(Cluster).options(selectinload(Cluster.denuncias)))
+    clusters = result.scalars().all()
+    
+    nodes = []
+    links = []
+    
+    for cluster in clusters:
+        # Nodo cluster (grande)
+        nodes.append({
+            "id": f"cluster-{cluster.id}",
+            "label": cluster.codigo,
+            "group": "caso",
+            "val": max(6, cluster.total_denuncias * 2),
+            "metadata": {
+                "zona_principal": cluster.zona_principal,
+                "nivel_alerta": cluster.nivel_alerta.value if cluster.nivel_alerta else None,
+                "total_denuncias": cluster.total_denuncias,
+                "monto_min": cluster.monto_min,
+                "monto_max": cluster.monto_max,
+            }
+        })
+        
+        for d in cluster.denuncias:
+            node_id = f"denuncia-{d.id}"
+            # Evitar duplicados de denuncias
+            if not any(n["id"] == node_id for n in nodes):
+                nodes.append({
+                    "id": node_id,
+                    "label": f"Denuncia {d.tracking_code or str(d.id)[:8]}",
+                    "group": "denunciante",
+                    "val": 3,
+                    "metadata": {
+                        "canal": d.canal,
+                        "nivel_riesgo": d.nivel_riesgo.value if d.nivel_riesgo else None,
+                        "zona": d.zona_detectada,
+                    }
+                })
+            
+            links.append({
+                "source": node_id,
+                "target": f"cluster-{cluster.id}",
+                "label": "pertenece"
+            })
+    
+    # Si no hay clusters, devolver datos mínimos para que el frontend no rompa
+    if not nodes:
+        nodes = [{"id": "empty", "label": "Sin datos", "group": "caso", "val": 1}]
+    
+    return {"nodes": nodes, "links": links}
 
 
 # Background Task Wrapper
