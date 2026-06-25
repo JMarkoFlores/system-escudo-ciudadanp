@@ -475,14 +475,14 @@ async def obtener_metricas(db: AsyncSession = Depends(get_db)):
     Devuelve métricas agregadas para el dashboard policial.
     """
     from sqlalchemy import func, cast, Date
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
 
     # Total denuncias
     total_result = await db.execute(select(func.count(Denuncia.id)))
     total_denuncias = total_result.scalar() or 0
 
     # Denuncias hoy
-    hoy = datetime.utcnow().date()
+    hoy = datetime.now(timezone.utc).date()
     hoy_result = await db.execute(
         select(func.count(Denuncia.id)).where(
             cast(Denuncia.created_at, Date) == hoy

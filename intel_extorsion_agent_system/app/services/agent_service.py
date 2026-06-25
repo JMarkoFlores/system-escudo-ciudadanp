@@ -5,7 +5,7 @@ import uuid
 import time
 import json
 from typing import Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -123,7 +123,7 @@ class AgentExecutionService:
         
         # Actualizar estado denuncia
         denuncia.estado = self._mapear_estado_final(final_state)
-        denuncia.procesado_at = datetime.utcnow()
+        denuncia.procesado_at = datetime.now(timezone.utc)
         await self.db.commit()
         
         # Generar alerta en DB si aplica

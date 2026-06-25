@@ -180,7 +180,15 @@ export default function DetalleDenunciaPage() {
                 <div className="flex justify-between border-b pb-2">
                   <span className="text-slate-400">Fecha de Registro:</span>
                   <span className="font-medium text-slate-800">
-                    {format(new Date(denuncia.created_at), "d 'de' MMMM, yyyy - HH:mm", { locale: es })}
+                    {(() => {
+                      const d = new Date(denuncia.created_at);
+                      const day = d.getDate();
+                      const month = d.toLocaleDateString('es-PE', { month: 'long' });
+                      const year = d.getFullYear();
+                      const hour = d.getHours().toString().padStart(2, '0');
+                      const minute = d.getMinutes().toString().padStart(2, '0');
+                      return `${day} de ${month}, ${year} - ${hour}:${minute}`;
+                    })()}
                   </span>
                 </div>
                 <div className="flex justify-between border-b pb-2">

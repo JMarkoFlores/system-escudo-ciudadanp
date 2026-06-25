@@ -3,7 +3,7 @@ Sistema de Memoria para Agentes (PostgreSQL + Qdrant)
 """
 from typing import List, Dict, Any, Optional
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
 from langchain_core.embeddings import Embeddings
@@ -123,7 +123,7 @@ class HybridMemory:
                 "denuncia_id": str(denuncia_id),
                 "texto": text,
                 "metadata": metadata,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
         )
         self.qdrant.upsert(

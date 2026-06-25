@@ -1,6 +1,6 @@
 import enum
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, Enum
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import declarative_base, relationship
@@ -44,8 +44,8 @@ class Denuncia(Base):
     seal_status = Column(String(50), nullable=True)
     nivel_riesgo = Column(Enum(NivelRiesgo), nullable=True)
     estado = Column(Enum(EstadoDenuncia), nullable=False, default=EstadoDenuncia.en_ingesta)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    procesado_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    procesado_at = Column(DateTime(timezone=True), nullable=True)
 
     resultados = relationship("ResultadoAgente", back_populates="denuncia", cascade="all, delete-orphan")
     alertas = relationship("Alerta", back_populates="denuncia", cascade="all, delete-orphan")
@@ -58,7 +58,7 @@ class ResultadoAgente(Base):
     agente = Column(String(50), nullable=False)
     resultado_json = Column(JSONB, nullable=False)
     exitoso = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     denuncia = relationship("Denuncia", back_populates="resultados")
 
@@ -75,7 +75,7 @@ class Alerta(Base):
     tx_hash = Column(String(100), nullable=True)
     leida = Column(Boolean, default=False, nullable=False)
     atendida = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     denuncia = relationship("Denuncia", back_populates="alertas")
 
@@ -87,4 +87,4 @@ class MemoriaConversacional(Base):
     role = Column(String(50), nullable=False)
     content = Column(String, nullable=False)
     tool_calls = Column(JSONB, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
