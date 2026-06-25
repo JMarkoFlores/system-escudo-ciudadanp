@@ -1,14 +1,15 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell,
 } from 'recharts';
-import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
 import { heatmapService } from '@/services/api';
 import { useAppStore } from '@/stores/appStore';
+
+const HeatmapMap = dynamic(() => import('./HeatmapMap'), { ssr: false });
 
 const serieData = [
   { fecha: 'Lun', denuncias: 12, alertas: 3, resueltos: 5 },
@@ -33,15 +34,6 @@ const riesgoData = [
   { name: 'Alto', value: 18, color: '#ef4444' },
   { name: 'Crítico', value: 7, color: '#7f1d1d' },
 ];
-
-const alertColor = (nivel: string) => {
-  switch (nivel) {
-    case 'critico': return '#7f1d1d';
-    case 'alto': return '#ef4444';
-    case 'medio': return '#f59e0b';
-    default: return '#22c55e';
-  }
-};
 
 export default function DashboardAnaliticoPage() {
   const { heatmapData, setHeatmapData } = useAppStore();
@@ -88,32 +80,7 @@ export default function DashboardAnaliticoPage() {
           <div className="h-96 flex items-center justify-center text-slate-400">Cargando mapa...</div>
         ) : (
           <div className="h-96 rounded-lg overflow-hidden border">
-            <MapContainer center={[-8.1, -79.05]} zoom={11} style={{ height: '100%', width: '100%' }}>
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              {heatmapData.map((punto, idx) => (
-                <CircleMarker
-                  key={idx}
-                  center={[punto.lat, punto.lng]}
-                  radius={12 + punto.intensidad * 20}
-                  fillColor={alertColor(punto.nivel_alerta_dominante)}
-                  color={alertColor(punto.nivel_alerta_dominante)}
-                  fillOpacity={0.6}
-                  weight={1}
-                >
-                  <Popup>
-                    <div className="text-sm">
-                      <strong>{punto.zona}</strong><br/>
-                      Denuncias: {punto.total_denuncias}<br/>
-                      Nivel: {punto.nivel_alerta_dominante}<br/>
-                      Tipo: {punto.tipo_zona}
-                    </div>
-                  </Popup>
-                </CircleMarker>
-              ))}
-            </MapContainer>
+            <HeatmapMap puntos={heatmapData} />
           </div>
         )}
       </div>
