@@ -53,6 +53,13 @@ export const alertaService = {
   listar: () => agentApi.get<Alerta[]>('/alertas'),
   obtenerPorDenuncia: (denunciaId: string) =>
     agentApi.get<{ alertas: Alerta[] }>(`/denuncias/${denunciaId}/alertas`),
+  marcarLeida: (alertaId: string) =>
+    agentApi.patch<Alerta>(`/alertas/${alertaId}?leida=true`),
+  atender: (alertaId: string, mensajeResolucion?: string, estadoDenuncia?: string) =>
+    agentApi.patch<Alerta>(`/alertas/${alertaId}?atendida=true`, {
+      mensaje_resolucion: mensajeResolucion,
+      estado_denuncia: estadoDenuncia,
+    }),
 };
 
 // Dashboard

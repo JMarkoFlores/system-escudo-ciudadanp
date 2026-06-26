@@ -389,6 +389,19 @@ function TrackingContent() {
                 </p>
               </div>
             )}
+
+            {/* CASO RESUELTO */}
+            {denuncia.estado === 'archivado' && (
+              <div className="bg-gradient-to-r from-green-950/40 to-emerald-950/40 border border-green-500/30 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/10 rounded-full blur-2xl pointer-events-none" />
+                <h3 className="text-lg font-bold mb-2 flex items-center text-green-400">
+                  <CheckCircle2 className="mr-2 text-green-400" size={20} /> Caso Resuelto
+                </h3>
+                <p className="text-slate-300 text-sm leading-relaxed">
+                  La Policía Nacional ha atendido y resuelto tu denuncia. El caso ha sido archivado con éxito. Agradecemos tu colaboración ciudadana.
+                </p>
+              </div>
+            )}
           </div>
         )}
       </main>

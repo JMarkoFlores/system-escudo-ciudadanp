@@ -6,10 +6,11 @@ import logging
 from typing import Optional, List
 import uuid
 from pathlib import Path
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
-from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, Query, UploadFile, File, Request
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, Query, UploadFile, File, Request, Body
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
@@ -23,7 +24,7 @@ from app.schemas.agent_schemas import (
     HealthCheckResponse
 )
 from app.models.db_session import get_db, init_db
-from app.models.database import Denuncia, ResultadoAgente, Alerta, Cluster
+from app.models.database import Denuncia, ResultadoAgente, Alerta, Cluster, EstadoDenuncia
 from app.services.agent_service import AgentExecutionService
 from app.memory.hybrid_memory import memory_system
 from app.api.clusters_router import router as clusters_router
@@ -520,7 +521,10 @@ async def obtener_alertas(
                 "nivel": a.nivel.value,
                 "titulo": a.titulo,
                 "descripcion": a.descripcion,
+                "recomendacion": a.recomendacion,
                 "leida": a.leida,
+                "atendida": a.atendida,
+                "metadata_json": a.metadata_json,
                 "created_at": a.created_at.isoformat()
             }
             for a in rows
@@ -560,10 +564,73 @@ async def listar_alertas(
             "recomendacion": a.recomendacion,
             "leida": a.leida,
             "atendida": a.atendida,
+            "metadata_json": a.metadata_json,
             "created_at": a.created_at.isoformat()
         }
         for a in rows
     ]
+
+@app.patch("/v1/alertas/{alerta_id}")
+async def actualizar_alerta(
+    alerta_id: uuid.UUID,
+    leida: Optional[bool] = None,
+    atendida: Optional[bool] = None,
+    data: dict = Body(default={}),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Actualiza el estado de lectura o atención de una alerta.
+    Body opcional:
+      - mensaje_resolucion: str  (mensaje del oficial sobre lo descubierto)
+      - estado_denuncia: str     (nuevo estado de la denuncia relacionada, ej: "archivado")
+    """
+    result = await db.execute(select(Alerta).where(Alerta.id == alerta_id))
+    alerta = result.scalar_one_or_none()
+    if not alerta:
+        raise HTTPException(status_code=404, detail="Alerta no encontrada")
+
+    if leida is not None:
+        alerta.leida = leida
+    if atendida is not None:
+        alerta.atendida = atendida
+
+    # Procesar body JSON
+    mensaje_resolucion = data.get("mensaje_resolucion")
+    estado_denuncia = data.get("estado_denuncia")
+
+    if mensaje_resolucion is not None:
+        meta = alerta.metadata_json or {}
+        meta["mensaje_resolucion"] = mensaje_resolucion
+        meta["atendida_por"] = "oficial"
+        meta["atendida_en"] = datetime.now(timezone.utc).isoformat()
+        alerta.metadata_json = meta
+
+    await db.commit()
+    await db.refresh(alerta)
+
+    # Actualizar estado de la denuncia relacionada si se solicitó
+    if estado_denuncia:
+        den_result = await db.execute(select(Denuncia).where(Denuncia.id == alerta.denuncia_id))
+        denuncia = den_result.scalar_one_or_none()
+        if denuncia:
+            try:
+                denuncia.estado = EstadoDenuncia(estado_denuncia)
+            except ValueError:
+                pass  # estado inválido, ignorar silenciosamente
+            await db.commit()
+
+    return {
+        "id": str(alerta.id),
+        "denuncia_id": str(alerta.denuncia_id),
+        "nivel": alerta.nivel.value,
+        "titulo": alerta.titulo,
+        "descripcion": alerta.descripcion,
+        "recomendacion": alerta.recomendacion,
+        "leida": alerta.leida,
+        "atendida": alerta.atendida,
+        "metadata_json": alerta.metadata_json,
+        "created_at": alerta.created_at.isoformat()
+    }
 
 # ==========================================
 # Dashboard - Métricas

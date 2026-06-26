@@ -13,6 +13,8 @@ interface AppState {
   alertasNoLeidas: number;
   setAlertas: (a: Alerta[]) => void;
   marcarAlertaLeida: (id: string) => void;
+  marcarAlertaAtendida: (id: string) => void;
+  actualizarAlertaLocal: (id: string, cambios: Partial<Alerta>) => void;
 
   // Dashboard
   metricas: MetricasDashboard | null;
@@ -56,7 +58,16 @@ export const useAppStore = create<AppState>((set) => ({
   marcarAlertaLeida: (id) =>
     set((state) => ({
       alertas: state.alertas.map((a) => (a.id === id ? { ...a, leida: true } : a)),
-      alertasNoLeidas: state.alertasNoLeidas - 1,
+      alertasNoLeidas: Math.max(0, state.alertasNoLeidas - 1),
+    })),
+  marcarAlertaAtendida: (id) =>
+    set((state) => ({
+      alertas: state.alertas.map((a) => (a.id === id ? { ...a, atendida: true } : a)),
+    })),
+  actualizarAlertaLocal: (id, cambios) =>
+    set((state) => ({
+      alertas: state.alertas.map((a) => (a.id === id ? { ...a, ...cambios } : a)),
+      alertasNoLeidas: state.alertas.filter((a) => !a.leida).length,
     })),
 
   metricas: null,

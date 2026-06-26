@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { denunciaService } from '@/services/api';
+import { denunciaService, alertaService } from '@/services/api';
 import { Denuncia } from '@/types';
 import {
   ArrowLeft,
@@ -58,6 +58,7 @@ export default function DetalleDenunciaPage() {
 
   const [archivos, setArchivos] = useState<Array<{index: number; path: string; filename: string; tipo: string; principal: boolean; existe?: boolean; mime?: string}>>([]);
   const [archivoActivo, setArchivoActivo] = useState(0);
+  const [alertasDenuncia, setAlertasDenuncia] = useState<any[]>([]);
 
   const fetchDenuncia = async () => {
     try {
@@ -69,6 +70,13 @@ export default function DetalleDenunciaPage() {
         setArchivos(archRes.data.archivos || []);
       } catch {
         setArchivos([]);
+      }
+      // Cargar alertas
+      try {
+        const alertRes = await alertaService.obtenerPorDenuncia(id);
+        setAlertasDenuncia(alertRes.data.alertas || []);
+      } catch {
+        setAlertasDenuncia([]);
       }
     } catch (e: any) {
       toast.error('Error al cargar los detalles de la denuncia');
@@ -176,6 +184,17 @@ export default function DetalleDenunciaPage() {
           {processing ? 'Procesando...' : 'Re-analizar Caso'}
         </button>
       </div>
+
+      {/* Banner Caso Resuelto */}
+      {denuncia.estado === 'archivado' && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center space-x-3 shadow-sm">
+          <CheckCircle2 size={24} className="text-green-600 shrink-0" />
+          <div>
+            <h2 className="font-semibold text-green-800 text-sm">Caso Resuelto y Archivado</h2>
+            <p className="text-xs text-green-700">Esta denuncia ha sido atendida por la unidad policial y marcada como resuelta.</p>
+          </div>
+        </div>
+      )}
 
       {/* Overview Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -661,6 +680,32 @@ export default function DetalleDenunciaPage() {
               </div>
             )}
           </div>
+
+          {/* Resoluciones de Alertas */}
+          {alertasDenuncia.some((a) => a.atendida && a.metadata_json?.mensaje_resolucion) && (
+            <div className="bg-white border rounded-xl shadow-sm p-6">
+              <h2 className="text-base font-semibold text-slate-800 mb-4 flex items-center">
+                <CheckCircle2 size={18} className="mr-2 text-green-500" /> Resoluciones Oficiales
+              </h2>
+              <div className="space-y-3">
+                {alertasDenuncia
+                  .filter((a) => a.atendida && a.metadata_json?.mensaje_resolucion)
+                  .map((a, idx) => (
+                    <div key={idx} className="bg-green-50 border border-green-100 rounded-lg p-4">
+                      <p className="text-xs font-semibold text-green-800 mb-1">
+                        Alerta: {a.titulo}
+                      </p>
+                      <p className="text-sm text-green-900 whitespace-pre-wrap">
+                        {a.metadata_json.mensaje_resolucion}
+                      </p>
+                      <p className="text-[10px] text-green-600 mt-2">
+                        Atendida {a.metadata_json?.atendida_en ? new Date(a.metadata_json.atendida_en as string).toLocaleString() : ''}
+                      </p>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

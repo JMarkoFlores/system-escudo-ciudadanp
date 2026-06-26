@@ -33,6 +33,7 @@ export interface Alerta {
   recomendacion?: string;
   leida: boolean;
   atendida: boolean;
+  metadata_json?: Record<string, unknown> | null;
   created_at: string;
 }
 

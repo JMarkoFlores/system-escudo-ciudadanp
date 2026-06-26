@@ -90,6 +90,7 @@ class Alerta(Base):
     tx_hash = Column(String(100), nullable=True)
     leida = Column(Boolean, default=False, nullable=False)
     atendida = Column(Boolean, default=False, nullable=False)
+    metadata_json = Column(JSONB, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     denuncia = relationship("Denuncia", back_populates="alertas")
