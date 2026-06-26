@@ -92,6 +92,7 @@ services:
       - intel_extorsion_network
     volumes:
       - ./intel_extorsion_agent_system/app:/app/app:ro
+      - evidencias_data:/app/uploads/evidencias
 
   # ----------------------------------------------------------
   # SUBSISTEMA WEB3
@@ -186,6 +187,7 @@ services:
 volumes:
   postgres_data:
   qdrant_data:
+  evidencias_data:
 
 networks:
   intel_extorsion_network:

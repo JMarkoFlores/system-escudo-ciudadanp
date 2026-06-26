@@ -32,6 +32,20 @@ export const denunciaService = {
 
   buscarSemantica: (q: string, limit?: number) =>
     agentApi.get('/busqueda/semantica', { params: { q, limit } }),
+
+  listarArchivos: (id: string) =>
+    agentApi.get<{
+      denuncia_id: string;
+      total_archivos: number;
+      archivos: Array<{
+        index: number;
+        path: string;
+        filename: string;
+        tipo: string;
+        principal: boolean;
+        existe: boolean;
+      }>;
+    }>(`/denuncias/${id}/archivos`),
 };
 
 // Alertas

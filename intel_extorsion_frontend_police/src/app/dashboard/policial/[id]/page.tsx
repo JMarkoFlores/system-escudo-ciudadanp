@@ -22,6 +22,8 @@ import {
   Image as ImageIcon,
   Play,
   RotateCw,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -54,10 +56,20 @@ export default function DetalleDenunciaPage() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
 
+  const [archivos, setArchivos] = useState<Array<{index: number; path: string; filename: string; tipo: string; principal: boolean; existe?: boolean; mime?: string}>>([]);
+  const [archivoActivo, setArchivoActivo] = useState(0);
+
   const fetchDenuncia = async () => {
     try {
       const { data } = await denunciaService.obtener(id);
       setDenuncia(data);
+      // Cargar archivos adicionales
+      try {
+        const archRes = await denunciaService.listarArchivos(id);
+        setArchivos(archRes.data.archivos || []);
+      } catch {
+        setArchivos([]);
+      }
     } catch (e: any) {
       toast.error('Error al cargar los detalles de la denuncia');
     } finally {
@@ -278,7 +290,7 @@ export default function DetalleDenunciaPage() {
                                 <div className="flex flex-wrap gap-1 font-sans">
                                   {res.entidades_detectadas.map((ent: any, i: number) => (
                                     <span key={i} className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] border">
-                                      {ent.entity}: {ent.text}
+                                      {ent.tipo || ent.entity}: {ent.valor || ent.text}
                                     </span>
                                   ))}
                                 </div>
@@ -327,7 +339,7 @@ export default function DetalleDenunciaPage() {
                                   {res.telefonos.map((tel: any, i: number) => (
                                     <div key={i} className="flex justify-between max-w-md border-b pb-1 font-mono text-xs">
                                       <span className="font-semibold">{tel.numero}</span>
-                                      <span className="text-slate-400 text-[10px]">({tel.compania || 'Compañía No Identificada'})</span>
+                                      <span className="text-slate-400 text-[10px]">({tel.riesgo || tel.compania || 'Riesgo No Identificado'})</span>
                                     </div>
                                   ))}
                                 </div>
@@ -358,7 +370,7 @@ export default function DetalleDenunciaPage() {
                                 <div className="flex flex-wrap gap-1 font-sans">
                                   {res.correlaciones.map((corr: any, i: number) => (
                                     <span key={i} className="bg-orange-50 text-orange-800 border border-orange-200 px-2 py-0.5 rounded text-[10px]">
-                                      ID: {corr.denuncia_id_relacionada.slice(0,8)} (Similitud: {corr.similitud !== undefined ? `${(corr.similitud * 100).toFixed(0)}%` : 'N/A'})
+                                      ID: {(corr.denuncia_relacionada_id || corr.denuncia_id_relacionada || 'N/A').toString().slice(0,8)} (Similitud: {(corr.score_similitud ?? corr.similitud) !== undefined ? `${(((corr.score_similitud ?? corr.similitud) || 0) * 100).toFixed(0)}%` : 'N/A'})
                                     </span>
                                   ))}
                                 </div>
@@ -420,32 +432,159 @@ export default function DetalleDenunciaPage() {
           <div className="bg-white border rounded-xl shadow-sm p-6">
             <h2 className="text-base font-semibold text-slate-800 mb-4 flex items-center">
               <ImageIcon size={18} className="mr-2 text-slate-500" /> Archivo de Evidencia
+              {archivos.length > 1 && (
+                <span className="ml-2 text-xs font-normal text-slate-400">
+                  ({archivoActivo + 1} / {archivos.length})
+                </span>
+              )}
             </h2>
-            {denuncia.url_archivo ? (
+
+            {archivos.length > 0 ? (
               <div className="space-y-4">
-                <div className="border rounded-lg overflow-hidden bg-slate-50 p-2 flex items-center justify-center min-h-[150px]">
-                  {denuncia.tipo_contenido === 'imagen' ? (
-                    <img
-                      src={`http://localhost:8000/v1/denuncias/${denuncia.id}/archivo`}
-                      alt="Captura de evidencia"
-                      className="max-h-[250px] object-contain rounded border shadow-sm"
-                    />
-                  ) : denuncia.tipo_contenido === 'audio' ? (
-                    <div className="w-full p-4 flex flex-col items-center justify-center space-y-3">
-                      <FileAudio size={48} className="text-blue-500 animate-pulse" />
-                      <span className="text-xs text-slate-500">Nota de voz grabada de extorsión</span>
-                      <audio
-                        src={`http://localhost:8000/v1/denuncias/${denuncia.id}/archivo`}
-                        controls
-                        className="w-full mt-2"
-                      />
-                    </div>
-                  ) : (
-                    <div className="text-center p-4">
-                      <FileText size={36} className="text-slate-400 mx-auto mb-2" />
-                      <span className="text-xs text-slate-500 break-all">{denuncia.url_archivo.split('/').pop()}</span>
+                {/* Main Viewer */}
+                <div className="border rounded-lg overflow-hidden bg-slate-50 p-2 flex items-center justify-center min-h-[150px] relative">
+                  {(() => {
+                    const activo = archivos[archivoActivo];
+                    const tipo = (activo?.tipo || '').toLowerCase();
+                    const src = `http://localhost:8000/v1/denuncias/${denuncia.id}/archivo?index=${activo?.index ?? 0}`;
+
+                    if (tipo === 'imagen' || tipo === 'image' || tipo === 'mixto') {
+                      return (
+                        <img
+                          src={src}
+                          alt="Captura de evidencia"
+                          className="max-h-[250px] object-contain rounded border shadow-sm"
+                        />
+                      );
+                    }
+                    if (tipo === 'audio' || tipo === 'voice') {
+                      return (
+                        <div className="w-full p-4 flex flex-col items-center justify-center space-y-3">
+                          <FileAudio size={48} className="text-blue-500 animate-pulse" />
+                          <span className="text-xs text-slate-500">Nota de voz grabada de extorsión</span>
+                          <audio src={src} controls className="w-full mt-2" />
+                        </div>
+                      );
+                    }
+                    if (tipo === 'video') {
+                      return (
+                        <video
+                          src={src}
+                          controls
+                          className="max-h-[250px] w-full rounded border shadow-sm"
+                        />
+                      );
+                    }
+                    return (
+                      <div className="text-center p-4">
+                        <FileText size={36} className="text-slate-400 mx-auto mb-2" />
+                        <span className="text-xs text-slate-500 break-all">{activo?.filename}</span>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Navigation Arrows */}
+                  {archivos.length > 1 && (
+                    <>
+                      <button
+                        onClick={() => setArchivoActivo((prev) => (prev > 0 ? prev - 1 : archivos.length - 1))}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-slate-600 p-1.5 rounded-full shadow border transition"
+                        aria-label="Anterior"
+                      >
+                        <ChevronLeft size={20} />
+                      </button>
+                      <button
+                        onClick={() => setArchivoActivo((prev) => (prev < archivos.length - 1 ? prev + 1 : 0))}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-slate-600 p-1.5 rounded-full shadow border transition"
+                        aria-label="Siguiente"
+                      >
+                        <ChevronRight size={20} />
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* Thumbnails Grid */}
+                {archivos.length > 1 && (
+                  <div className="grid grid-cols-5 gap-2">
+                    {archivos.map((arch, idx) => {
+                      const isActive = idx === archivoActivo;
+                      const thumbTipo = (arch.tipo || '').toLowerCase();
+                      const isImage = thumbTipo === 'imagen' || thumbTipo === 'image' || thumbTipo === 'mixto';
+                      return (
+                        <button
+                          key={arch.index}
+                          onClick={() => setArchivoActivo(idx)}
+                          className={`relative border rounded overflow-hidden h-16 flex items-center justify-center transition ${isActive ? 'ring-2 ring-blue-500 border-blue-500' : 'hover:border-slate-300 opacity-70 hover:opacity-100'}`}
+                        >
+                          {isImage ? (
+                            <img
+                              src={`http://localhost:8000/v1/denuncias/${denuncia.id}/archivo?index=${arch.index}`}
+                              alt={arch.filename}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center justify-center p-1">
+                              {thumbTipo === 'audio' || thumbTipo === 'voice' ? <FileAudio size={16} className="text-slate-400" /> : <FileText size={16} className="text-slate-400" />}
+                              <span className="text-[8px] text-slate-400 truncate max-w-full mt-0.5">{arch.filename}</span>
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* File Details */}
+                <div className="text-xs space-y-1 font-mono text-slate-600 border-t pt-3">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Nombre:</span>
+                    <span className="truncate max-w-[150px]" title={archivos[archivoActivo]?.filename || ''}>
+                      {archivos[archivoActivo]?.filename || 'Desconocido'}
+                    </span>
+                  </div>
+                  {denuncia.hash_archivo && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">SHA-256:</span>
+                      <span className="font-semibold text-blue-600" title={denuncia.hash_archivo}>
+                        {denuncia.hash_archivo.slice(0, 8)}...{denuncia.hash_archivo.slice(-8)}
+                      </span>
                     </div>
                   )}
+                </div>
+              </div>
+            ) : denuncia.url_archivo ? (
+              /* Fallback legacy single file */
+              <div className="space-y-4">
+                <div className="border rounded-lg overflow-hidden bg-slate-50 p-2 flex items-center justify-center min-h-[150px]">
+                {denuncia.tipo_contenido === 'imagen' || denuncia.tipo_contenido === 'mixto' ? (
+                  <img
+                    src={`http://localhost:8000/v1/denuncias/${denuncia.id}/archivo`}
+                    alt="Captura de evidencia"
+                    className="max-h-[250px] object-contain rounded border shadow-sm"
+                  />
+                ) : denuncia.tipo_contenido === 'audio' ? (
+                  <div className="w-full p-4 flex flex-col items-center justify-center space-y-3">
+                    <FileAudio size={48} className="text-blue-500 animate-pulse" />
+                    <span className="text-xs text-slate-500">Nota de voz grabada de extorsión</span>
+                    <audio
+                      src={`http://localhost:8000/v1/denuncias/${denuncia.id}/archivo`}
+                      controls
+                      className="w-full mt-2"
+                    />
+                  </div>
+                ) : denuncia.tipo_contenido === 'video' ? (
+                  <video
+                    src={`http://localhost:8000/v1/denuncias/${denuncia.id}/archivo`}
+                    controls
+                    className="max-h-[250px] w-full rounded border shadow-sm"
+                  />
+                ) : (
+                  <div className="text-center p-4">
+                    <FileText size={36} className="text-slate-400 mx-auto mb-2" />
+                    <span className="text-xs text-slate-500 break-all">{denuncia.url_archivo?.split('/').pop()}</span>
+                  </div>
+                )}
                 </div>
                 <div className="text-xs space-y-1 font-mono text-slate-600 border-t pt-3">
                   <div className="flex justify-between">

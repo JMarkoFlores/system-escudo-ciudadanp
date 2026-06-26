@@ -357,7 +357,7 @@ def router_post_intake(state: AgenteState) -> str:
         return "end"
     
     # Dependiendo del tipo de contenido, enrutar
-    if state.tipo_contenido in ["imagen", "documento"]:
+    if state.tipo_contenido in ["imagen", "documento", "mixto"]:
         return "ocr"
     elif state.tipo_contenido in ["audio", "video"]:
         return "speech"

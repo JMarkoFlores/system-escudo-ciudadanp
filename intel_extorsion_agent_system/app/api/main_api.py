@@ -241,10 +241,16 @@ async def listar_denuncias(
             created_at=d.created_at,
             resultados=[],
             tracking_code=d.tracking_code,
-            nivel_riesgo=d.nivel_riesgo,
+            nivel_riesgo=d.nivel_riesgo.value if d.nivel_riesgo else None,
             seal_tx_hash=d.seal_tx_hash,
             seal_block=d.seal_block,
-            seal_status=d.seal_status
+            seal_status=d.seal_status,
+            url_archivo=d.url_archivo,
+            contenido_raw=d.contenido_raw,
+            hash_archivo=d.hash_archivo,
+            metadata_json=d.metadata_json,
+            zona_detectada=d.zona_detectada,
+            did_denunciante=d.did_denunciante,
         )
         for d in rows
     ]
@@ -265,7 +271,11 @@ async def obtener_denuncia(
         .where(ResultadoAgente.denuncia_id == denuncia_id)
         .order_by(ResultadoAgente.created_at)
     )
-    resultados = [r.resultado_json for r in res_result.scalars().all()]
+    resultados = []
+    for r in res_result.scalars().all():
+        res_dict = dict(r.resultado_json) if r.resultado_json else {}
+        res_dict["agente"] = r.agente
+        resultados.append(res_dict)
     
     return DenunciaResponse(
         id=denuncia.id,
@@ -273,7 +283,18 @@ async def obtener_denuncia(
         estado=denuncia.estado.value,
         tipo_contenido=denuncia.tipo_contenido,
         created_at=denuncia.created_at,
-        resultados=resultados
+        resultados=resultados,
+        tracking_code=denuncia.tracking_code,
+        nivel_riesgo=denuncia.nivel_riesgo.value if denuncia.nivel_riesgo else None,
+        seal_tx_hash=denuncia.seal_tx_hash,
+        seal_block=denuncia.seal_block,
+        seal_status=denuncia.seal_status,
+        url_archivo=denuncia.url_archivo,
+        contenido_raw=denuncia.contenido_raw,
+        hash_archivo=denuncia.hash_archivo,
+        metadata_json=denuncia.metadata_json,
+        zona_detectada=denuncia.zona_detectada,
+        did_denunciante=denuncia.did_denunciante,
     )
 
 @app.get("/v1/denuncias/tracking/{tracking_code}")
@@ -298,7 +319,11 @@ async def obtener_denuncia_por_tracking(
         .where(ResultadoAgente.denuncia_id == denuncia.id)
         .order_by(ResultadoAgente.created_at)
     )
-    resultados = [r.resultado_json for r in res_result.scalars().all()]
+    resultados = []
+    for r in res_result.scalars().all():
+        res_dict = dict(r.resultado_json) if r.resultado_json else {}
+        res_dict["agente"] = r.agente
+        resultados.append(res_dict)
 
     return DenunciaResponse(
         id=denuncia.id,
@@ -311,7 +336,13 @@ async def obtener_denuncia_por_tracking(
         nivel_riesgo=denuncia.nivel_riesgo.value if denuncia.nivel_riesgo else None,
         seal_tx_hash=denuncia.seal_tx_hash,
         seal_block=denuncia.seal_block,
-        seal_status=denuncia.seal_status
+        seal_status=denuncia.seal_status,
+        url_archivo=denuncia.url_archivo,
+        contenido_raw=denuncia.contenido_raw,
+        hash_archivo=denuncia.hash_archivo,
+        metadata_json=denuncia.metadata_json,
+        zona_detectada=denuncia.zona_detectada,
+        did_denunciante=denuncia.did_denunciante,
     )
 
 @app.post("/v1/denuncias/{denuncia_id}/adjuntar", status_code=201)
@@ -385,28 +416,92 @@ async def obtener_resultados_agentes(
 @app.get("/v1/denuncias/{denuncia_id}/archivo")
 async def obtener_archivo_denuncia(
     denuncia_id: uuid.UUID,
+    index: int = 0,
     db: AsyncSession = Depends(get_db)
 ):
     """
     Retorna el archivo de evidencia adjunto a la denuncia.
+    index=0 -> archivo principal (url_archivo).
+    index>0 -> archivo adicional desde metadata_json['archivos_adicionales'][index-1].
     """
     from fastapi.responses import FileResponse
     import os
 
     result = await db.execute(select(Denuncia).where(Denuncia.id == denuncia_id))
     denuncia = result.scalar_one_or_none()
-    if not denuncia or not denuncia.url_archivo:
-        raise HTTPException(status_code=404, detail="Archivo de evidencia no encontrado o no registrado")
-    
-    if not os.path.exists(denuncia.url_archivo):
-        raise HTTPException(status_code=404, detail="El archivo no existe físicamente en el servidor")
-    
-    # Determinar el content type a partir de los metadatos o dejar que FastAPI lo deduzca
+    if not denuncia:
+        raise HTTPException(status_code=404, detail="Denuncia no encontrada")
+
+    file_path = None
     mime_type = None
-    if denuncia.metadata_json and "file_mime" in denuncia.metadata_json:
+
+    if index == 0:
+        file_path = denuncia.url_archivo
+    else:
+        adicionales = (denuncia.metadata_json or {}).get("archivos_adicionales", [])
+        if index - 1 >= len(adicionales):
+            raise HTTPException(status_code=404, detail="Índice de archivo adicional fuera de rango")
+        file_path = adicionales[index - 1].get("path")
+        mime_type = adicionales[index - 1].get("mime")
+
+    if not file_path:
+        raise HTTPException(status_code=404, detail="Archivo de evidencia no encontrado o no registrado")
+
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="El archivo no existe físicamente en el servidor")
+
+    # Determinar el content type a partir de los metadatos o dejar que FastAPI lo deduzca
+    if mime_type is None and denuncia.metadata_json and "file_mime" in denuncia.metadata_json:
         mime_type = denuncia.metadata_json["file_mime"]
-        
-    return FileResponse(denuncia.url_archivo, media_type=mime_type)
+
+    return FileResponse(file_path, media_type=mime_type)
+
+@app.get("/v1/denuncias/{denuncia_id}/archivos")
+async def listar_archivos_denuncia(
+    denuncia_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Lista todos los archivos de evidencia adjuntos a la denuncia
+    (archivo principal + archivos adicionales del batch).
+    """
+    result = await db.execute(select(Denuncia).where(Denuncia.id == denuncia_id))
+    denuncia = result.scalar_one_or_none()
+    if not denuncia:
+        raise HTTPException(status_code=404, detail="Denuncia no encontrada")
+
+    archivos = []
+
+    # Archivo principal
+    if denuncia.url_archivo:
+        import os
+        archivos.append({
+            "index": 0,
+            "path": denuncia.url_archivo,
+            "filename": os.path.basename(denuncia.url_archivo),
+            "tipo": denuncia.tipo_contenido,
+            "principal": True,
+            "existe": os.path.exists(denuncia.url_archivo),
+        })
+
+    # Archivos adicionales desde metadata
+    adicionales = (denuncia.metadata_json or {}).get("archivos_adicionales", [])
+    for i, adj in enumerate(adicionales, start=1):
+        archivos.append({
+            "index": i,
+            "path": adj.get("path"),
+            "filename": adj.get("filename") or os.path.basename(adj.get("path", "")),
+            "tipo": adj.get("tipo", "documento"),
+            "mime": adj.get("mime"),
+            "principal": False,
+            "existe": os.path.exists(adj.get("path", "")) if adj.get("path") else False,
+        })
+
+    return {
+        "denuncia_id": str(denuncia_id),
+        "total_archivos": len(archivos),
+        "archivos": archivos,
+    }
 
 @app.get("/v1/denuncias/{denuncia_id}/alertas")
 async def obtener_alertas(

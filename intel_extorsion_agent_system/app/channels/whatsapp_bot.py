@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import httpx
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 from app.config.settings import settings
 from app.schemas.agent_schemas import DenunciaIngestaRequest, CanalEntrada, TipoContenido
@@ -11,22 +11,31 @@ from app.services.stt_service import transcribe_audio
 
 logger = logging.getLogger(__name__)
 
+
 class WhatsAppBot:
     """
     Cliente de WhatsApp utilizando la pasarela de Whapi.cloud
     para procesar denuncias de extorsión, transcribir audios y ejecutar agentes de IA.
+
+    Soporte para múltiples imágenes/videos/audios agrupados en una sola denuncia
+    mediante batching temporal (3 segundos de ventana).
     """
-    
+
     def __init__(self, token: str):
         self.token = token
         self.api_url = "https://gate.whapi.cloud"
         self.http_client = httpx.AsyncClient(timeout=30.0)
         self.user_states: Dict[str, str] = {}  # chat_id -> 'idle' | 'waiting_for_denuncia'
-        
+        self.pending_batches: Dict[str, Dict[str, Any]] = {}  # chat_id -> {messages: [], timer: asyncio.Task | None}
+
     async def close(self):
         await self.http_client.aclose()
         logger.info("Cliente HTTP de WhatsAppBot cerrado.")
-        
+
+    # -----------------------------------------
+    # Envío de mensajes
+    # -----------------------------------------
+
     async def send_message(self, chat_id: str, text: str):
         """Envía un mensaje de texto de WhatsApp a un chat específico"""
         url = f"{self.api_url}/messages/text"
@@ -34,10 +43,7 @@ class WhatsAppBot:
             "Authorization": f"Bearer {self.token}",
             "Content-Type": "application/json"
         }
-        payload = {
-            "to": chat_id,
-            "body": text
-        }
+        payload = {"to": chat_id, "body": text}
         try:
             resp = await self.http_client.post(url, json=payload, headers=headers)
             if resp.status_code not in [200, 201]:
@@ -46,58 +52,130 @@ class WhatsAppBot:
                 logger.debug(f"Mensaje enviado con éxito a {chat_id}")
         except Exception as e:
             logger.error(f"Error HTTP al enviar mensaje a WhatsApp: {e}")
-            
+
+    # -----------------------------------------
+    # Descarga de archivos
+    # -----------------------------------------
+
+    async def download_media(self, media_id: str, dest_path: str) -> bool:
+        """Descarga un archivo multimedia desde Whapi.cloud y lo guarda localmente."""
+        url = f"{self.api_url}/media/{media_id}"
+        headers = {"Authorization": f"Bearer {self.token}"}
+        try:
+            resp = await self.http_client.get(url, headers=headers, follow_redirects=True)
+            if resp.status_code == 200:
+                import os
+                os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+                with open(dest_path, "wb") as f:
+                    f.write(resp.content)
+                return True
+            else:
+                logger.warning(f"Whapi download_media status {resp.status_code}: {resp.text[:200]}")
+        except Exception as e:
+            logger.error(f"Error al descargar media de Whapi: {e}")
+        return False
+
+    # -----------------------------------------
+    # Webhook principal
+    # -----------------------------------------
+
     async def process_webhook(self, data: dict):
-        """Procesa el JSON entrante del webhook de Whapi.cloud"""
-        print(f"[WhatsApp Webhook] Payload recibido: {data}", flush=True)
+        """Procesa el JSON entrante del webhook de Whapi.cloud."""
         messages = data.get("messages", [])
         if not messages:
-            print("[WhatsApp Webhook] No se encontraron mensajes en el payload.", flush=True)
             return
-            
+
         for msg in messages:
-            # Ignorar mensajes salientes enviados por el propio bot
             if msg.get("from_me") or msg.get("fromMe"):
-                print("[WhatsApp Webhook] Ignorando mensaje saliente (from_me=True).", flush=True)
                 continue
-                
-            print(f"[WhatsApp Webhook] Procesando mensaje: {msg}", flush=True)
+
+            chat_id = msg.get("chat_id") or msg.get("chatId")
+            if not chat_id or "@g.us" in chat_id:
+                continue
+
+            msg_type = msg.get("type", "text")
+
+            # Ignorar mensajes de tipo album (solo indicador de grupo de imágenes)
+            if msg_type == "album":
+                logger.info(f"[WhatsApp] Ignorando mensaje tipo 'album' de {chat_id}")
+                continue
+
+            # Ignorar tipos que no procesamos (sticker, action, unknown, etc.)
+            if msg_type not in ["text", "image", "audio", "voice", "document", "video"]:
+                continue
+
             try:
-                await self._process_message(msg)
+                await self._handle_incoming_message(msg)
             except Exception as ex:
-                print(f"[WhatsApp Webhook] Error al procesar mensaje: {ex}", flush=True)
-                logger.exception("Error en _process_message")
-            
-    async def _process_message(self, msg: dict):
+                logger.exception("Error en _handle_incoming_message")
+
+    # -----------------------------------------
+    # Batching temporal
+    # -----------------------------------------
+
+    async def _handle_incoming_message(self, msg: dict):
+        """
+        Decide si procesar inmediatamente o agregar a un batch temporal.
+        Mensajes con adjuntos se agrupan por chat durante 3 segundos.
+        """
         chat_id = msg.get("chat_id") or msg.get("chatId")
-        if not chat_id:
-            return
-            
-        # Ignorar mensajes de grupos para evitar spam
-        if "@g.us" in chat_id:
-            print(f"[WhatsApp Webhook] Ignorando mensaje de grupo: {chat_id}", flush=True)
-            return
-            
-        msg_id = msg.get("id")
         msg_type = msg.get("type", "text")
-        
-        # Obtener el texto del mensaje
-        text = ""
-        if msg_type == "text":
-            text = msg.get("text", {}).get("body", "")
-        else:
-            # Si tiene un caption/texto acompañando al archivo
-            text = msg.get("caption", "") or msg.get(msg_type, {}).get("caption", "") or ""
-            
-        text = text.strip()
+        has_attachment = msg_type in ["image", "audio", "voice", "document", "video"]
+
+        # Si es texto puro sin adjunto → procesar inmediatamente
+        if not has_attachment and msg_type == "text":
+            await self._process_single_message(msg)
+            return
+
+        # Si tiene adjunto → agregar al batch
+        batch = self.pending_batches.get(chat_id)
+        if batch is None:
+            batch = {"messages": [], "timer": None}
+            self.pending_batches[chat_id] = batch
+
+        batch["messages"].append(msg)
+
+        # Cancelar timer anterior si existe
+        if batch["timer"]:
+            batch["timer"].cancel()
+
+        # Programar procesamiento del batch en 3 segundos
+        async def _trigger():
+            await asyncio.sleep(3.0)
+            await self._flush_batch(chat_id)
+
+        batch["timer"] = asyncio.create_task(_trigger())
+        logger.info(f"[WhatsApp] Mensaje {msg_type} agregado a batch de {chat_id}. Total en batch: {len(batch['messages'])}")
+
+    async def _flush_batch(self, chat_id: str):
+        """Procesa el batch acumulado para un chat y lo limpia."""
+        batch = self.pending_batches.pop(chat_id, None)
+        if not batch or not batch["messages"]:
+            return
+
+        messages = batch["messages"]
+        logger.info(f"[WhatsApp] Procesando batch de {chat_id} con {len(messages)} mensaje(s)")
+
+        try:
+            await self._process_message_batch(chat_id, messages)
+        except Exception as e:
+            logger.exception(f"Error procesando batch de {chat_id}")
+            await self.send_message(chat_id, f"❌ Ocurrió un error inesperado al procesar tu denuncia: {str(e)}")
+
+    # -----------------------------------------
+    # Procesamiento de mensaje único (texto)
+    # -----------------------------------------
+
+    async def _process_single_message(self, msg: dict):
+        """Procesa un mensaje de texto individual (sin adjuntos)."""
+        chat_id = msg.get("chat_id") or msg.get("chatId")
+        text = msg.get("text", {}).get("body", "").strip()
         clean_text = text.lower().strip()
-        
-        # Recuperar estado de sesión del usuario
         chat_state = self.user_states.get(chat_id, 'idle')
-        
-        # Comando de ayuda o bienvenida (siempre disponible)
+
+        # Comandos globales
         if clean_text in ["!start", "!help", "help", "ayuda", "info", "/start", "/help"]:
-            welcome_msg = (
+            welcome = (
                 "🛡️ *Bienvenido al canal oficial de IntelExtorsión en WhatsApp*\n\n"
                 "Esta plataforma te permite registrar denuncias de extorsión de forma 100% anónima y segura.\n\n"
                 "✍️ *¿Cómo registrar tu denuncia?*\n"
@@ -107,206 +185,208 @@ class WhatsAppBot:
                 "• Envía el código de tu caso en formato `TRJ-XXXX` para consultar su estado actual.\n\n"
                 "Tus evidencias quedarán custodiadas inmutablemente con hash criptográfico en la blockchain zkSYS."
             )
-            await self.send_message(chat_id, welcome_msg)
+            await self.send_message(chat_id, welcome)
             return
 
-        # Comando de cancelación (siempre disponible)
         if clean_text in ["cancelar", "salir", "cancel", "/cancel"]:
             self.user_states[chat_id] = 'idle'
-            await self.send_message(
-                chat_id,
-                "❌ *Reporte cancelado.*\n\n"
-                "El asistente de ingesta ha sido desactivado y tu sesión se encuentra limpia. ¿Qué deseas hacer hoy? Puedes volver a iniciar escribiendo *denunciar*."
-            )
+            await self.send_message(chat_id, "❌ *Reporte cancelado.*\n\nEl asistente de ingesta ha sido desactivado. Escribe *denunciar* para comenzar.")
             return
 
-        # --- FLUJO ESTADO: IDLE ---
+        # --- IDLE ---
         if chat_state == 'idle':
-            if clean_text:
-                # A. Búsqueda y Tracking de Denuncias
-                if clean_text.startswith("trj-") or (len(clean_text) == 8 and clean_text.startswith("trj")):
-                    tracking_code = clean_text.upper()
-                    await self.send_message(chat_id, f"🔍 _Buscando estado de la denuncia {tracking_code}..._")
-                    try:
-                        async with AsyncSessionLocal() as db:
-                            from sqlalchemy import select
-                            from app.models.database import Denuncia
-                            result = await db.execute(
-                                select(Denuncia).where(Denuncia.tracking_code == tracking_code)
-                            )
-                            denuncia = result.scalar_one_or_none()
-                            if denuncia:
-                                nivel_riesgo_str = denuncia.nivel_riesgo.value.upper() if denuncia.nivel_riesgo else "PENDIENTE"
-                                msg_status = (
-                                    f"🎫 *Denuncia Encontrada:* `{tracking_code}`\n"
-                                    f"⚖️ *Nivel de Riesgo:* *{nivel_riesgo_str}*\n"
-                                    f"📋 *Estado del Expediente:* `{denuncia.estado.value.upper()}`\n\n"
-                                    f"Puedes auditar todo el historial de IA y blockchain en nuestro Portal de Tracking:\n"
-                                    f"http://localhost:3000/tracking?code={tracking_code}"
-                                )
-                                await self.send_message(chat_id, msg_status)
-                            else:
-                                await self.send_message(chat_id, f"❌ No se encontró ninguna denuncia con el código `{tracking_code}`. Verifica que esté bien escrito.")
-                    except Exception as e:
-                        logger.error(f"Error al rastrear denuncia {tracking_code}: {e}")
-                        await self.send_message(chat_id, f"❌ Ocurrió un error al buscar la denuncia: {str(e)}")
-                    return
+            if clean_text.startswith("trj-") or (len(clean_text) == 8 and clean_text.startswith("trj")):
+                tracking_code = clean_text.upper()
+                await self.send_message(chat_id, f"🔍 _Buscando estado de la denuncia {tracking_code}..._")
+                try:
+                    async with AsyncSessionLocal() as db:
+                        from sqlalchemy import select
+                        from app.models.database import Denuncia
+                        result = await db.execute(select(Denuncia).where(Denuncia.tracking_code == tracking_code))
+                        denuncia = result.scalar_one_or_none()
+                        if denuncia:
+                            nivel = denuncia.nivel_riesgo.value.upper() if denuncia.nivel_riesgo else "PENDIENTE"
+                            await self.send_message(chat_id, f"🎫 *Denuncia Encontrada:* `{tracking_code}`\n⚖️ *Nivel de Riesgo:* *{nivel}*\n📋 *Estado:* `{denuncia.estado.value.upper()}`")
+                        else:
+                            await self.send_message(chat_id, f"❌ No se encontró denuncia `{tracking_code}`.")
+                except Exception as e:
+                    logger.error(f"Error tracking: {e}")
+                    await self.send_message(chat_id, f"❌ Error al buscar: {str(e)}")
+                return
 
-                # B. Respuestas conversacionales (Saludos)
-                saludos = ["hola", "buenos dias", "buenas tardes", "buenas noches", "que tal", "buen dia", "hello", "hi", "saludos"]
-                if clean_text in saludos or any(s == clean_text for s in saludos) or clean_text in ["hola!", "hola."]:
-                    await self.send_message(
-                        chat_id,
-                        "👋 *¡Hola!* Estoy aquí para ayudarte a registrar tu reporte de extorsión de forma segura.\n\n"
-                        "Por favor, escribe *denunciar* o presiona el comando /denunciar para activar el asistente de ingesta."
-                    )
-                    return
-
-                # C. Activar Asistente
-                intencion_nueva = ["quiero denunciar", "hacer una denuncia", "hacer otra denuncia", "otra denuncia", "nueva denuncia", "registrar otra", "denunciar", "quiero reportar"]
-                if any(i in clean_text for i in intencion_nueva):
-                    self.user_states[chat_id] = 'waiting_for_denuncia'
-                    await self.send_message(
-                        chat_id,
-                        "📝 *Asistente de Ingesta Activado.*\n\n"
-                        "Por favor, descríbeme detalladamente los hechos *en tu siguiente mensaje*. Recuerda incluir:\n"
-                        "- Teléfonos desde donde te contactaron.\n"
-                        "- Nombres o cuentas bancarias de cobro si te las dieron.\n"
-                        "- Tipo de amenaza o exigencias de dinero.\n\n"
-                        "También puedes adjuntar imágenes o documentos de soporte. Si deseas abortar el proceso, escribe *cancelar*."
-                    )
-                    return
-
-            # Fallback en IDLE
-            await self.send_message(
-                chat_id,
-                "🤖 *Hola. Para poder registrar una denuncia formal de extorsión, primero debemos activar el asistente de ingesta.*\n\n"
-                "Por favor, escribe la palabra *denunciar* para comenzar."
-            )
-            return
-
-        # --- FLUJO ESTADO: WAITING_FOR_DENUNCIAS ---
-        tipo_contenido = TipoContenido.TEXTO
-        contenido_raw = text
-        url_archivo = None
-        
-        # Validar si contiene adjuntos
-        has_attachment = msg_type in ["image", "audio", "voice", "document", "video"]
-        
-        if text:
-            # Filtros conversacionales y de relleno en estado activo
             saludos = ["hola", "buenos dias", "buenas tardes", "buenas noches", "que tal", "buen dia", "hello", "hi", "saludos"]
-            intencionesPuras = [
-                "quiero denunciar", "quisiera hacer una denuncia", "hacer una denuncia", "hacer otra denuncia", 
-                "otra denuncia", "nueva denuncia", "registrar otra", "iniciar denuncia", "denunciar", 
-                "quiero hacer una denuncia", "quisiera denunciar", "quiero reportar", "quisiera reportar", 
-                "reportar una extorsion", "hacer un reporte", "quiero hacer un reporte", "ayuda por favor", 
-                "ayudeme", "quiero registrar una denuncia"
-            ]
-            frases_relleno = [
-                "esta bien", "está bien", "ahora te envio", "ahora te envío", "te envio lo necesario", 
-                "te envío lo necesario", "ya te envio", "ya te envío", "te lo envio", "te lo envío", 
-                "un momento", "un minuto", "un segundo", "espera", "esperame", "espérame", "listo", 
-                "ok", "okay", "entendido", "vale", "bien", "espera un momento", "ya te mando", 
-                "ahora te mando", "te mando lo necesario", "te lo mando", "voy a redactar", 
-                "te envio", "te envío", "te mando", "ahora te paso lo necesario", "ahora te paso",
-                "ya te lo envio", "ya te lo envío", "ya te lo paso"
-            ]
+            if clean_text in saludos or clean_text in ["hola!", "hola."]:
+                await self.send_message(chat_id, "👋 *¡Hola!* Escribe *denunciar* para activar el asistente de ingesta.")
+                return
 
-            es_saludo = clean_text in saludos or any(s == clean_text for s in saludos)
-            es_intencion = clean_text in intencionesPuras or any(i == clean_text for i in intencionesPuras) or \
-                           (any(i in clean_text for i in intencionesPuras) and len(clean_text) < 50 and not any(c.isdigit() for c in clean_text))
-            es_relleno = clean_text in frases_relleno or any(f == clean_text for f in frases_relleno) or \
-                         (any(clean_text.startswith(f) for f in frases_relleno) and len(clean_text) < 50 and not any(c.isdigit() for c in clean_text))
-
-            if (es_saludo or es_intencion or es_relleno) and not has_attachment:
+            intenciones = ["quiero denunciar", "hacer una denuncia", "hacer otra denuncia", "otra denuncia",
+                           "nueva denuncia", "registrar otra", "denunciar", "quiero reportar"]
+            if any(i in clean_text for i in intenciones):
+                self.user_states[chat_id] = 'waiting_for_denuncia'
                 await self.send_message(
                     chat_id,
-                    "📝 *Asistente Esperando Detalles.*\n\n"
-                    "⚠️ No detectamos detalles del hecho en tu mensaje.\n\n"
-                    "Por favor, redacta *en un único mensaje consolidado* todo lo sucedido cuando estés listo (incluyendo teléfonos, cuentas bancarias, amenazas), o envíanos un audio explicativo.\n\n"
-                    "*Si deseas cancelar el reporte actual, escribe **cancelar**.*"
+                    "📝 *Asistente de Ingesta Activado.*\n\n"
+                    "Por favor, descríbeme detalladamente los hechos *en tu siguiente mensaje*. "
+                    "Recuerda incluir teléfonos, cuentas bancarias, amenazas.\n\n"
+                    "También puedes adjuntar imágenes o documentos de soporte. Escribe *cancelar* para abortar."
                 )
                 return
 
-            # Validar longitud mínima
-            if len(clean_text) < 15 and not has_attachment:
-                await self.send_message(
-                    chat_id,
-                    "ℹ️ *Descripción muy corta.* Para poder procesar y correlacionar tu caso, por favor proporciona una explicación más detallada de lo sucedido (mínimo 15 caracteres) o envía un audio explicativo."
-                )
-                return
-
-        # Procesar adjuntos
-        if has_attachment:
-            media_obj = msg.get(msg_type, {})
-            url_archivo = media_obj.get("link")
-            
-            if msg_type in ["audio", "voice"]:
-                tipo_contenido = TipoContenido.AUDIO
-                await self.send_message(chat_id, "🎙️ _Audio recibido. Transcribiendo y ejecutando agentes de IA..._")
-                
-                # Transcribir usando Whisper
-                stt_res = await transcribe_audio(url_archivo)
-                if stt_res.get("transcripcion"):
-                    contenido_raw = stt_res["transcripcion"]
-                else:
-                    await self.send_message(chat_id, f"❌ Error en la transcripción: {stt_res.get('error', 'desconocido')}")
-                    return
-            else:
-                if msg_type == "image":
-                    tipo_contenido = TipoContenido.IMAGEN
-                else:
-                    tipo_contenido = TipoContenido.DOCUMENTO
-                
-                if not contenido_raw:
-                    filename = media_obj.get("filename") or f"evidencia.{msg_type}"
-                    contenido_raw = f"[Evidencia adjunta: {filename}]"
-                    
-        if not contenido_raw or not contenido_raw.strip():
-            await self.send_message(chat_id, "❌ Mensaje vacío. Por favor, descríbenos los hechos o adjunta tu evidencia.")
+            await self.send_message(chat_id, "🤖 Escribe *denunciar* para activar el asistente de ingesta.")
             return
-            
+
+        # --- WAITING_FOR_DENUNCIA ---
+        # Texto puro en estado activo: procesar como denuncia de texto
+        await self._create_denuncia_from_batch(chat_id, [msg])
+
+    # -----------------------------------------
+    # Procesamiento de batch (múltiples mensajes)
+    # -----------------------------------------
+
+    async def _process_message_batch(self, chat_id: str, messages: List[dict]):
+        """Procesa un grupo de mensajes (imágenes, audios, etc.) como una sola denuncia."""
+        chat_state = self.user_states.get(chat_id, 'idle')
+
+        # Si está en idle y llega un batch con adjuntos, activar asistente implícitamente
+        if chat_state == 'idle':
+            self.user_states[chat_id] = 'waiting_for_denuncia'
+
+        await self._create_denuncia_from_batch(chat_id, messages)
+
+    async def _create_denuncia_from_batch(self, chat_id: str, messages: List[dict]):
+        """
+        Crea una sola denuncia a partir de uno o más mensajes.
+        Combina textos/captions y descarga todos los archivos adjuntos.
+        """
+        textos = []
+        archivos_descargados = []
+        msg_id_principal = None
+        sender = None
+        sender_name = None
+
+        for msg in messages:
+            msg_type = msg.get("type", "text")
+            msg_id = msg.get("id")
+
+            # Tomar el primer msg_id como ID principal de la denuncia
+            if msg_id_principal is None:
+                msg_id_principal = msg_id
+                sender = msg.get("from")
+                sender_name = msg.get("from_name") or msg.get("fromName")
+
+            # Extraer texto/caption
+            texto_msg = ""
+            if msg_type == "text":
+                texto_msg = msg.get("text", {}).get("body", "")
+            else:
+                # Buscar caption en el objeto del tipo o en el msg directo
+                media_obj = msg.get(msg_type, {})
+                texto_msg = msg.get("caption", "") or media_obj.get("caption", "") or ""
+
+            texto_msg = texto_msg.strip()
+            if texto_msg:
+                textos.append(texto_msg)
+
+            # Descargar adjunto si existe
+            if msg_type in ["image", "audio", "voice", "document", "video"]:
+                media_obj = msg.get(msg_type, {})
+                media_id = media_obj.get("id")
+                if media_id:
+                    ext = media_obj.get("mime_type", "").split("/")[-1] or msg_type
+                    if ext == "jpeg":
+                        ext = "jpg"
+                    safe_name = f"{msg_id or 'unknown'}_{msg_type}.{ext}"
+                    dest_path = f"/app/uploads/evidencias/{safe_name}"
+                    downloaded = await self.download_media(media_id, dest_path)
+                    if downloaded:
+                        archivos_descargados.append({
+                            "path": dest_path,
+                            "tipo": msg_type,
+                            "mime": media_obj.get("mime_type", f"{msg_type}/{ext}"),
+                            "filename": media_obj.get("filename") or safe_name,
+                        })
+
+        # Determinar tipo de contenido
+        tiene_texto = bool(textos)
+        tiene_adjuntos = bool(archivos_descargados)
+
+        if tiene_texto and tiene_adjuntos:
+            tipo_contenido = TipoContenido.MIXTO
+        elif tiene_adjuntos:
+            # Todos los adjuntos son del mismo tipo
+            tipos = set(a["tipo"] for a in archivos_descargados)
+            if len(tipos) == 1:
+                t = list(tipos)[0]
+                tipo_contenido = TipoContenido.IMAGEN if t == "image" else \
+                                TipoContenido.AUDIO if t in ["audio", "voice"] else \
+                                TipoContenido.VIDEO if t == "video" else TipoContenido.DOCUMENTO
+            else:
+                tipo_contenido = TipoContenido.MIXTO
+        else:
+            tipo_contenido = TipoContenido.TEXTO
+
+        # Contenido raw: texto consolidado
+        contenido_raw = "\n\n".join(textos) if textos else "[Sin texto descriptivo]"
+
+        # URL del archivo principal (primero)
+        url_archivo = archivos_descargados[0]["path"] if archivos_descargados else None
+
+        # Archivos adicionales en metadata
+        metadata = {
+            "whatsapp_sender": sender,
+            "whatsapp_name": sender_name,
+            "chat_id": chat_id,
+            "batch_size": len(messages),
+        }
+        if len(archivos_descargados) > 1:
+            metadata["archivos_adicionales"] = archivos_descargados[1:]
+
+        # Validaciones de contenido
+        clean_text = contenido_raw.lower().strip()
+        if not contenido_raw.strip() or contenido_raw == "[Sin texto descriptivo]":
+            if not archivos_descargados:
+                await self.send_message(chat_id, "❌ Mensaje vacío. Por favor, descríbenos los hechos o adjunta tu evidencia.")
+                return
+
+        # Filtros de relleno solo si no hay adjuntos
+        if not archivos_descargados and len(clean_text) < 15:
+            await self.send_message(chat_id, "ℹ️ *Descripción muy corta.* Por favor proporciona más detalles (mínimo 15 caracteres) o envía un audio.")
+            return
+
         await self.send_message(chat_id, "🔍 _Procesando denuncia formal... Guardando evidencias y analizando con agentes de IA..._")
-        
+
         try:
-            # Crear denuncia y ejecutar grafo
             async with AsyncSessionLocal() as db:
                 service = AgentExecutionService(db)
                 req = DenunciaIngestaRequest(
                     canal=CanalEntrada.WHATSAPP,
-                    id_externo=str(msg_id),
+                    id_externo=str(msg_id_principal),
                     tipo_contenido=tipo_contenido,
                     contenido_raw=contenido_raw,
                     url_archivo=url_archivo,
-                    metadata={
-                        "whatsapp_sender": msg.get("from"),
-                        "whatsapp_name": msg.get("from_name") or msg.get("fromName"),
-                        "chat_id": chat_id
-                    }
+                    metadata=metadata
                 )
                 denuncia = await service.crear_denuncia(req)
-                
-                # Ejecutar grafo
                 await service.ejecutar_grafo(denuncia, modo="completo")
                 await db.refresh(denuncia)
-                
-            # Restablecer estado a IDLE al registrar con éxito
+
+            # Restablecer estado
             self.user_states[chat_id] = 'idle'
-            
-            # Datos de respuesta
+
             tracking_code = denuncia.tracking_code or "TRJ-PENDIENTE"
             nivel_riesgo_str = denuncia.nivel_riesgo.value.upper() if denuncia.nivel_riesgo else "PENDIENTE"
-            
+            n_archivos = len(archivos_descargados)
+            archivos_msg = f" ({n_archivos} archivos adjuntos)" if n_archivos > 1 else ""
+
             reply_msg = (
-                f"✅ *Denuncia Registrada Exitosamente*\n\n"
+                f"✅ *Denuncia Registrada Exitosamente*{archivos_msg}\n\n"
                 f"🎫 *Código de seguimiento:* `{tracking_code}`\n"
                 f"⚖️ *Nivel de Riesgo Estimado:* *{nivel_riesgo_str}*\n\n"
                 f"Puedes auditar el análisis de IA forense y el sellado de blockchain en:\n"
                 f"http://localhost:3000/tracking?code={tracking_code}"
             )
             await self.send_message(chat_id, reply_msg)
-            
+
         except Exception as e:
             logger.error(f"Error procesando denuncia de WhatsApp: {e}", exc_info=True)
             await self.send_message(chat_id, f"❌ Ocurrió un error inesperado al procesar tu denuncia: {str(e)}")

@@ -66,6 +66,7 @@ class AgenteState(BaseModel):
     resultado_speech: Optional[Dict[str, Any]] = None
     resultado_nlp: Optional[Dict[str, Any]] = None
     resultado_correlacion: Optional[Dict[str, Any]] = None
+    resultado_cluster: Optional[Dict[str, Any]] = None
     resultado_osint: Optional[Dict[str, Any]] = None
     resultado_riesgo: Optional[Dict[str, Any]] = None
     resultado_seal: Optional[Dict[str, Any]] = None
@@ -191,6 +192,12 @@ class DenunciaResponse(BaseModel):
     seal_tx_hash: Optional[str] = None
     seal_block: Optional[int] = None
     seal_status: Optional[str] = None
+    url_archivo: Optional[str] = None
+    contenido_raw: Optional[str] = None
+    hash_archivo: Optional[str] = None
+    metadata_json: Optional[Dict[str, Any]] = None
+    zona_detectada: Optional[str] = None
+    did_denunciante: Optional[str] = None
 
 class EjecucionGrafoResponse(BaseModel):
     denuncia_id: uuid.UUID
