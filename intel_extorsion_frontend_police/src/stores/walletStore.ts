@@ -14,8 +14,8 @@ interface WalletState {
   setDID: (did: string) => void;
 }
 
-const ZKSYS_CHAIN_ID = 5700;
-const ZKSYS_HEX = '0x1644';
+const ZKSYS_CHAIN_ID = 57057;
+const ZKSYS_HEX = '0xdf01';
 
 export const useWalletStore = create<WalletState>((set, get) => ({
   account: null,
@@ -42,7 +42,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
         chainId,
         provider: pali,
         isConnected: true,
-        error: chainId !== ZKSYS_CHAIN_ID ? 'Por favor cambia a la red zkSYS Genesis Testnet (Chain ID 5700)' : null,
+        error: chainId !== ZKSYS_CHAIN_ID ? 'Por favor cambia a la red zkSYS Tanenbaum Testnet (Chain ID 57057)' : null,
       });
 
       // Auto-resolve DID
@@ -80,10 +80,10 @@ export const useWalletStore = create<WalletState>((set, get) => ({
           params: [
             {
               chainId: ZKSYS_HEX,
-              chainName: 'zkSYS Genesis Testnet',
-              nativeCurrency: { name: 'Syscoin', symbol: 'SYS', decimals: 18 },
-              rpcUrls: ['https://rpc.genesis.zksys.io'],
-              blockExplorerUrls: ['https://explorer.genesis.zksys.io'],
+              chainName: 'zkSYS Tanenbaum Testnet',
+              nativeCurrency: { name: 'Syscoin', symbol: 'TSYS', decimals: 18 },
+              rpcUrls: ['https://rpc-zk.tanenbaum.io'],
+              blockExplorerUrls: ['https://explorer-zk.tanenbaum.io'],
             },
           ],
         });

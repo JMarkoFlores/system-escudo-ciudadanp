@@ -65,15 +65,19 @@ export default function PortalPage() {
   const [attachment, setAttachment] = useState<any | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
+  const mainContainerRef = useRef<HTMLDivElement>(null);
 
   // Scroll to bottom
   useEffect(() => {
     if (activeTab === 'chat') {
       setTimeout(() => {
-        scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+        if (chatContainerRef.current) {
+          chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        }
       }, 50);
     }
   }, [messages, activeTab]);
@@ -102,8 +106,23 @@ export default function PortalPage() {
 
   // Scroll to top when tab changes
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (mainContainerRef.current) {
+      mainContainerRef.current.scrollTop = 0;
+    }
   }, [activeTab]);
+
+  // Lock body scroll and reset window scroll when connected to prevent layout shift
+  useEffect(() => {
+    if (isConnected) {
+      window.scrollTo(0, 0);
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isConnected]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, type: 'imagen' | 'audio' | 'documento') => {
     const file = e.target.files?.[0];
@@ -777,7 +796,7 @@ export default function PortalPage() {
 
         {/* Chat area */}
         <div className="bg-slate-900/60 backdrop-blur border border-slate-800 rounded-2xl shadow-2xl flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
             {messages.map((msg) => (
               <div
                 key={msg.id}
@@ -1063,7 +1082,7 @@ export default function PortalPage() {
 
   // Connected View
   return (
-    <div className="h-screen bg-slate-950 text-slate-100 flex overflow-hidden relative">
+    <div className="fixed inset-0 bg-slate-950 text-slate-100 overflow-hidden">
       {/* Background Glows */}
       <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-teal-500/5 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
@@ -1078,11 +1097,11 @@ export default function PortalPage() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between z-50 transition-transform duration-300 lg:translate-x-0 lg:static lg:h-screen lg:z-auto ${
+        className={`absolute top-0 left-0 bottom-0 w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between z-50 transition-transform duration-300 lg:translate-x-0 ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="p-4 flex-1 flex flex-col overflow-y-auto">
+        <div className="p-4 flex-1 flex flex-col overflow-y-auto min-h-0">
           <div className="flex items-center space-x-2.5 mb-6 px-1 select-none">
             <ShieldAlert className="text-teal-400" size={24} />
             <div>
@@ -1127,7 +1146,7 @@ export default function PortalPage() {
         {/* Sidebar Footer */}
         <div className="p-4 border-t border-slate-800/80 space-y-3 bg-slate-900/50 shrink-0">
           <div className="text-[10px] text-slate-500 text-center font-mono">
-            Chain ID: 5700
+            Chain ID: 57057
           </div>
           <button
             onClick={disconnect}
@@ -1140,9 +1159,9 @@ export default function PortalPage() {
       </aside>
 
       {/* Main Container */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
+      <main className="absolute top-0 right-0 bottom-0 left-0 lg:left-64 flex flex-col bg-transparent overflow-hidden">
         {/* Top Header */}
-        <header className="h-16 border-b border-slate-800 bg-slate-900/40 backdrop-blur px-6 flex items-center justify-between shrink-0 select-none">
+        <header className="absolute top-0 left-0 right-0 h-16 border-b border-slate-800 bg-slate-900/40 backdrop-blur px-6 flex items-center justify-between select-none z-10">
           <div className="flex items-center space-x-3">
             <button
               onClick={() => setIsSidebarOpen(true)}
@@ -1171,7 +1190,7 @@ export default function PortalPage() {
         </header>
 
         {/* Tab Content Container */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-950">
+        <div ref={mainContainerRef} className="absolute top-16 left-0 right-0 bottom-0 overflow-y-auto p-4 md:p-8 bg-slate-950">
           {activeTab === 'dashboard' && renderDashboard()}
           {activeTab === 'chat' && renderChat()}
           {activeTab === 'evidencias' && renderEvidencias()}
