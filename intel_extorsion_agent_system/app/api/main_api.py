@@ -24,7 +24,7 @@ from app.schemas.agent_schemas import (
     HealthCheckResponse
 )
 from app.models.db_session import get_db, init_db
-from app.models.database import Denuncia, ResultadoAgente, Alerta, Cluster, EstadoDenuncia
+from app.models.database import Denuncia, ResultadoAgente, Alerta, Cluster, EstadoDenuncia, NivelRiesgo
 from app.services.agent_service import AgentExecutionService
 from app.memory.hybrid_memory import memory_system
 from app.api.clusters_router import router as clusters_router
@@ -657,9 +657,11 @@ async def obtener_metricas(db: AsyncSession = Depends(get_db)):
     )
     denuncias_hoy = hoy_result.scalar() or 0
 
-    # Alertas críticas (alto + critico)
+    # Alertas críticas = denuncias con nivel de riesgo alto o critico
     alertas_result = await db.execute(
-        select(func.count(Alerta.id)).where(Alerta.nivel.in_(["alto", "critico"]))
+        select(func.count(Denuncia.id)).where(
+            Denuncia.nivel_riesgo.in_([NivelRiesgo.alto, NivelRiesgo.critico])
+        )
     )
     alertas_criticas = alertas_result.scalar() or 0
 
