@@ -178,7 +178,7 @@ services:
     container_name: intel_extorsion_dapp
     restart: unless-stopped
     ports:
-      - "8080:80"
+      - "3002:80"
     depends_on:
       - web3-backend
     networks:

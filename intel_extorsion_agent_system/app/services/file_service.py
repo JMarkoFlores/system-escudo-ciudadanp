@@ -1,4 +1,5 @@
 import hashlib
+import uuid
 import aiofiles
 from pathlib import Path
 from typing import Tuple, Optional
@@ -24,7 +25,7 @@ async def save_upload(file: UploadFile, denuncia_id: str) -> Tuple[str, str, int
 
     file_hash = hashlib.sha256(content).hexdigest()
     ext = ALLOWED_EXTENSIONS.get(file.content_type, ".bin")
-    filename = f"{denuncia_id}_{file_hash[:16]}{ext}"
+    filename = f"{denuncia_id}_{file_hash[:16]}_{uuid.uuid4().hex[:8]}{ext}"
 
     upload_path = Path(settings.UPLOAD_DIR) / "evidencias"
     upload_path.mkdir(parents=True, exist_ok=True)

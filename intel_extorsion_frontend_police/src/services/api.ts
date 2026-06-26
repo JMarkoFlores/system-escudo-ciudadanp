@@ -46,6 +46,24 @@ export const denunciaService = {
         existe: boolean;
       }>;
     }>(`/denuncias/${id}/archivos`),
+
+  adjuntar: (denunciaId: string, file: File, tipoEvidencia?: string) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (tipoEvidencia) {
+      formData.append('tipo_evidencia', tipoEvidencia);
+    }
+    return agentApi.post<{
+      status: string;
+      denuncia_id: string;
+      file_hash: string;
+      file_path: string;
+      file_size: number;
+      mime_type: string;
+    }>(`/denuncias/${denunciaId}/adjuntar`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };
 
 // Alertas

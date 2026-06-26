@@ -1,12 +1,12 @@
 {
   "network": "zkSYSTestnet",
   "chainId": 57057,
-  "deployer": "0xAE43FfDE5830584C1C5D0a30Fe277d0c8EDD2bf8",
-  "timestamp": "2026-06-21T03:47:34.121Z",
+  "deployer": "0xB15B0c2a4E0F8899c3c656C3cA68a01DE7082db6",
+  "timestamp": "2026-06-26T20:56:20.658Z",
   "contracts": {
-    "DIDRegistry": "0xbCC2969860098c922B7844A540F3525CF2eA09c3",
-    "EvidenceRegistry": "0x9dAe55D2e43fD55Fb83C46Ca6aF8cA7614BE03C8",
-    "CaseManager": "0xA1210591a7e16E6720229DA6a9C598F1499854C5",
-    "IntelExtorsionToken": "0x350e898a2166949717a6c1E000301d9F4dF66B65"
+    "DIDRegistry": "0x8481c85e54f50C676f0fc37f90848030c3B12bB9",
+    "EvidenceRegistry": "0x1A9eB1a4C261AE793e21101a3E5c14003dcF4dEb",
+    "CaseManager": "0x3576cb05B2c4094e8f97639892D235044d7476a1",
+    "IntelExtorsionToken": "0x622AA147eD0238840ceb215941D5E8CD997896F0"
   }
 }

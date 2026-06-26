@@ -355,6 +355,8 @@ async def adjuntar_archivo(
 ):
     """
     Adjunta un archivo de evidencia a una denuncia existente.
+    Si es el primer archivo, se almacena en url_archivo (principal).
+    Los siguientes se guardan en metadata_json['archivos_adicionales'].
     Calcula SHA-256, almacena en disco y actualiza el registro.
     """
     from app.services.file_service import save_upload
@@ -366,16 +368,33 @@ async def adjuntar_archivo(
 
     filepath, file_hash, file_size = await save_upload(file, str(denuncia_id))
 
-    denuncia.url_archivo = filepath
-    denuncia.hash_archivo = file_hash
-    if tipo_evidencia:
-        denuncia.tipo_contenido = tipo_evidencia
-    denuncia.metadata_json = {
-        **(denuncia.metadata_json or {}),
+    file_entry = {
+        "path": filepath,
+        "filename": file.filename,
+        "tipo": tipo_evidencia or denuncia.tipo_contenido or "documento",
+        "mime": file.content_type,
+        "sha256": file_hash,
         "file_size": file_size,
-        "file_mime": file.content_type,
-        "file_name": file.filename,
     }
+
+    if not denuncia.url_archivo:
+        denuncia.url_archivo = filepath
+        denuncia.hash_archivo = file_hash
+        if tipo_evidencia:
+            denuncia.tipo_contenido = tipo_evidencia
+        denuncia.metadata_json = {
+            **(denuncia.metadata_json or {}),
+            "file_size": file_size,
+            "file_mime": file.content_type,
+            "file_name": file.filename,
+        }
+    else:
+        meta = denuncia.metadata_json or {}
+        adicionales = meta.get("archivos_adicionales", [])
+        adicionales.append(file_entry)
+        meta["archivos_adicionales"] = adicionales
+        denuncia.metadata_json = meta
+
     await db.commit()
 
     return {
@@ -385,6 +404,7 @@ async def adjuntar_archivo(
         "file_path": filepath,
         "file_size": file_size,
         "mime_type": file.content_type,
+        "es_principal": denuncia.url_archivo == filepath,
     }
 
 @app.get("/v1/denuncias/{denuncia_id}/resultados")

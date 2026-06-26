@@ -55,14 +55,17 @@ export default function PortalPage() {
       id: 'welcome',
       role: 'system',
       content:
-        '👋 ¡Hola! Bienvenido al Portal Ciudadano de IntelExtorsión.\n\nEstoy aquí para ayudarte a registrar reportes de extorsión de forma segura, anónima y protegida en blockchain.\n\n¿Qué te gustaría hacer hoy? Puedes presionar alguno de los botones rápidos de abajo o escribirme tu consulta.',
+        '🛡️ *Bienvenido al Portal Ciudadano de IntelExtorsión*\n\nSoy tu asistente seguro para registrar reportes de extorsión. Tus evidencias se sellan de forma inmutable en la blockchain zkSYS y tu identidad permanece 100% anónima bajo criptografía W3C.\n\n📋 *¿Qué puedes hacer aquí?*\n• Registrar un nuevo reporte de extorsión\n• Adjuntar imágenes, audios o documentos como evidencia\n• Rastrear el estado de un caso existente con tu código TRJ-XXXX\n\nPresiona el botón de abajo para comenzar de forma segura.',
       timestamp: new Date(),
     },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [selectedChannel, setSelectedChannel] = useState<'whatsapp' | 'telegram' | 'discord' | 'web'>('web');
-  const [attachment, setAttachment] = useState<any | null>(null);
+
+  const [attachments, setAttachments] = useState<Array<{file: File, type: string, preview: string}>>([]);
+  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
+  const [uploadingFiles, setUploadingFiles] = useState<Record<string, 'pending' | 'uploading' | 'done' | 'error'>>({});
+  const addMenuRef = useRef<HTMLDivElement>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -70,6 +73,14 @@ export default function PortalPage() {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
   const mainContainerRef = useRef<HTMLDivElement>(null);
+
+  const renderMarkdown = (text: string) => {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<strong>$1</strong>')
+      .replace(/`([^`]+)`/g, '<code class="bg-slate-700/50 px-1.5 py-0.5 rounded text-teal-300 text-xs font-mono">$1</code>')
+      .replace(/\n/g, '<br />');
+  };
 
   // Scroll to bottom
   useEffect(() => {
@@ -124,34 +135,55 @@ export default function PortalPage() {
     };
   }, [isConnected]);
 
+  // Close add menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
+        setIsAddMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, type: 'imagen' | 'audio' | 'documento') => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files) return;
 
-    const attach = { file, type, preview: '' };
+    const remaining = 5 - attachments.length;
+    const filesToProcess = Array.from(files).slice(0, remaining);
 
-    if (type === 'imagen' && file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        attach.preview = reader.result as string;
-        setAttachment(attach);
-      };
-      reader.readAsDataURL(file);
-    } else {
-      setAttachment(attach);
+    filesToProcess.forEach((file) => {
+      const attach = { file, type, preview: '' };
+
+      if (type === 'imagen' && file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          attach.preview = reader.result as string;
+          setAttachments((prev) => [...prev, attach]);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        setAttachments((prev) => [...prev, attach]);
+      }
+    });
+
+    if (remaining <= 0 && files.length > 0) {
+      toast('Máximo 5 archivos adjuntos', { icon: '⚠️' });
     }
 
     e.target.value = '';
   };
 
-  const removeAttachment = () => setAttachment(null);
+  const removeAttachment = (index: number) => setAttachments((prev) => prev.filter((_, i) => i !== index));
 
   const handleSend = async (forcedText?: string) => {
     const textToSend = forcedText !== undefined ? forcedText : input;
-    if (!textToSend.trim() && !attachment) return;
+    if (!textToSend.trim() && attachments.length === 0) return;
 
-    const displayContent = attachment
-      ? `${textToSend || ''}\n[Archivo adjunto: ${attachment.file.name} (${attachment.type})]`.trim()
+    const attachmentLabels = attachments.map((a) => a.file.name).join(', ');
+    const displayContent = attachments.length > 0
+      ? `${textToSend || ''}\n[Archivos adjuntos: ${attachmentLabels}]`.trim()
       : textToSend;
 
     const userMsg = {
@@ -280,7 +312,7 @@ export default function PortalPage() {
       const esRelleno = frasesRelleno.includes(cleanText) || frasesRelleno.some(f => cleanText === f) ||
                         (frasesRelleno.some(f => cleanText.startsWith(f)) && cleanText.length < 50 && !cleanText.match(/\d+/) && !cleanText.includes("soles") && !cleanText.includes("dolares") && !cleanText.includes("cuenta"));
 
-      if ((esSaludo || esIntencionPura || esRelleno) && !attachment) {
+      if ((esSaludo || esIntencionPura || esRelleno) && attachments.length === 0) {
         setLoading(true);
         await new Promise(r => setTimeout(r, 600));
         setMessages((prev) => [...prev, {
@@ -294,7 +326,7 @@ export default function PortalPage() {
       }
 
       // Validar longitud mínima
-      if (textVal.length < 20 && !attachment) {
+      if (textVal.length < 20 && attachments.length === 0) {
         setLoading(true);
         await new Promise(r => setTimeout(r, 600));
         setMessages((prev) => [...prev, {
@@ -309,29 +341,51 @@ export default function PortalPage() {
 
       setLoading(true);
       try {
-        const tipoContenido = attachment ? attachment.type : 'texto';
-        const contenidoRaw = textVal || `[Denuncia con archivo adjunto: ${attachment?.file.name}]`;
+        const primaryType = attachments.length > 0 ? attachments[0].type : 'texto';
+        const contenidoRaw = textVal || `[Denuncia con ${attachments.length} archivo(s) adjunto(s)]`;
+
+        const metadataObj: Record<string, any> | undefined = attachments.length > 0
+          ? {
+              files: attachments.map((a) => ({
+                filename: a.file.name,
+                filetype: a.file.type,
+                filesize: a.file.size,
+                attachment_type: a.type,
+              })),
+            }
+          : undefined;
 
         const { data } = await denunciaService.crear({
-          canal: selectedChannel,
-          tipo_contenido: tipoContenido,
+          canal: 'web',
+          tipo_contenido: primaryType,
           contenido_raw: contenidoRaw,
           did_denunciante: did || undefined,
-          metadata: attachment
-            ? {
-                filename: attachment.file.name,
-                filetype: attachment.file.type,
-                filesize: attachment.file.size,
-                attachment_type: attachment.type,
-              }
-            : undefined,
+          metadata: metadataObj,
         });
+
+        // Subir archivos adjuntos secuencialmente
+        if (attachments.length > 0) {
+          const fileStatuses: Record<string, 'pending' | 'uploading' | 'done' | 'error'> = {};
+          attachments.forEach((a) => { fileStatuses[a.file.name] = 'pending'; });
+          setUploadingFiles(fileStatuses);
+
+          for (const attach of attachments) {
+            setUploadingFiles((prev) => ({ ...prev, [attach.file.name]: 'uploading' }));
+            try {
+              await denunciaService.adjuntar(data.id, attach.file, attach.type);
+              setUploadingFiles((prev) => ({ ...prev, [attach.file.name]: 'done' }));
+            } catch (uploadErr) {
+              console.error('Error subiendo archivo:', attach.file.name, uploadErr);
+              setUploadingFiles((prev) => ({ ...prev, [attach.file.name]: 'error' }));
+            }
+          }
+        }
 
         // Simular inicio del análisis
         setMessages((prev) => [...prev, {
           id: `bot-proc-${Date.now()}`,
           role: 'system',
-          content: `✅ *Denuncia Registrada Exitosamente*\n\nExpediente ID: \`${data.id}\`\n\nNuestros agentes autónomos de IA han iniciado la auditoría de evidencias en segundo plano.`,
+          content: `✅ *Denuncia Registrada Exitosamente*\n\nExpediente ID: \`${data.id}\`\n${attachments.length > 0 ? `\n📎 *${attachments.length} archivo(s) adjunto(s) subido(s) exitosamente.*\n` : ''}\nNuestros agentes autónomos de IA han iniciado la auditoría de evidencias en segundo plano.`,
           timestamp: new Date()
         }]);
 
@@ -371,7 +425,8 @@ export default function PortalPage() {
         }]);
       } finally {
         setLoading(false);
-        setAttachment(null);
+        setAttachments([]);
+        setUploadingFiles({});
       }
     }
   };
@@ -767,33 +822,8 @@ export default function PortalPage() {
   ];
 
   const renderChat = () => {
-    const channels = [
-      { key: 'whatsapp' as const, label: 'WhatsApp', color: 'bg-green-600' },
-      { key: 'telegram' as const, label: 'Telegram', color: 'bg-sky-600' },
-      { key: 'discord' as const, label: 'Discord', color: 'bg-indigo-600' },
-      { key: 'web' as const, label: 'Web', color: 'bg-slate-700' },
-    ];
-
     return (
       <div className="max-w-5xl mx-auto flex flex-col h-[calc(100vh-10rem)] w-full animate-fadeIn">
-        {/* Channel selector */}
-        <div className="flex space-x-2 mb-4 overflow-x-auto pb-2 shrink-0 select-none">
-          {channels.map((ch) => (
-            <button
-              key={ch.key}
-              onClick={() => setSelectedChannel(ch.key)}
-              className={`flex items-center px-3.5 py-2 rounded-full text-xs font-semibold transition ${
-                selectedChannel === ch.key
-                  ? `${ch.color} text-white shadow-md`
-                  : 'bg-slate-900 text-slate-400 border border-slate-800 hover:bg-slate-800 hover:text-slate-200'
-              }`}
-            >
-              <MessageCircle size={14} className="mr-1.5" />
-              {ch.label}
-            </button>
-          ))}
-        </div>
-
         {/* Chat area */}
         <div className="bg-slate-900/60 backdrop-blur border border-slate-800 rounded-2xl shadow-2xl flex-1 flex flex-col overflow-hidden">
           <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -805,16 +835,20 @@ export default function PortalPage() {
                 <div
                   className={`max-w-[85%] rounded-2xl px-5 py-3 text-sm leading-relaxed ${
                     msg.role === 'user'
-                      ? 'bg-teal-600 text-white rounded-br-none shadow-md'
+                      ? 'bg-gradient-to-br from-teal-600 to-teal-700 text-white rounded-br-md shadow-lg'
                       : msg.role === 'system'
-                      ? 'bg-slate-900 border border-slate-800 text-slate-200 rounded-bl-none shadow-sm'
-                      : 'bg-green-950/20 text-green-300 border border-green-500/20 rounded-bl-none shadow-sm'
+                      ? 'bg-slate-900 border border-slate-800/80 text-slate-200 rounded-bl-md shadow-sm'
+                      : 'bg-gradient-to-br from-green-950/40 to-green-950/20 text-green-200 border border-green-500/20 rounded-bl-md shadow-sm'
                   }`}
                 >
-                  <p className="whitespace-pre-line">{msg.content}</p>
+                  {msg.role === 'user' ? (
+                    <p className="whitespace-pre-line">{msg.content}</p>
+                  ) : (
+                    <div dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }} />
+                  )}
 
                   {msg.id === 'welcome' && chatState === 'idle' && (
-                    <div className="mt-4 flex flex-wrap gap-2 select-none">
+                    <div className="mt-4 flex flex-col sm:flex-row gap-2 select-none">
                       <button
                         onClick={() => {
                           setChatState('waiting_for_denuncia');
@@ -823,14 +857,14 @@ export default function PortalPage() {
                             {
                               id: `bot-start-${Date.now()}`,
                               role: 'system',
-                              content: '📝 *Asistente de Ingesta Activado.*\n\nPor favor, redacta detalladamente lo sucedido en tu siguiente mensaje (puedes adjuntar capturas, audios o documentos). Asegúrate de incluir datos clave como teléfonos de extorsión o números de cuenta si los tienes.',
+                              content: '📝 *Asistente de Ingesta Activado.*\n\nPor favor, redacta detalladamente lo sucedido en tu siguiente mensaje. Puedes adjuntar capturas, audios o documentos como evidencia.\n\n💡 *Consejo:* Incluye datos clave como teléfonos de extorsión, números de cuenta, montos o fechas.\n\n*Si deseas cancelar en cualquier momento, escribe "cancelar".*',
                               timestamp: new Date(),
                             },
                           ]);
                         }}
-                        className="flex items-center space-x-1.5 bg-teal-600 hover:bg-teal-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition shadow-md hover:shadow-[0_2px_8px_rgba(13,148,136,0.2)]"
+                        className="flex items-center justify-center space-x-2 bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-500 hover:to-teal-400 text-white font-bold px-6 py-3 rounded-xl text-sm transition shadow-lg hover:shadow-[0_4px_16px_rgba(13,148,136,0.3)]"
                       >
-                        <span>📝 Iniciar Reporte</span>
+                        <span>📝 Iniciar Reporte Seguro</span>
                       </button>
                       <button
                         onClick={() => {
@@ -844,7 +878,7 @@ export default function PortalPage() {
                             },
                           ]);
                         }}
-                        className="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold px-4 py-2.5 rounded-xl text-xs transition shadow-sm"
+                        className="flex items-center justify-center space-x-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold px-5 py-3 rounded-xl text-sm transition shadow-sm"
                       >
                         <span>🔍 Rastrear Caso</span>
                       </button>
@@ -852,24 +886,33 @@ export default function PortalPage() {
                   )}
 
                   {!!msg.metadata?.trackingCode && (
-                    <div className="mt-3 select-none">
+                    <div className="mt-3 bg-green-950/30 border border-green-500/20 rounded-xl p-3 select-none">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <CheckCircle2 size={14} className="text-green-400" />
+                        <span className="text-[10px] text-green-400 font-bold uppercase tracking-wider">Caso Procesado</span>
+                      </div>
+                      <p className="text-xs text-slate-300 mb-2">Tu reporte ha sido analizado y sellado en blockchain.</p>
                       <Link
                         href={`/tracking?code=${String(msg.metadata.trackingCode)}`}
-                        className="inline-flex items-center space-x-1.5 bg-green-600 hover:bg-green-700 text-white font-bold px-4 py-2 rounded-xl text-xs transition shadow-md"
+                        className="inline-flex items-center space-x-1.5 bg-green-600 hover:bg-green-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition shadow-md hover:shadow-[0_2px_12px_rgba(34,197,94,0.25)]"
                       >
-                        <span>Ver Expediente de Rastreo</span>
+                        <span>Ver Expediente {String(msg.metadata.trackingCode)}</span>
                         <ExternalLink size={12} />
                       </Link>
                     </div>
                   )}
 
                   {!!msg.metadata?.showTrackingButton && (
-                    <div className="mt-3 select-none">
+                    <div className="mt-3 bg-teal-950/30 border border-teal-500/20 rounded-xl p-3 select-none">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Loader2 size={14} className="text-teal-400" />
+                        <span className="text-[10px] text-teal-400 font-bold uppercase tracking-wider">Código Detectado</span>
+                      </div>
                       <Link
                         href={`/tracking?code=${String(msg.metadata.showTrackingButton)}`}
-                        className="inline-flex items-center space-x-1.5 bg-teal-600 hover:bg-teal-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition shadow-md"
+                        className="inline-flex items-center space-x-1.5 bg-teal-600 hover:bg-teal-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition shadow-md hover:shadow-[0_2px_12px_rgba(13,148,136,0.25)]"
                       >
-                        <span>Rastrear Código {String(msg.metadata.showTrackingButton)}</span>
+                        <span>Rastrear {String(msg.metadata.showTrackingButton)}</span>
                         <ExternalLink size={12} />
                       </Link>
                     </div>
@@ -883,9 +926,9 @@ export default function PortalPage() {
             ))}
             {loading && (
               <div className="flex justify-start">
-                <div className="bg-slate-850 rounded-2xl px-5 py-3.5 flex items-center space-x-2 border border-slate-800 shadow-sm animate-pulse">
+                <div className="bg-slate-900 border border-slate-800/80 rounded-2xl px-5 py-3.5 flex items-center space-x-3 shadow-sm">
                   <Loader2 size={16} className="animate-spin text-teal-400" />
-                  <span className="text-xs text-slate-400">Analizando evidencias con agentes de IA...</span>
+                  <span className="text-xs text-slate-400 font-medium">Procesando con agentes de IA...</span>
                 </div>
               </div>
             )}
@@ -893,80 +936,117 @@ export default function PortalPage() {
           </div>
 
           {/* Input */}
-          <div className="border-t border-slate-800 p-3 bg-slate-900/80 shrink-0">
-            {/* Attachment preview */}
-            {attachment && (
-              <div className="mb-2 flex items-center space-x-2 bg-slate-850 border border-slate-800 rounded-xl px-3.5 py-2.5">
-                {attachment.type === 'imagen' && attachment.preview ? (
-                  <img src={attachment.preview} alt="preview" className="h-10 w-10 object-cover rounded-lg border border-slate-700" />
-                ) : attachment.type === 'audio' ? (
-                  <Mic size={16} className="text-teal-400 animate-pulse shrink-0" />
-                ) : (
-                  <FileText size={16} className="text-teal-400 shrink-0" />
-                )}
-                <span className="text-xs text-slate-200 truncate flex-1 font-semibold">{attachment.file.name}</span>
-                <button onClick={removeAttachment} className="text-slate-400 hover:text-red-500 p-1 rounded-full hover:bg-slate-800 transition">
-                  <X size={14} />
-                </button>
+          <div className="border-t border-slate-800 p-4 bg-slate-900/80 shrink-0">
+            {/* Attachment chips preview */}
+            {attachments.length > 0 && (
+              <div className="mb-3 flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-thin">
+                {attachments.map((att, idx) => (
+                  <div
+                    key={`${att.file.name}-${idx}`}
+                    className="flex items-center space-x-2 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 shrink-0 group relative"
+                  >
+                    {att.type === 'imagen' && att.preview ? (
+                      <img src={att.preview} alt="preview" className="h-8 w-8 object-cover rounded-lg border border-slate-600" />
+                    ) : att.type === 'audio' ? (
+                      <div className="h-8 w-8 rounded-lg bg-teal-500/10 flex items-center justify-center">
+                        <Mic size={14} className="text-teal-400" />
+                      </div>
+                    ) : (
+                      <div className="h-8 w-8 rounded-lg bg-slate-700/50 flex items-center justify-center">
+                        <FileText size={14} className="text-slate-400" />
+                      </div>
+                    )}
+                    <div className="max-w-[120px]">
+                      <p className="text-[10px] text-slate-200 font-semibold truncate">{att.file.name}</p>
+                      <p className="text-[9px] text-slate-500 capitalize">{att.type}</p>
+                    </div>
+                    <button
+                      onClick={() => removeAttachment(idx)}
+                      className="text-slate-500 hover:text-red-400 p-0.5 rounded-full hover:bg-slate-700 transition ml-1"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+                <div className="shrink-0 bg-slate-800 border border-slate-700 rounded-full px-2.5 py-1">
+                  <span className="text-[10px] text-slate-400 font-bold">{attachments.length}/5</span>
+                </div>
               </div>
             )}
 
-            <div className="flex items-center space-x-2">
-              {/* Hidden file inputs */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                onChange={(e) => handleFileSelect(e, 'documento')}
-              />
-              <input
-                ref={imageInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => handleFileSelect(e, 'imagen')}
-              />
-              <input
-                ref={audioInputRef}
-                type="file"
-                accept="audio/*"
-                className="hidden"
-                onChange={(e) => handleFileSelect(e, 'audio')}
-              />
+            {/* Hidden file inputs */}
+            <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => handleFileSelect(e, 'documento')} />
+            <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFileSelect(e, 'imagen')} />
+            <input ref={audioInputRef} type="file" accept="audio/*" className="hidden" onChange={(e) => handleFileSelect(e, 'audio')} />
 
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="p-2.5 text-slate-400 hover:text-slate-200 rounded-full hover:bg-slate-800 transition"
-                title="Adjuntar archivo"
-              >
-                <Paperclip size={18} />
-              </button>
+            <div className="flex items-end space-x-2">
+              {/* Add file dropdown */}
+              <div className="relative" ref={addMenuRef}>
+                <button
+                  onClick={() => setIsAddMenuOpen(!isAddMenuOpen)}
+                  className="p-3 text-slate-400 hover:text-teal-400 rounded-xl hover:bg-slate-800 transition border border-transparent hover:border-slate-700"
+                  title="Adjuntar archivo"
+                >
+                  <PlusCircle size={20} />
+                </button>
+                {isAddMenuOpen && (
+                  <div className="absolute bottom-full left-0 mb-2 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50 min-w-[160px] animate-in fade-in slide-in-from-bottom-2">
+                    <button
+                      onClick={() => { imageInputRef.current?.click(); setIsAddMenuOpen(false); }}
+                      className="w-full flex items-center space-x-3 px-4 py-3 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition"
+                    >
+                      <ImageIcon size={14} className="text-blue-400" />
+                      <span>Imagen</span>
+                    </button>
+                    <button
+                      onClick={() => { audioInputRef.current?.click(); setIsAddMenuOpen(false); }}
+                      className="w-full flex items-center space-x-3 px-4 py-3 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition border-t border-slate-700/50"
+                    >
+                      <Mic size={14} className="text-teal-400" />
+                      <span>Audio</span>
+                    </button>
+                    <button
+                      onClick={() => { fileInputRef.current?.click(); setIsAddMenuOpen(false); }}
+                      className="w-full flex items-center space-x-3 px-4 py-3 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition border-t border-slate-700/50"
+                    >
+                      <FileText size={14} className="text-purple-400" />
+                      <span>Documento</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Quick attach buttons */}
               <button
                 onClick={() => imageInputRef.current?.click()}
-                className="p-2.5 text-slate-400 hover:text-slate-200 rounded-full hover:bg-slate-800 transition"
+                className="p-3 text-slate-500 hover:text-blue-400 rounded-xl hover:bg-slate-800 transition hidden sm:block"
                 title="Adjuntar imagen"
               >
                 <ImageIcon size={18} />
               </button>
               <button
                 onClick={() => audioInputRef.current?.click()}
-                className="p-2.5 text-slate-400 hover:text-slate-200 rounded-full hover:bg-slate-800 transition"
+                className="p-3 text-slate-500 hover:text-teal-400 rounded-xl hover:bg-slate-800 transition hidden sm:block"
                 title="Adjuntar audio"
               >
                 <Mic size={18} />
               </button>
+
+              {/* Text input */}
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                placeholder={chatState === 'waiting_for_denuncia' ? "Escribe los detalles aquí..." : "Escribe un mensaje o activa el asistente..."}
-                className="flex-1 bg-slate-950 border border-slate-850 rounded-full px-5 py-3 text-sm focus:ring-1 focus:ring-teal-500 outline-none text-slate-200 placeholder-slate-500 shadow-inner"
+                onKeyDown={(e) => e.key === 'Enter' && !loading && handleSend()}
+                placeholder={chatState === 'waiting_for_denuncia' ? "Describe los detalles de la extorsión..." : "Escribe un mensaje o presiona 'Iniciar Reporte'..."}
+                className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl px-5 py-3.5 text-sm focus:ring-1 focus:ring-teal-500 outline-none text-slate-200 placeholder-slate-500 shadow-inner transition"
               />
+
+              {/* Send button */}
               <button
                 onClick={() => handleSend()}
-                disabled={(!input.trim() && !attachment) || loading}
-                className="p-3 bg-teal-600 hover:bg-teal-550 disabled:bg-slate-850 disabled:text-slate-600 text-white rounded-full transition shadow-md hover:shadow-[0_2px_8px_rgba(13,148,136,0.2)] shrink-0"
+                disabled={(!input.trim() && attachments.length === 0) || loading}
+                className="p-3.5 bg-teal-600 hover:bg-teal-500 disabled:bg-slate-800 disabled:text-slate-600 text-white rounded-2xl transition shadow-md hover:shadow-[0_2px_12px_rgba(13,148,136,0.3)] shrink-0"
               >
                 <Send size={18} />
               </button>

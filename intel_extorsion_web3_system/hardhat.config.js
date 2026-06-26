@@ -50,7 +50,7 @@ module.exports = {
     customChains: [
       {
         network: 'rollux',
-        chainId: 570,
+      chainId: 57057,
         urls: {
           apiURL: 'https://explorer.rollux.com/api',
           browserURL: 'https://explorer.rollux.com',

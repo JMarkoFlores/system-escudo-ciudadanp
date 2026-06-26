@@ -153,8 +153,10 @@ class Web3Service:
         
         evidence_hash = "0x" + hashlib.sha256(file_bytes).hexdigest()
         
+        raw_hash = Web3.to_bytes(hexstr=evidence_hash)
+        hash_bytes32 = raw_hash.ljust(32, b'\x00')[:32]
         func = self.evidence_registry.functions.storeEvidence(
-            evidence_hash,
+            hash_bytes32,
             ipfs_cid,
             did_denunciante,
             tipo_evidencia,
@@ -199,9 +201,10 @@ class Web3Service:
             else:
                 raise RuntimeError("EvidenceRegistry contract not configured and DEV_MODE is disabled")
 
-        hash_bytes = Web3.to_bytes(hexstr=evidence_hash) if evidence_hash.startswith("0x") else evidence_hash.encode()
+        raw_hash = Web3.to_bytes(hexstr=evidence_hash) if evidence_hash.startswith("0x") else evidence_hash.encode()
+        hash_bytes32 = raw_hash.ljust(32, b'\x00')[:32]
         func = self.evidence_registry.functions.storeEvidence(
-            hash_bytes,
+            hash_bytes32,
             f"case://{case_id}",
             "",
             1,
@@ -217,7 +220,7 @@ class Web3Service:
             **receipt_dict,
             "evidence_hash": evidence_hash,
             "evidence_id": evidence_id,
-            "success": receipt["status"] == 1,
+            "success": receipt_dict["status"] == 1,
             "case_id": case_id,
         }
 
