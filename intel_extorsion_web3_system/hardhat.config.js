@@ -45,15 +45,15 @@ module.exports = {
   },
   etherscan: {
     apiKey: {
-      rollux: process.env.ROLLUX_EXPLORER_API_KEY || '',
+      zksys_tanenbaum: process.env.ZKSYS_TANENBAUM_EXPLORER_API_KEY || '',
     },
     customChains: [
       {
-        network: 'rollux',
-      chainId: 57057,
+        network: 'zksys_tanenbaum',
+        chainId: 57057,
         urls: {
-          apiURL: 'https://explorer.rollux.com/api',
-          browserURL: 'https://explorer.rollux.com',
+          apiURL: 'https://explorer-zk.tanenbaum.io/api',
+          browserURL: 'https://explorer-zk.tanenbaum.io',
         },
       },
     ],

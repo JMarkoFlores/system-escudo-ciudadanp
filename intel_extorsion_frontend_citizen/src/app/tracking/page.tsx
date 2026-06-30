@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import axios from 'axios';
+import { denunciaService } from '@/services/api';
 import {
   ShieldAlert,
   Search,
@@ -92,9 +92,8 @@ function TrackingContent() {
     setError(null);
     setDenuncia(null);
     try {
-      // Usar la URL del backend
-      const response = await axios.get(`http://localhost:8000/v1/denuncias/tracking/${trackingCode.toUpperCase().trim()}`);
-      setDenuncia(response.data);
+      const response = await denunciaService.obtenerPorTracking(trackingCode.toUpperCase().trim());
+      setDenuncia(response.data as unknown as DenunciaData);
     } catch (err: any) {
       setError(
         err.response?.data?.detail || 
@@ -130,7 +129,7 @@ function TrackingContent() {
       return 'skipped';
     }
 
-    const resultado = denuncia.resultados.find(r => r.agente === agentKey);
+    const resultado = denuncia.resultados?.find(r => r.agente === agentKey);
     if (resultado) {
       return resultado.exitoso !== false ? 'success' : 'failed';
     }
@@ -266,7 +265,7 @@ function TrackingContent() {
                       <span>{denuncia.seal_tx_hash}</span>
                     </div>
                     <a
-                      href={`https://explorer.genesis.zksys.io/tx/${denuncia.seal_tx_hash}`}
+                      href={`${process.env.NEXT_PUBLIC_EXPLORER_URL || 'https://explorer-zk.tanenbaum.io'}/tx/${denuncia.seal_tx_hash}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center justify-center text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-lg transition mt-2 cursor-pointer"
@@ -409,7 +408,7 @@ function TrackingContent() {
       {/* Footer */}
       <footer className="border-t border-slate-900 py-8 bg-slate-950 text-center">
         <p className="text-xs text-slate-600">
-          IntelExtorsión. Custodia y preservación de denuncias ciudadanas. Encriptación Web3 zkSYS Genesis Testnet.
+          IntelExtorsión. Custodia y preservación de denuncias ciudadanas. Encriptación Web3 zkSYS Tanenbaum Testnet.
         </p>
       </footer>
     </div>

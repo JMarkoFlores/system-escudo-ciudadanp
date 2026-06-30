@@ -19,19 +19,147 @@ from app.agents.respond_agent import node_respond
 from app.nlp.ner_engine import ner_engine
 
 # ==========================================
-# LLM Configuración (Lazy)
+# LLM Configuración (Lazy) + Mock para tests
 # ==========================================
 _llm = None
+
+class MockLLM:
+    """LLM determinista para tests/CI sin consumir tokens de Groq."""
+
+    _responses = {
+        "intake": {
+            "valido": True,
+            "categoria_preliminar": "Extorsión telefónica / secuestro virtual",
+            "prioridad_inicial": 5,
+            "entidades_detectadas": [
+                {"tipo": "telefono", "valor": "999888777", "confianza": 0.9},
+                {"tipo": "monto", "valor": "5000 soles", "confianza": 0.8},
+            ],
+            "notas": "Caso válido para análisis forense",
+        },
+        "ocr": {
+            "texto_extraido": "Texto de prueba extraído por OCR",
+            "estructurado": True,
+            "entidades": [],
+        },
+        "speech": {
+            "transcripcion": "Llamada extorsiva pidiendo dinero",
+            "estructurado": True,
+            "entidades": [],
+        },
+        "nlp": {
+            "intencion": "extorsion",
+            "sentimiento": "amenaza",
+            "entidades": [
+                {"tipo": "telefono", "valor": "999888777", "inicio": 0, "fin": 9},
+                {"tipo": "moneda", "valor": "soles", "inicio": 10, "fin": 15},
+                {"tipo": "monto", "valor": "5000", "inicio": 5, "fin": 9},
+            ],
+            "resumen": "Denuncia de extorsión telefónica por secuestro virtual.",
+            "palabras_clave": ["extorsión", "secuestro", "dinero"],
+            "indicadores_extorsion": ["plazo", "monto", "amenaza"],
+            "score_amenaza": 0.8,
+        },
+        "correlation": {
+            "correlaciones": [
+                {
+                    "denuncia_relacionada_id": "DEN-2024-001",
+                    "score_similitud": 0.82,
+                    "tipo_match": "telefono",
+                    "evidencia_match": "Mismo número reportado previamente",
+                }
+            ],
+            "red_criminal_detectada": True,
+            "modus_operandi_id": "MOD-001",
+            "score_red": 0.75,
+            "recomendacion_investigativa": "Investigar número y alertar a la población",
+        },
+        "osint": {
+            "telefonos": [{"numero": "999888777", "reportes_previos": 3, "riesgo": "Alto", "fuentes": ["test"]}],
+            "cuentas_bancarias": [],
+            "redes_sociales": [],
+            "dispositivos": [],
+            "fuentes_consultadas": ["test"],
+            "riesgo_osint": 3,
+            "observaciones": "Número con reportes previos de extorsión",
+        },
+        "risk": {
+            "nivel_riesgo": "ALTO",
+            "score_numerico": 0.85,
+            "factores": ["Amenaza explícita", "Monto elevado", "Recurrencia"],
+            "recomendacion_operativa": "Escalar a unidad de inteligencia",
+            "requiere_accion_inmediata": True,
+            "tiempo_respuesta_sugerido_minutos": 30,
+        },
+        "alert": {
+            "alerta_generada": True,
+            "alerta_id": "ALERT-TEST-001",
+            "nivel": "ALTO",
+            "titulo": "Alerta de extorsión alta",
+            "descripcion": "Caso de extorsión telefónica con alto riesgo",
+            "recomendacion": "Investigar de inmediato",
+            "mensaje_alerta": "Alerta test",
+            "canales_notificacion": ["push"],
+        },
+        "respond": {
+            "enviado": True,
+            "tracking_code": "TRJ-TEST01",
+            "mensaje_ciudadano": "Denuncia registrada con código TRJ-TEST01",
+        },
+    }
+
+    def _detect_agent(self, messages: List[Dict[str, Any]]) -> str:
+        system = ""
+        for m in messages:
+            if m.get("role") == "system":
+                system = m.get("content", "")
+                break
+        system = system.lower()
+        for agent in self._responses:
+            if agent in system:
+                return agent
+        # Fallback por contenido de mensajes
+        user = ""
+        for m in messages:
+            if m.get("role") == "user":
+                user += m.get("content", "")
+        user = user.lower()
+        if "intake" in user:
+            return "intake"
+        if "ocr" in user or "tesseract" in user:
+            return "ocr"
+        if "speech" in user or "whisper" in user:
+            return "speech"
+        if "risk" in user or "riesgo" in user:
+            return "risk"
+        if "alert" in user:
+            return "alert"
+        if "correlation" in user or "correlaci" in user:
+            return "correlation"
+        if "osint" in user:
+            return "osint"
+        if "respond" in user or "trj" in user:
+            return "respond"
+        return "nlp"
+
+    async def ainvoke(self, messages, **kwargs):
+        from langchain_core.messages import AIMessage
+        agent = self._detect_agent(messages)
+        return AIMessage(content=json.dumps(self._responses[agent], ensure_ascii=False))
+
 
 def get_llm():
     global _llm
     if _llm is None:
-        _llm = ChatGroq(
-            model=settings.GROQ_MODEL,
-            temperature=settings.GROQ_TEMPERATURE,
-            max_tokens=settings.GROQ_MAX_TOKENS,
-            api_key=settings.GROQ_API_KEY,
-        )
+        if settings.MOCK_LLM or not settings.GROQ_API_KEY:
+            _llm = MockLLM()
+        else:
+            _llm = ChatGroq(
+                model=settings.GROQ_MODEL,
+                temperature=settings.GROQ_TEMPERATURE,
+                max_tokens=settings.GROQ_MAX_TOKENS,
+                api_key=settings.GROQ_API_KEY,
+            )
     return _llm
 
 # Variable de conveniencia para imports directos en agentes individuales

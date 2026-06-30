@@ -1,5 +1,5 @@
 """
-Web3 Service - Interacción con Smart Contracts en Syscoin Rollux L2
+Web3 Service - Interacción con Smart Contracts en zkSYS Tanenbaum Testnet
 """
 import json
 import hashlib
@@ -15,7 +15,7 @@ from app.config.settings import settings
 
 class Web3Service:
     """
-    Servicio singleton para interactuar con la blockchain Syscoin Rollux.
+    Servicio singleton para interactuar con la blockchain zkSYS Tanenbaum Testnet.
     Gestiona conexiones, firmas transaccionales y lecturas de contratos.
     """
     
@@ -234,17 +234,18 @@ class Web3Service:
         
         # Obtener datos on-chain
         ev = self.evidence_registry.functions.evidencias(evidence_id).call()
-        
+        on_chain_hash = ev[1].hex() if isinstance(ev[1], bytes) else ev[1]
+
         return {
             "evidence_id": evidence_id,
             "valid": valid,
             "mensaje": mensaje,
-            "on_chain_hash": ev[1],
+            "on_chain_hash": on_chain_hash,
             "provided_hash": provided_hash,
             "custodian": ev[4],
             "timestamp": ev[7],
             "active": ev[8],
-            "blockchain": "syscoin_rollux",
+            "blockchain": "zksys_tanenbaum",
             "block_number_at_verify": self.get_block_number(),
         }
     
@@ -282,19 +283,43 @@ class Web3Service:
             for h in history
         ]
     
+    def verify_hash_exists(self, content_hash: str) -> Dict[str, Any]:
+        """Verifica si un hash de evidencia ya fue sellado on-chain."""
+        if not self.evidence_registry:
+            raise RuntimeError("EvidenceRegistry contract not configured")
+        
+        raw_hash = Web3.to_bytes(hexstr=content_hash) if content_hash.startswith("0x") else content_hash.encode()
+        hash_bytes32 = raw_hash.ljust(32, b'\0')[:32]
+        # El contrato mapea hash -> evidenceId; si es >0 el hash existe sellado.
+        evidence_id = self.evidence_registry.functions.hashToEvidenceId(hash_bytes32).call()
+        exists = evidence_id > 0
+        return {
+            "content_hash": content_hash,
+            "exists": exists,
+            "evidence_id": int(evidence_id),
+            "blockchain": "zksys_tanenbaum",
+            "block_number_at_verify": self.get_block_number(),
+        }
+    
     def transfer_custody(self, evidence_id: int, new_custodian: str, motivo: str) -> Dict[str, Any]:
         """Transfiere custodia de evidencia a nueva dirección."""
         if not self.evidence_registry:
             raise RuntimeError("EvidenceRegistry contract not configured")
-        
+
+        func = self.evidence_registry.functions.transferCustody(
+            evidence_id,
+            Web3.to_checksum_address(new_custodian),
+            motivo
+        )
         receipt_dict, _ = self._send_transaction(func)
         return receipt_dict
-        
+
     def revoke_evidence(self, evidence_id: int, motivo: str) -> Dict[str, Any]:
         """Revoca o invalida una evidencia en blockchain."""
         if not self.evidence_registry:
             raise RuntimeError("EvidenceRegistry contract not configured")
-        
+
+        func = self.evidence_registry.functions.revokeEvidence(evidence_id, motivo)
         receipt_dict, _ = self._send_transaction(func)
         return receipt_dict
     
@@ -325,7 +350,8 @@ class Web3Service:
         """Vincula una evidencia registrada a un caso."""
         if not self.case_manager:
             raise RuntimeError("CaseManager contract not configured")
-        
+
+        func = self.case_manager.functions.vincularEvidencia(case_id, evidence_id)
         receipt_dict, _ = self._send_transaction(func)
         return receipt_dict
     
@@ -352,15 +378,20 @@ class Web3Service:
         """Asigna un oficial a un caso."""
         if not self.case_manager:
             raise RuntimeError("CaseManager contract not configured")
-            
+
+        func = self.case_manager.functions.asignarOficial(
+            case_id,
+            Web3.to_checksum_address(oficial_address)
+        )
         receipt_dict, _ = self._send_transaction(func)
         return receipt_dict
-        
+
     def change_case_status(self, case_id: int, nuevo_estado: int, motivo: str) -> Dict[str, Any]:
         """Cambia el estado de un caso."""
         if not self.case_manager:
             raise RuntimeError("CaseManager contract not configured")
-            
+
+        func = self.case_manager.functions.cambiarEstado(case_id, nuevo_estado, motivo)
         receipt_dict, _ = self._send_transaction(func)
         return receipt_dict
     
@@ -406,12 +437,32 @@ class Web3Service:
             return 0
         return self.token.functions.balanceOf(Web3.to_checksum_address(address)).call()
         
-    def mint_achievement(self, to_address: str, amount: int) -> Dict[str, Any]:
+    def mint_evidence_token(
+        self,
+        to_address: str,
+        evidence_id: int,
+        evidence_hash: str,
+        ipfs_uri: str = ""
+    ) -> Dict[str, Any]:
+        """Mintea un token de evidencia (SBT) vinculado a una evidenceId."""
         if not hasattr(self, 'token') or not self.token:
             raise RuntimeError("Token contract not configured")
-            
-        receipt_dict, _ = self._send_transaction(func)
-        return receipt_dict
+
+        raw_hash = Web3.to_bytes(hexstr=evidence_hash) if evidence_hash.startswith("0x") else evidence_hash.encode()
+        hash_bytes32 = raw_hash.ljust(32, b'\x00')[:32]
+
+        func = self.token.functions.mintEvidenceToken(
+            Web3.to_checksum_address(to_address),
+            evidence_id,
+            hash_bytes32,
+            ipfs_uri
+        )
+        receipt_dict, raw_receipt = self._send_transaction(func)
+
+        logs = self.token.events.EvidenceMinted().process_receipt(raw_receipt)
+        token_id = logs[0].args.tokenId if logs else None
+
+        return {**receipt_dict, "token_id": token_id}
 
 # Singleton
 web3_service = Web3Service()

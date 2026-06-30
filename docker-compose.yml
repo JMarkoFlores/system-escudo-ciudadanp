@@ -90,6 +90,11 @@ services:
         condition: service_started
     networks:
       - intel_extorsion_network
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     volumes:
       - ./intel_extorsion_agent_system/app:/app/app:ro
       - evidencias_data:/app/uploads/evidencias
@@ -106,14 +111,17 @@ services:
     environment:
       API_HOST: "0.0.0.0"
       API_PORT: "8001"
-      WEB3_PROVIDER_URL: ${WEB3_PROVIDER_URL:-https://rpc.genesis.zksys.io}
-      CHAIN_ID: ${CHAIN_ID:-5700}
+      WEB3_PROVIDER_URL: ${WEB3_PROVIDER_URL:-https://rpc-zk.tanenbaum.io}
+      CHAIN_ID: ${CHAIN_ID:-57057}
+      EXPLORER_URL: ${EXPLORER_URL:-https://explorer-zk.tanenbaum.io}
+      NETWORK_NAME: ${NETWORK_NAME:-zkSYS Tanenbaum Testnet}
       PRIVATE_KEY: ${PRIVATE_KEY}
-      CONTRACT_EVIDENCE_REGISTRY: ${CONTRACT_EVIDENCE_REGISTRY}
-      CONTRACT_CASE_MANAGER: ${CONTRACT_CASE_MANAGER}
-      CONTRACT_DID_REGISTRY: ${CONTRACT_DID_REGISTRY}
-      CONTRACT_TOKEN: ${CONTRACT_TOKEN}
+      CONTRACT_EVIDENCE_REGISTRY: ${CONTRACT_EVIDENCE_REGISTRY:-0x1A9eB1a4C261AE793e21101a3E5c14003dcF4dEb}
+      CONTRACT_CASE_MANAGER: ${CONTRACT_CASE_MANAGER:-0x3576cb05B2c4094e8f97639892D235044d7476a1}
+      CONTRACT_DID_REGISTRY: ${CONTRACT_DID_REGISTRY:-0x8481c85e54f50C676f0fc37f90848030c3B12bB9}
+      CONTRACT_TOKEN: ${CONTRACT_TOKEN:-0x622AA147eD0238840ceb215941D5E8CD997896F0}
       IPFS_JWT: ${IPFS_JWT}
+      X509_CERT_PEM: ${X509_CERT_PEM}
       AGENT_SYSTEM_API_URL: http://agent-api:8000
     ports:
       - "8001:8001"
@@ -121,6 +129,11 @@ services:
       - agent-api
     networks:
       - intel_extorsion_network
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8001/health', timeout=5)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # ----------------------------------------------------------
   # FRONTENDS NEXT.JS
@@ -129,19 +142,20 @@ services:
     build:
       context: ./intel_extorsion_frontend_citizen
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_AGENT_API_URL: http://localhost:8000
+        NEXT_PUBLIC_WEB3_API_URL: http://localhost:8001
+        NEXT_PUBLIC_RPC_URL: ${WEB3_PROVIDER_URL:-https://rpc-zk.tanenbaum.io}
+        NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID:-57057}
+        NEXT_PUBLIC_EXPLORER_URL: ${EXPLORER_URL:-https://explorer-zk.tanenbaum.io}
+        NEXT_PUBLIC_CONTRACT_EVIDENCE_REGISTRY: ${CONTRACT_EVIDENCE_REGISTRY:-0x1A9eB1a4C261AE793e21101a3E5c14003dcF4dEb}
+        NEXT_PUBLIC_CONTRACT_CASE_MANAGER: ${CONTRACT_CASE_MANAGER:-0x3576cb05B2c4094e8f97639892D235044d7476a1}
+        NEXT_PUBLIC_CONTRACT_DID_REGISTRY: ${CONTRACT_DID_REGISTRY:-0x8481c85e54f50C676f0fc37f90848030c3B12bB9}
+        NEXT_PUBLIC_CONTRACT_TOKEN: ${CONTRACT_TOKEN:-0x622AA147eD0238840ceb215941D5E8CD997896F0}
     container_name: intel_extorsion_frontend_citizen
     restart: unless-stopped
     ports:
       - "3000:3000"
-    environment:
-      NEXT_PUBLIC_AGENT_API_URL: http://localhost:8000
-      NEXT_PUBLIC_WEB3_API_URL: http://localhost:8001
-      NEXT_PUBLIC_RPC_URL: ${WEB3_PROVIDER_URL:-https://rpc-zk.tanenbaum.io}
-      NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID:-57057}
-      NEXT_PUBLIC_CONTRACT_EVIDENCE_REGISTRY: ${CONTRACT_EVIDENCE_REGISTRY}
-      NEXT_PUBLIC_CONTRACT_CASE_MANAGER: ${CONTRACT_CASE_MANAGER}
-      NEXT_PUBLIC_CONTRACT_DID_REGISTRY: ${CONTRACT_DID_REGISTRY}
-      NEXT_PUBLIC_CONTRACT_TOKEN: ${CONTRACT_TOKEN}
     depends_on:
       - agent-api
       - web3-backend
@@ -152,19 +166,20 @@ services:
     build:
       context: ./intel_extorsion_frontend_police
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_AGENT_API_URL: http://localhost:8000
+        NEXT_PUBLIC_WEB3_API_URL: http://localhost:8001
+        NEXT_PUBLIC_RPC_URL: ${WEB3_PROVIDER_URL:-https://rpc-zk.tanenbaum.io}
+        NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID:-57057}
+        NEXT_PUBLIC_EXPLORER_URL: ${EXPLORER_URL:-https://explorer-zk.tanenbaum.io}
+        NEXT_PUBLIC_CONTRACT_EVIDENCE_REGISTRY: ${CONTRACT_EVIDENCE_REGISTRY:-0x1A9eB1a4C261AE793e21101a3E5c14003dcF4dEb}
+        NEXT_PUBLIC_CONTRACT_CASE_MANAGER: ${CONTRACT_CASE_MANAGER:-0x3576cb05B2c4094e8f97639892D235044d7476a1}
+        NEXT_PUBLIC_CONTRACT_DID_REGISTRY: ${CONTRACT_DID_REGISTRY:-0x8481c85e54f50C676f0fc37f90848030c3B12bB9}
+        NEXT_PUBLIC_CONTRACT_TOKEN: ${CONTRACT_TOKEN:-0x622AA147eD0238840ceb215941D5E8CD997896F0}
     container_name: intel_extorsion_frontend_police
     restart: unless-stopped
     ports:
       - "3001:3000"
-    environment:
-      NEXT_PUBLIC_AGENT_API_URL: http://localhost:8000
-      NEXT_PUBLIC_WEB3_API_URL: http://localhost:8001
-      NEXT_PUBLIC_RPC_URL: ${WEB3_PROVIDER_URL:-https://rpc-zk.tanenbaum.io}
-      NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID:-57057}
-      NEXT_PUBLIC_CONTRACT_EVIDENCE_REGISTRY: ${CONTRACT_EVIDENCE_REGISTRY}
-      NEXT_PUBLIC_CONTRACT_CASE_MANAGER: ${CONTRACT_CASE_MANAGER}
-      NEXT_PUBLIC_CONTRACT_DID_REGISTRY: ${CONTRACT_DID_REGISTRY}
-      NEXT_PUBLIC_CONTRACT_TOKEN: ${CONTRACT_TOKEN}
     depends_on:
       - agent-api
       - web3-backend
@@ -175,6 +190,15 @@ services:
     build:
       context: ./intel_extorsion_web3_system/dapp
       dockerfile: Dockerfile
+      args:
+        VITE_RPC_URL: ${WEB3_PROVIDER_URL:-https://rpc-zk.tanenbaum.io}
+        VITE_CHAIN_ID: ${CHAIN_ID:-57057}
+        VITE_CONTRACT_EVIDENCE_REGISTRY: ${CONTRACT_EVIDENCE_REGISTRY:-0x1A9eB1a4C261AE793e21101a3E5c14003dcF4dEb}
+        VITE_CONTRACT_CASE_MANAGER: ${CONTRACT_CASE_MANAGER:-0x3576cb05B2c4094e8f97639892D235044d7476a1}
+        VITE_CONTRACT_DID_REGISTRY: ${CONTRACT_DID_REGISTRY:-0x8481c85e54f50C676f0fc37f90848030c3B12bB9}
+        VITE_CONTRACT_TOKEN: ${CONTRACT_TOKEN:-0x622AA147eD0238840ceb215941D5E8CD997896F0}
+        VITE_CONTRACT_EVIDENCE_SEAL: ${CONTRACT_EVIDENCE_SEAL:-0x0000000000000000000000000000000000000000}
+        VITE_API_URL: http://localhost:8001
     container_name: intel_extorsion_dapp
     restart: unless-stopped
     ports:

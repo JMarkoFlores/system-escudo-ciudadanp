@@ -124,8 +124,8 @@ Todos los servicios están centralizados en `services/api.ts`:
 La store `walletStore` gestiona:
 1. Detección de `window.pali`
 2. Conexión vía `eth_requestAccounts`
- 3. Validación de red (Chain ID 5700 = zkSYS Genesis Testnet)
- 4. Cambio automático a red zkSYS (`wallet_addEthereumChain`)
+ 3. Validación de red (Chain ID 57057 = zkSYS Tanenbaum Testnet)
+ 4. Cambio automático a red zkSYS Tanenbaum (`wallet_addEthereumChain`)
  5. Generación automática de DID: `did:zksys:<address>`
 
 ### Contratos
@@ -160,12 +160,14 @@ npm start
 ```
 NEXT_PUBLIC_AGENT_API_URL=http://localhost:8000
 NEXT_PUBLIC_WEB3_API_URL=http://localhost:8001
-NEXT_PUBLIC_RPC_URL=https://rpc.genesis.zksys.io
-NEXT_PUBLIC_CHAIN_ID=5700
-NEXT_PUBLIC_CONTRACT_EVIDENCE_REGISTRY=0x...
-NEXT_PUBLIC_CONTRACT_CASE_MANAGER=0x...
-NEXT_PUBLIC_CONTRACT_DID_REGISTRY=0x...
-NEXT_PUBLIC_CONTRACT_TOKEN=0x...
+NEXT_PUBLIC_RPC_URL=https://rpc-zk.tanenbaum.io
+NEXT_PUBLIC_CHAIN_ID=57057
+NEXT_PUBLIC_EXPLORER_URL=https://explorer-zk.tanenbaum.io
+NEXT_PUBLIC_NETWORK_NAME="zkSYS Tanenbaum Testnet"
+NEXT_PUBLIC_CONTRACT_EVIDENCE_REGISTRY=0x1A9eB1a4C261AE793e21101a3E5c14003dcF4dEb
+NEXT_PUBLIC_CONTRACT_CASE_MANAGER=0x3576cb05B2c4094e8f97639892D235044d7476a1
+NEXT_PUBLIC_CONTRACT_DID_REGISTRY=0x8481c85e54f50C676f0fc37f90848030c3B12bB9
+NEXT_PUBLIC_CONTRACT_TOKEN=0x622AA147eD0238840ceb215941D5E8CD997896F0
 ```
 
 ## Buenas Prácticas Aplicadas
@@ -195,7 +197,7 @@ Frontend (Next.js)
           POST /v1/casos
           GET  /v1/did/{did}
           │
-          └──► zkSYS Genesis Testnet (JSON-RPC)
+          └──► zkSYS Tanenbaum Testnet (JSON-RPC)
 ```
 
 ---

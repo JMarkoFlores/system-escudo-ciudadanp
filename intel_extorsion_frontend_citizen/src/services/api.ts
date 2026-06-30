@@ -30,6 +30,9 @@ export const denunciaService = {
   listar: (params?: { estado?: string; canal?: string; did_denunciante?: string }) =>
     agentApi.get<Denuncia[]>('/denuncias', { params }),
 
+  obtenerPorTracking: (code: string) =>
+    agentApi.get<Denuncia>(`/denuncias/tracking/${code}`),
+
   adjuntar: (denunciaId: string, file: File, tipoEvidencia?: string) => {
     const formData = new FormData();
     formData.append('file', file);

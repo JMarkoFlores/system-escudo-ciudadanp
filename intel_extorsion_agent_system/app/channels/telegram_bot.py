@@ -2,6 +2,7 @@ import asyncio
 import logging
 import httpx
 from typing import Optional, List, Dict, Any
+from datetime import datetime
 
 from app.config.settings import settings
 from app.schemas.agent_schemas import DenunciaIngestaRequest, CanalEntrada, TipoContenido
@@ -10,6 +11,15 @@ from app.models.db_session import AsyncSessionLocal
 from app.services.stt_service import transcribe_audio
 
 logger = logging.getLogger(__name__)
+
+# Configuración personalizada del bot de Telegram
+TELEGRAM_CONFIG = {
+    "BOT_NAME": "IntelExtorsión Telegram",
+    "BOT_USERNAME": "intelextorsion_bot",
+    "WELCOME_MESSAGE": "¡Bienvenido al sistema de Inteligencia Ciudadana!",
+    "SUPPORT_CHANNEL": "@intelextorsion_support",
+}
+
 
 class TelegramBot:
     def __init__(self, token: str):
@@ -20,6 +30,7 @@ class TelegramBot:
         self.is_running = False
         self._task = None
         self.user_states = {}  # chat_id -> 'idle' | 'waiting_for_denuncia'
+        self.start_time = datetime.now()
 
     def start_background(self):
         """Inicia el bot en una tarea en segundo plano de asyncio"""
@@ -90,14 +101,23 @@ class TelegramBot:
         # Comando /start o /help (siempre disponible)
         if text and (text.startswith("/start") or text.startswith("/help")):
             welcome_msg = (
-                "🛡️ *Bienvenido al bot oficial de IntelExtorsión*\n\n"
-                "Puedes registrar una denuncia de extorsión de forma 100% confidencial.\n\n"
-                "✍️ *¿Cómo denunciar?*\n"
-                "• Escribe detalladamente tu denuncia en un mensaje de texto.\n"
-                "• O envía una nota de voz explicando la situación (la transcribiremos automáticamente).\n\n"
-                "🔍 *¿Cómo consultar?*\n"
-                "• Envía el código en formato `TRJ-XXXX` para consultar su estado en tiempo real.\n\n"
-                "Tu reporte será analizado de inmediato por nuestros agentes de inteligencia artificial y recibirás un código de seguimiento."
+                f"🛡️ *{TELEGRAM_CONFIG['WELCOME_MESSAGE']}*\n\n"
+                f"🤖 *{TELEGRAM_CONFIG['BOT_NAME']}*\n\n"
+                "⚠️ *IMPORTANTE:* Este sistema NO es un canal directo de denuncia a la policía.\n"
+                "Es una plataforma de *INTELIGENCIA CIUDADANA* que recibe reportes de extorsión, los analiza con IA forense, y entrega información procesada a las autoridades competentes (DIVINCRI La Libertad) para que tomen acciones operativas.\n\n"
+                "📋 *¿Qué hace este sistema?*\n"
+                "• Recibe tu reporte de forma 100% anónima\n"
+                "• Analiza la información con 10 agentes de IA especializados\n"
+                "• Correlaciona tu caso con otros reportes similares\n"
+                "• Entrega inteligencia procesada a las autoridades para operativos\n"
+                "• Sella evidencias en blockchain para trazabilidad judicial\n\n"
+                "✍️ *¿Cómo reportar información?*\n"
+                "• Escribe una descripción detallada en un mensaje de texto\n"
+                "• Envía una nota de voz o archivo de audio (lo transcribiremos automáticamente)\n"
+                "• Adjunta imágenes o documentos de evidencia\n\n"
+                "🔍 *¿Cómo consultar tu reporte?*\n"
+                "• Envía el código de tu caso en formato `TRJ-XXXX` para ver su estado de análisis\n\n"
+                "📞 *Para denuncias formales:* Si necesitas presentar una denuncia formal ante la Fiscalía o la PNP, utiliza la línea 111 o acude a la comisaría más cercana. Este sistema complementa, pero no reemplaza, los canales oficiales de denuncia."
             )
             await self.send_message(chat_id, welcome_msg)
             return
@@ -110,8 +130,42 @@ class TelegramBot:
                 await self.send_message(
                     chat_id,
                     "❌ *Reporte cancelado.*\n\n"
-                    "El asistente de ingesta ha sido desactivado y tu sesión se encuentra limpia. ¿Qué deseas hacer hoy? Puedes volver a iniciar escribiendo 'denunciar'."
+                    "El asistente de ingesta ha sido desactivado y tu sesión se encuentra limpia. ¿Qué deseas hacer hoy? Puedes volver a iniciar escribiendo 'reportar' o 'denunciar'."
                 )
+                return
+
+        # --- FLUJO ESTADO: CLASSIFYING (RF-01) ---
+        if chat_state == 'classifying':
+            clean_text = text.lower().strip() if text else ""
+            if clean_text in ["1", "uno", "particular", "banda", "criminal", "delincuente"]:
+                self.user_states[chat_id] = 'waiting_for_denuncia'
+                await self.send_message(
+                    chat_id,
+                    "📝 *Asistente de Ingesta Activado.*\n\n"
+                    "Por favor, describa detalladamente lo sucedido **en su siguiente mensaje**. Recuerde incluir:\n"
+                    "• Teléfonos desde donde le contactaron\n"
+                    "• Nombres o cuentas bancarias de cobro si se las dieron\n"
+                    "• Tipo de amenaza o exigencias de dinero\n"
+                    "• Zona o lugar donde ocurrieron los hechos\n\n"
+                    "También puede adjuntar imágenes o documentos de evidencia.\n\n"
+                    "⚠️ Su información será analizada por IA forense y entregada a las autoridades competentes para inteligencia operativa. Si desea abortar, escriba *cancelar*."
+                )
+                return
+            elif clean_text in ["2", "dos", "funcionario", "policía", "policia", "autoridad", "pnp"]:
+                self.user_states[chat_id] = 'idle'
+                await self.send_message(
+                    chat_id,
+                    "🛡️ *Reporte contra servidor público / PNP*\n\n"
+                    "Este canal está destinado a reportes de extorsión por *particulares o bandas criminales*. "
+                    "Si la amenaza proviene de un funcionario público o policía, le recomendamos canales especializados:\n\n"
+                    "• *Inspectoría General PNP:* línea 111 o https://www.pnp.gob.pe\n"
+                    "• *Fiscalía Anticorrupción:* https://www.fiscalia.gob.pe\n\n"
+                    "Su reporte *NO* será registrado en el dashboard de la DIVINCRI por protección institucional. "
+                    "Si desea reportar otro tipo de caso, escriba *reportar*."
+                )
+                return
+            else:
+                await self.send_message(chat_id, "⚠️ Por favor responda con *1* (particular/banda) o *2* (funcionario/policía).")
                 return
 
         # --- FLUJO ESTADO: IDLE ---
@@ -152,28 +206,28 @@ class TelegramBot:
                 if clean_text in saludos or any(s == clean_text for s in saludos) or clean_text in ["hola!", "hola."]:
                     await self.send_message(
                         chat_id,
-                        "👋 *¡Hola!* Estoy aquí para ayudarte a registrar denuncias de extorsión de forma segura y confidencial.\n\n"
-                        "Para iniciar una denuncia, por favor escribe *denunciar* o presiona el comando /denunciar."
+                        "👋 *¡Hola!* Soy el asistente de Inteligencia Ciudadana IntelExtorsión.\n\nEste sistema recibe reportes de extorsión, los analiza con IA forense y entrega información procesada a las autoridades competentes para combatir el crimen organizado.\n\nPara aportar información, escribe *reportar* o *denunciar* para activar el asistente de ingesta.\n\n⚠️ Recuerda: Este NO es un canal directo de denuncia formal a la policía. Para denuncias oficiales, usa la línea 111 o acude a la comisaría."
                     )
                     return
 
-                # 3. Activar asistente de denuncia
-                intencion_nueva = ["quiero denunciar", "hacer una denuncia", "hacer otra denuncia", "otra denuncia", "nueva denuncia", "registrar otra", "denunciar", "/denunciar"]
+                # 3. Activar asistente de denuncia -> menú de clasificación RF-01
+                intencion_nueva = ["quiero denunciar", "hacer una denuncia", "hacer otra denuncia", "otra denuncia", "nueva denuncia", "registrar otra", "denunciar", "quiero reportar", "reportar", "aportar informacion", "aportar información", "/denunciar"]
                 if any(i in clean_text for i in intencion_nueva):
-                    self.user_states[chat_id] = 'waiting_for_denuncia'
+                    self.user_states[chat_id] = 'classifying'
                     await self.send_message(
                         chat_id,
-                        "📝 *Asistente de Ingesta Activado.*\n\n"
-                        "Por favor, describa detalladamente lo sucedido **en su siguiente mensaje** (puede incluir números de teléfono extorsionadores, cuentas bancarias, montos exigidos, etc.) o envíe una nota de voz.\n\n"
-                        "⚠️ *Asegúrese de consolidar toda la información en un único mensaje.* Si desea abortar el proceso, escriba *cancelar*."
+                        "🛡️ *Menú de Clasificación del Reporte*\n\n"
+                        "¿La amenaza proviene de:\n\n"
+                        "1️⃣ *Particular / Banda criminal*\n"
+                        "2️⃣ *Funcionario público / Policía*\n\n"
+                        "Responda con el número *1* o *2*."
                     )
                     return
 
                 # Fallback en IDLE
                 await self.send_message(
                     chat_id,
-                    "🤖 *Hola. Para poder registrar una denuncia formal de extorsión, primero debemos activar el asistente de ingesta.*\n\n"
-                    "Por favor, escribe la palabra **denunciar** para comenzar."
+                    f"🤖 *Hola. Soy {TELEGRAM_CONFIG['BOT_NAME']}.*\n\nEste sistema recibe reportes de extorsión para análisis forense con IA y entrega de inteligencia a las autoridades competentes.\n\nPara aportar información, escribe *reportar* o *denunciar* para activar el asistente de ingesta.\n\n⚠️ Para denuncias formales ante la Fiscalía o PNP, utiliza la línea 111 o acude a la comisaría más cercana."
                 )
                 return
             else:
@@ -181,7 +235,7 @@ class TelegramBot:
                 await self.send_message(
                     chat_id,
                     "🤖 *Detecté un archivo, pero el asistente de ingesta no está activo.*\n\n"
-                    "Por favor, escribe la palabra **denunciar** primero para poder registrar tu caso correctamente."
+                    "Por favor, escribe *reportar* o *denunciar* primero para poder registrar tu caso correctamente."
                 )
                 return
 
@@ -223,9 +277,9 @@ class TelegramBot:
             if (es_saludo or es_intencion or es_relleno) and not voice_or_audio:
                 await self.send_message(
                     chat_id,
-                    "📝 *Asistente Esperando Detalles.*\n\n"
+                    "📝 *Asistente Esperando Detalles del Reporte.*\n\n"
                     "⚠️ No detectamos detalles del hecho en tu mensaje.\n\n"
-                    "Por favor, redacta **en un único mensaje consolidado** todo lo sucedido cuando estés listo (incluyendo teléfonos, cuentas bancarias, amenazas), o envíanos una nota de voz explicativa.\n\n"
+                    "Por favor, redacta **en un único mensaje consolidado** toda la información relevante cuando estés listo (incluyendo teléfonos, cuentas bancarias, amenazas, zona), o envíanos una nota de voz explicativa.\n\n"
                     "*Si deseas cancelar el reporte actual, escribe **cancelar**.*"
                 )
                 return
@@ -234,7 +288,7 @@ class TelegramBot:
             if len(clean_text) < 15 and not voice_or_audio:
                 await self.send_message(
                     chat_id,
-                    "ℹ️ *Tu mensaje es muy corto.* Para poder iniciar una denuncia válida y que los agentes de IA puedan analizarla, por favor escribe una descripción más detallada de los hechos o envía una nota de voz."
+                    "ℹ️ *Tu mensaje es muy corto.* Para poder procesar tu reporte y generar inteligencia útil para las autoridades, por favor escribe una descripción más detallada de los hechos o envía una nota de voz."
                 )
                 return
 
@@ -262,15 +316,16 @@ class TelegramBot:
                 return
 
         if not contenido_raw or not contenido_raw.strip():
-            await self.send_message(chat_id, "❌ Por favor, escribe un mensaje o envía una nota de voz explicativa para registrar la denuncia.")
+            await self.send_message(chat_id, "❌ Por favor, escribe un mensaje o envía una nota de voz explicativa para que podamos generar inteligencia útil.")
             return
 
-        await self.send_message(chat_id, "🔍 _Registrando denuncia y ejecutando análisis de inteligencia..._")
+        await self.send_message(chat_id, "🔍 _Procesando tu reporte... Guardando evidencias y analizando con agentes de IA forense..._")
 
         try:
             # Crear denuncia y ejecutar grafo
             async with AsyncSessionLocal() as db:
                 service = AgentExecutionService(db)
+                import hashlib
                 req = DenunciaIngestaRequest(
                     canal=CanalEntrada.TELEGRAM,
                     id_externo=str(message["message_id"]),
@@ -278,8 +333,8 @@ class TelegramBot:
                     contenido_raw=contenido_raw,
                     url_archivo=url_archivo,
                     metadata={
-                        "telegram_user": message.get("from", {}),
-                        "chat_id": chat_id
+                        "canal_origen": "telegram",
+                        "session_id": hashlib.sha256(str(chat_id).encode()).hexdigest()[:16]
                     }
                 )
                 denuncia = await service.crear_denuncia(req)
@@ -296,11 +351,13 @@ class TelegramBot:
             nivel_riesgo_str = denuncia.nivel_riesgo.value.upper() if denuncia.nivel_riesgo else "NO DETERMINADO"
             
             msg_reply = (
-                f"✅ *Denuncia Registrada Exitosamente*\n\n"
+                f"✅ *Reporte Registrado Exitosamente*\n\n"
                 f"🎫 *Código de seguimiento:* `{tracking_code}`\n"
-                f"⚖️ *Nivel de Riesgo Inicial:* *{nivel_riesgo_str}*\n\n"
-                f"Puedes consultar el análisis completo de los agentes de IA y blockchain en el siguiente enlace:\n"
-                f"http://localhost:3000/tracking?code={tracking_code}"
+                f"⚖️ *Nivel de Riesgo Estimado:* *{nivel_riesgo_str}*\n\n"
+                f"Su información será analizada por IA forense y entregada a las autoridades competentes para inteligencia operativa.\n\n"
+                f"Puede consultar el estado de análisis de su reporte en:\n"
+                f"http://localhost:3000/tracking?code={tracking_code}\n\n"
+                f"⚠️ Recuerde: Este sistema es de inteligencia ciudadana. Para denuncias formales ante la Fiscalía o PNP, utiliza la línea 111 o acude a la comisaría."
             )
             await self.send_message(chat_id, msg_reply)
         except Exception as e:

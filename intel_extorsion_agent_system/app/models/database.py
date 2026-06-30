@@ -14,6 +14,7 @@ class EstadoDenuncia(str, enum.Enum):
     correlacionado = "correlacionado"
     riesgo_evaluado = "riesgo_evaluado"
     alerta_generada = "alerta_generada"
+    error_procesamiento = "error_procesamiento"
     archivado = "archivado"
 
 class NivelRiesgo(str, enum.Enum):
@@ -134,4 +135,21 @@ class MemoriaConversacional(Base):
     role = Column(String(50), nullable=False)
     content = Column(String, nullable=False)
     tool_calls = Column(JSONB, nullable=True)
+
+class RolUsuario(str, enum.Enum):
+    analista = "analista"
+    supervisor = "supervisor"
+    admin = "admin"
+
+class Usuario(Base):
+    __tablename__ = "usuarios"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    username = Column(String(50), unique=True, nullable=False, index=True)
+    hashed_password = Column(String(255), nullable=False)
+    nombre_completo = Column(String(100), nullable=True)
+    rol = Column(Enum(RolUsuario), nullable=False, default=RolUsuario.analista)
+    activo = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    last_login = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)

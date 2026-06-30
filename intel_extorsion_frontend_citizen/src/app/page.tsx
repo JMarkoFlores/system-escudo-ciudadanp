@@ -7,6 +7,8 @@ import {
   BarChart3,
   ChevronRight,
   ShieldAlert,
+  Wallet,
+  FileText,
 } from 'lucide-react';
 
 export default function LandingPage() {
@@ -70,7 +72,7 @@ export default function LandingPage() {
                   <div className="text-slate-400">{'>'} Intake Agent: Denuncia válida detectada</div>
                   <div className="text-slate-400">{'>'} NLP Agent: Score amenaza = 0.92</div>
                   <div className="text-slate-400">{'>'} Risk Agent: Nivel CRÍTICO</div>
-                  <div className="text-blue-400">{'>'} Evidence hash stored on Rollux L2</div>
+                  <div className="text-blue-400">{'>'} Evidence hash sealed on zkSYS Tanenbaum</div>
                   <div className="text-slate-400">{'>'} Alert emitted to dashboard</div>
                 </div>
               </div>
@@ -92,7 +94,7 @@ export default function LandingPage() {
             {[
               { icon: BrainCircuit, title: 'Agentes Autónomos', desc: 'Intake, OCR, Speech, NLP, Correlation, OSINT, Risk y Alert Agent con LangGraph y GPT-5.5.' },
               { icon: BarChart3, title: 'Análisis Predictivo', desc: 'Correlación de patrones, detección de redes criminales y scoring de riesgo en tiempo real.' },
-              { icon: Lock, title: 'Custodia Blockchain', desc: 'Evidencias inmutables en Syscoin Rollux L2 con hash SHA-256, DID y tokens soulbound.' },
+              { icon: Lock, title: 'Custodia Blockchain', desc: 'Evidencias inmutables en zkSYS Tanenbaum Testnet con hash SHA-256, DID y tokens soulbound.' },
             ].map((f) => (
               <div key={f.title} className="bg-slate-900 border border-slate-800 rounded-xl p-6 hover:border-blue-500/50 transition">
                 <f.icon className="text-blue-500 mb-4" size={32} />
@@ -128,31 +130,81 @@ export default function LandingPage() {
       </section>
 
       {/* Web3 */}
-      <section id="web3" className="py-20 bg-slate-950">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 className="text-3xl font-bold mb-4">Identidad Descentralizada</h2>
-              <p className="text-slate-400 mb-6">
-                Conecta tu Pali Wallet para generar un DID (Identidad Descentralizada) que protege tu privacidad mientras garantiza la autenticidad de tu denuncia.
-              </p>
-              <ul className="space-y-3 text-sm text-slate-300">
-                <li className="flex items-start"><Shield size={16} className="text-blue-500 mr-2 mt-1 shrink-0" /> Denuncias anónimas verificables</li>
-                <li className="flex items-start"><Lock size={16} className="text-blue-500 mr-2 mt-1 shrink-0" /> Cadena de custodia digital inmutable</li>
-                <li className="flex items-start"><BarChart3 size={16} className="text-blue-500 mr-2 mt-1 shrink-0" /> Trazabilidad completa en Syscoin Rollux L2</li>
-              </ul>
+      <section id="web3" className="py-24 relative overflow-hidden">
+        {/* Background effects */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-teal-500/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-blue-500/3 rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-teal-500/10 text-teal-400 text-xs font-bold mb-6 border border-teal-500/20 uppercase tracking-wider">
+              <Lock size={14} className="mr-2" /> DApp Web3
             </div>
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-800">
-                <span className="text-sm text-slate-400">Wallet conectada</span>
-                <span className="text-xs bg-green-500/10 text-green-400 px-2 py-1 rounded">Pali Wallet</span>
+            <h2 className="text-3xl md:text-4xl font-extrabold mb-4">Custodia Forense Descentralizada</h2>
+            <p className="text-slate-400 max-w-3xl mx-auto leading-relaxed">
+              Tu canal para aportar evidencia con <strong className="text-white">trazabilidad judicial</strong>, usando una{' '}
+              <strong className="text-white">Identidad Descentralizada (DID)</strong> que te permite ser{' '}
+              <strong className="text-emerald-300">seudónimo</strong> — identificable ante la DIVINCRI La Libertad solo si tú lo autorizas, sin exposición de tu identidad civil.
+            </p>
+          </div>
+
+          {/* Features Cards */}
+          <div className="grid md:grid-cols-3 gap-6 mb-12">
+            {[
+              { 
+                icon: Wallet, 
+                title: 'Identidad Descentralizada', 
+                desc: 'Conecta tu Pali Wallet V2 y firma un challenge criptográfico para generar tu DID. No se recopilan nombre, DNI ni correo.',
+                color: 'from-purple-500/15 to-purple-500/5',
+                borderColor: 'border-purple-500/20 hover:border-purple-500/40',
+                iconColor: 'text-purple-400',
+              },
+              { 
+                icon: Lock, 
+                title: 'Sellado en Blockchain', 
+                desc: 'Sube tu archivo. Se captura hash SHA-256, timestamp UTC, tipo MIME y metadatos técnicos. El hash se sella en la blockchain zkSYS.',
+                color: 'from-emerald-500/15 to-emerald-500/5',
+                borderColor: 'border-emerald-500/20 hover:border-emerald-500/40',
+                iconColor: 'text-emerald-400',
+              },
+              { 
+                icon: FileText, 
+                title: 'Acta Forense PDF', 
+                desc: 'Descarga el acta digital compatible con el artículo 158-B del CPP peruano: hash, timestamp, DID, bloque y firma del sistema.',
+                color: 'from-blue-500/15 to-blue-500/5',
+                borderColor: 'border-blue-500/20 hover:border-blue-500/40',
+                iconColor: 'text-blue-400',
+              },
+            ].map((f) => (
+              <div key={f.title} className={`bg-gradient-to-br from-slate-900 to-slate-900/80 border ${f.borderColor} rounded-2xl p-6 transition-all duration-300 hover:shadow-xl group relative overflow-hidden`}>
+                <div className={`absolute -top-16 -right-16 w-32 h-32 bg-gradient-to-br ${f.color} rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none`} />
+                <div className="relative z-10">
+                  <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${f.color} border ${f.borderColor} flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-300 mb-4`}>
+                    <f.icon className={f.iconColor} size={24} />
+                  </div>
+                  <h3 className="text-lg font-bold mb-2 group-hover:text-white transition">{f.title}</h3>
+                  <p className="text-slate-400 text-sm leading-relaxed">{f.desc}</p>
+                </div>
               </div>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between"><span className="text-slate-500">DID</span><span className="text-slate-300 font-mono">did:ethr:rollux:0x7a...3f</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Red</span><span className="text-slate-300">Syscoin Rollux (570)</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Evidencias</span><span className="text-slate-300">3 registradas</span></div>
-              </div>
+            ))}
+          </div>
+
+          {/* CTA */}
+          <div className="bg-gradient-to-r from-slate-900 to-teal-950/20 border border-teal-500/15 rounded-2xl p-8 max-w-2xl mx-auto text-center">
+            <div className="flex items-center justify-center space-x-2 mb-3">
+              <ShieldAlert className="text-teal-400" size={20} />
+              <span className="text-sm font-bold text-teal-300">Listo para comenzar</span>
             </div>
+            <p className="text-slate-400 text-sm mb-5 leading-relaxed">
+              Conecta tu wallet desde el Portal Ciudadano para acceder a la custodia forense descentralizada con trazabilidad judicial completa.
+            </p>
+            <Link 
+              href="/portal"
+              className="inline-flex items-center space-x-2 bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-500 hover:to-teal-400 text-white px-6 py-3 rounded-xl font-bold text-sm transition-all duration-300 shadow-lg hover:shadow-[0_4px_20px_rgba(13,148,136,0.3)]"
+            >
+              <span>Abrir Portal Ciudadano</span>
+              <ChevronRight size={16} />
+            </Link>
           </div>
         </div>
       </section>

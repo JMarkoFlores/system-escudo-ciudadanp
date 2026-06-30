@@ -9,8 +9,9 @@ from sqlalchemy.orm import selectinload
 
 from app.models.db_session import get_db
 from app.models.database import Cluster, Denuncia, EstadoCluster, NivelAlertaCluster
+from app.api.auth_router import require_user
 
-router = APIRouter(prefix="/v1/clusters", tags=["clusters"])
+router = APIRouter(prefix="/v1/clusters", tags=["clusters"], dependencies=[Depends(require_user)])
 
 
 @router.get("", response_model=List[dict])

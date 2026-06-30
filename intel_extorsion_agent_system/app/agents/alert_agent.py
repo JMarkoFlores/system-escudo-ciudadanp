@@ -31,9 +31,10 @@ class AlertAgent:
         # Emitir alerta vía tool si se indica
         if result.get("alerta_generada"):
             alert_tool = AGENT_TOOLS["emitir_alerta"]
+            nivel_alerta = result.get("nivel") or riesgo.get("nivel_riesgo") or "medio"
             await alert_tool._arun(
                 denuncia_id=str(state.denuncia_id),
-                nivel=riesgo.get("nivel_riesgo"),
+                nivel=nivel_alerta,
                 titulo=result.get("titulo", "Alerta"),
                 descripcion=result.get("descripcion", ""),
                 recomendacion=result.get("recomendacion", "")

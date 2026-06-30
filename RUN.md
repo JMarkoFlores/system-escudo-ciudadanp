@@ -10,7 +10,9 @@ docker compose up -d
 ```
 
 Servicios disponibles:
-- **Frontend:** http://localhost:3000
+- **Frontend Ciudadano:** http://localhost:3000
+- **Frontend Policial:** http://localhost:3001
+- **DApp Web3:** http://localhost:3002
 - **Agent System API:** http://localhost:8000/docs
 - **Web3 Backend API:** http://localhost:8001/docs
 - **PostgreSQL:** localhost:5432
@@ -121,32 +123,61 @@ npx hardhat run scripts/deploy.js --network localhost
 
 ---
 
+## Autenticación en el Dashboard Policial
+
+El frontend policial (`http://localhost:3001`) ahora requiere autenticación JWT.
+
+### Usuarios seed (demo)
+| Usuario | Contraseña | Rol |
+|---------|------------|-----|
+| admin | Admin123! | admin |
+| supervisor | Super123! | supervisor |
+| analista | Analista123! | analista |
+
+### Login vía API
+```bash
+curl -X POST http://localhost:8000/v1/auth/login \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=admin&password=Admin123!"
+```
+
+### Acceder a endpoints protegidos
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8000/v1/auth/login \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=admin&password=Admin123!" | jq -r '.access_token')
+
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/v1/denuncias?limit=5
+```
+
+---
+
 ## Acceder al Dashboard
 
 ### Dashboard Policial
 ```
-http://localhost:3000/dashboard/policial
+http://localhost:3001/dashboard/policial
 ```
-- Requiere acceso policial
+- Requiere login JWT
 - Muestra KPIs, denuncias recientes, estados
 
 ### Dashboard Analítico
 ```
-http://localhost:3000/dashboard/analitico
+http://localhost:3001/dashboard/analitico
 ```
 - Gráficos de actividad semanal
 - Distribución por canal y riesgo
 
 ### Redes Criminales
 ```
-http://localhost:3000/dashboard/grafos
+http://localhost:3001/dashboard/grafos
 ```
 - Visualización interactiva de grafos
 - Nodos: denunciantes, sospechosos, teléfonos, cuentas
 
 ### Centro de Alertas
 ```
-http://localhost:3000/dashboard/alertas
+http://localhost:3001/dashboard/alertas
 ```
 - Alertas por nivel: bajo, medio, alto, crítico
 - Acciones: marcar leída, atender
@@ -157,13 +188,58 @@ http://localhost:3000/dashboard/alertas
 
 1. Instalar extensión Pali Wallet desde https://paliwallet.com
 2. Crear o importar una wallet
-3. Cambiar red a **Syscoin Rollux Mainnet** (Chain ID 570)
+3. Cambiar red a **zkSYS Tanenbaum Testnet** (Chain ID 57057)
    - Si no aparece, agregar manualmente:
-     - RPC: `https://rpc.rollux.com`
-     - Chain ID: `570`
-     - Símbolo: `SYS`
+     - RPC: `https://rpc-zk.tanenbaum.io`
+     - Chain ID: `57057`
+     - Símbolo: `TSYS`
+     - Explorer: `https://explorer-zk.tanenbaum.io`
 4. En el frontend, click en "Conectar Pali Wallet"
 5. Aprobar la conexión en la extensión
+
+---
+
+## Mapa de Calor / Plan Cuadrante PNP
+
+```bash
+# GeoJSON base de cuadrantes (La Libertad)
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/v1/heatmap/cuadrantes
+
+# Heatmap con denuncias agregadas por cuadrante
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:8000/v1/heatmap?periodo=30"
+```
+
+---
+
+## Notificaciones Push de Alertas
+
+Configura en `.env`:
+```bash
+ALERT_WEBHOOK_URL=https://tuservidor.com/webhook
+ALERT_EMAIL_SMTP_HOST=smtp.gmail.com
+ALERT_EMAIL_SMTP_PORT=587
+ALERT_EMAIL_SMTP_USER=alertas@example.com
+ALERT_EMAIL_SMTP_PASSWORD=********
+ALERT_EMAIL_FROM=alertas@example.com
+ALERT_EMAIL_TO=supervisor@divincri.gob.pe,analista@divincri.gob.pe
+```
+
+Cada vez que se persiste una alerta oficial (riesgo alto/crítico), el sistema envía el payload al webhook y un email a los destinatarios configurados.
+
+---
+
+## Tests
+
+```bash
+# Tests de integración end-to-end en Docker (usa MOCK_LLM=true)
+docker compose -f docker-compose.yml -f docker-compose.test.yml up test-runner --build --abort-on-container-exit
+
+# Tests de smart contracts
+cd intel_extorsion_web3_system
+npx hardhat test
+```
+
+**Resultado esperado:** 10/10 tests de integración pasan.
 
 ---
 
@@ -173,7 +249,9 @@ http://localhost:3000/dashboard/alertas
 # Ver logs de un servicio
 docker logs -f intel_extorsion_agent_api
 docker logs -f intel_extorsion_web3_backend
-docker logs -f intel_extorsion_frontend
+docker logs -f intel_extorsion_frontend_citizen
+docker logs -f intel_extorsion_frontend_police
+docker logs -f intel_extorsion_dapp
 
 # Ver logs de todos los servicios
 docker compose logs -f

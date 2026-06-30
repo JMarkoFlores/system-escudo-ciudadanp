@@ -1,6 +1,12 @@
 # IntelExtorsión
 
-> **Plataforma de Inteligencia Policial contra la Extorsión**
+> **Plataforma de Inteligencia Ciudadana contra la Extorsión**
+>
+> **⚠️ IMPORTANTE:** Este sistema NO es un canal directo de denuncia formal a la policía.
+>
+> Es una plataforma de **INTELIGENCIA CIUDADANA** que recibe reportes de extorsión, los analiza con IA forense, correlaciona casos similares y entrega inteligencia procesada a las autoridades competentes (DIVINCRI La Libertad) para que tomen acciones operativas.
+>
+> **Para denuncias formales ante la Fiscalía o PNP, los ciudadanos deben utilizar la línea 111 o acudir a la comisaría más cercana.** Este sistema complementa, pero no reemplaza, los canales oficiales de denuncia.
 >
 > Recepción, análisis, correlación y preservación de evidencias digitales mediante agentes de IA autónomos y blockchain.
 
@@ -24,12 +30,12 @@
 
 ## Descripción
 
-**IntelExtorsión** es una plataforma integral de inteligencia policial diseñada para combatir la extorsión mediante el uso de tecnologías de punta:
+**IntelExtorsión** es una plataforma integral de inteligencia ciudadana diseñada para combatir la extorsión mediante el uso de tecnologías de punta:
 
-- **8 Agentes de IA Autónomos** (Intake, OCR, Speech, NLP, Correlation, OSINT, Risk, Alert) que analizan denuncias de forma automática.
-- **Portal Ciudadano** anónimo y seguro para registrar denuncias vía Web, WhatsApp, Telegram o Discord.
+- **10 Agentes de IA Autónomos** (Intake, OCR, Speech, NLP, Correlation, OSINT, Risk, Seal, Alert, Respond) que analizan reportes de forma automática.
+- **Portal Ciudadano** anónimo y seguro para reportar información vía Web, WhatsApp, Telegram o Discord.
 - **Dashboard Policial** en tiempo real con métricas, alertas críticas y gestión de casos.
-- **Preservación en Blockchain** (Syscoin Rollux L2) para garantizar la inmutabilidad de evidencias.
+- **Preservación en Blockchain** (zkSYS Tanenbaum Testnet) para garantizar la inmutabilidad de evidencias.
 - **Búsqueda Semántica** con embeddings vectoriales para detectar patrones y redes criminales.
 
 ---
@@ -66,7 +72,7 @@
 | **Python** | 3.11 | Backend Web3 |
 | **FastAPI** | Latest | API REST |
 | **Web3.py** | 6.x | Interacción con EVM |
-| **Syscoin Rollux** | - | L2 Blockchain (Chain ID 570) |
+| **zkSYS Tanenbaum** | - | L2 Blockchain (Chain ID 57057) |
 | **Hardhat** | 2.x | Framework Smart Contracts |
 | **Solidity** | 0.8.24 | Lenguaje de contratos |
 | **OpenZeppelin** | v5 | Librería de seguridad |
@@ -90,14 +96,19 @@
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
 │  │   Portal Web │  │   Dashboard  │  │  Dashboard       │  │
 │  │  (Next.js)   │  │   Policial   │  │  Analítico       │  │
-│  │   :3000      │  │   :3000      │  │  :3000           │  │
+│  │   :3000      │  │   :3001      │  │  :3001           │  │
 │  └──────┬───────┘  └──────┬───────┘  └────────┬─────────┘  │
 └─────────┼─────────────────┼───────────────────┼────────────┘
           │                 │                   │
-          └─────────────────┴───────────────────┘
+          │  ┌──────────────┴───────────────────┐│
+          │  │         DApp Web3 (React)        ││
+          │  │              :3002               ││
+          │  └──────────────────────────────────┘│
+          │                                      │
+          └─────────────────┬────────────────────┘
                             │
           ┌─────────────────┴───────────────────┐
-          │         FRONTEND NEXT.JS             │
+          │         FRONTENDS NEXT.JS            │
           │      (Standalone Output)             │
           └─────────────────┬───────────────────┘
                             │
@@ -128,17 +139,20 @@
 └───────────────────────────────────────┘
 ```
 
-### Flujo de una Denuncia
+### Flujo de un Reporte
 
-1. **Ciudadano** envía denuncia vía Portal Web (o WhatsApp/Telegram/Discord en futuras versiones).
+1. **Ciudadano** envía reporte vía Portal Web (o WhatsApp/Telegram/Discord).
 2. **Intake Agent** valida que sea extorsión y extrae entidades.
 3. **OCR / Speech Agent** procesan archivos adjuntos (imágenes, audios).
 4. **NLP Agent** analiza texto, sentimiento, score de amenaza.
 5. **Correlation Agent** busca casos similares en la base de datos.
 6. **OSINT Agent** enriquece con inteligencia de fuentes abiertas.
 7. **Risk Agent** calcula nivel de riesgo (bajo/medio/alto/crítico).
-8. **Alert Agent** genera alerta policial si el riesgo es alto/crítico.
-9. **Dashboard** muestra la denuncia, métricas y alertas en tiempo real.
+8. **Seal Agent** sella evidencias en blockchain para trazabilidad judicial.
+9. **Alert Agent** genera alerta policial si el riesgo es alto/crítico.
+10. **Respond Agent** genera código de seguimiento `TRJ-XXXXXXXX` (8 caracteres).
+11. **Dashboard** muestra el reporte, métricas y alertas en tiempo real.
+12. **Inteligencia procesada** se entrega a las autoridades competentes para operativos.
 
 ---
 
@@ -182,7 +196,9 @@ docker compose up -d --build
 Este comando:
 - Construye la imagen del **Agent API** (Python 3.11 + dependencias ML)
 - Construye la imagen del **Web3 Backend** (Python 3.11 + Web3.py)
-- Construye la imagen del **Frontend** (Node 20 + Next.js standalone)
+- Construye la imagen del **Frontend Ciudadano** (Node 20 + Next.js standalone)
+- Construye la imagen del **Frontend Policial** (Node 20 + Next.js standalone)
+- Construye la imagen de la **DApp Web3** (Vite + React)
 - Levanta **PostgreSQL**, **Qdrant** y **Redis**
 - Configura la red interna entre contenedores
 
@@ -195,22 +211,28 @@ docker compose ps
 # Verificar health checks
 curl http://localhost:8000/health      # Agent API
 curl http://localhost:8001/health      # Web3 Backend
-curl http://localhost:3000             # Frontend
+curl http://localhost:3000             # Frontend Ciudadano
+curl http://localhost:3001             # Frontend Policial
+curl http://localhost:3002             # DApp Web3
 ```
 
 ### 5. Recompilar un Servicio Específico
 
 ```bash
-# Solo el frontend (útil tras cambios en UI)
-docker compose build frontend
-docker compose up -d frontend
+# Solo el frontend ciudadano
+docker compose build frontend-citizen
+docker compose up -d frontend-citizen
+
+# Solo el frontend policial
+docker compose build frontend-police
+docker compose up -d frontend-police
 
 # Solo el agent-api (útil tras cambios en lógica de agentes)
 docker compose build agent-api
 docker compose up -d agent-api
 
 # Sin caché (compilación limpia)
-docker compose build --no-cache frontend
+docker compose build --no-cache frontend-citizen
 ```
 
 ### 6. Detener el Sistema
@@ -231,7 +253,8 @@ docker compose logs -f
 
 # Servicio específico
 docker compose logs -f agent-api
-docker compose logs -f frontend
+docker compose logs -f frontend-citizen
+docker compose logs -f frontend-police
 docker compose logs -f postgres
 ```
 
@@ -258,13 +281,16 @@ POSTGRES_DB=intel_extorsion
 
 ```bash
 # WEB3 (OBLIGATORIO solo para funcionalidad blockchain)
-WEB3_PROVIDER_URL=https://rpc.rollux.com
-CHAIN_ID=570
+# Red oficial: zkSYS Tanenbaum Testnet (Chain ID 57057)
+WEB3_PROVIDER_URL=https://rpc-zk.tanenbaum.io
+CHAIN_ID=57057
+EXPLORER_URL=https://explorer-zk.tanenbaum.io
+NETWORK_NAME=zkSYS Tanenbaum Testnet
 PRIVATE_KEY=0x...                          # Wallet institucional
-CONTRACT_EVIDENCE_REGISTRY=0x...           # Obtener tras deploy
-CONTRACT_CASE_MANAGER=0x...
-CONTRACT_DID_REGISTRY=0x...
-CONTRACT_TOKEN=0x...
+CONTRACT_EVIDENCE_REGISTRY=0x1A9eB1a4C261AE793e21101a3E5c14003dcF4dEb
+CONTRACT_CASE_MANAGER=0x3576cb05B2c4094e8f97639892D235044d7476a1
+CONTRACT_DID_REGISTRY=0x8481c85e54f50C676f0fc37f90848030c3B12bB9
+CONTRACT_TOKEN=0x622AA147eD0238840ceb215941D5E8CD997896F0
 IPFS_JWT=tu_jwt_de_pinata_o_infura
 ```
 
@@ -278,12 +304,15 @@ IPFS_JWT=tu_jwt_de_pinata_o_infura
 
 | Servicio | URL | Descripción |
 |----------|-----|-------------|
-| **Frontend** | http://localhost:3000 | Landing page y portal ciudadano |
-| **Portal Ciudadano** | http://localhost:3000/portal | Chat para realizar denuncias |
-| **Dashboard Policial** | http://localhost:3000/dashboard/policial | Vista general y denuncias recientes |
-| **Dashboard Analítico** | http://localhost:3000/dashboard/analitico | Métricas y gráficos |
-| **Centro de Alertas** | http://localhost:3000/dashboard/alertas | Gestión de alertas críticas |
-| **Grafos Criminales** | http://localhost:3000/dashboard/grafos | Visualización de redes |
+| **Frontend Ciudadano** | http://localhost:3000 | Landing page y portal ciudadano |
+| **Portal Ciudadano** | http://localhost:3000/portal | Chat para reportar información |
+| **Tracking** | http://localhost:3000/tracking?code=TRJ-XXXXXXXX | Consulta pública de estado |
+| **Frontend Policial** | http://localhost:3001 | Login y consola DIVINCRI |
+| **Dashboard Policial** | http://localhost:3001/dashboard/policial | Vista general y reportes recientes |
+| **Dashboard Analítico** | http://localhost:3001/dashboard/analitico | Métricas, gráficos y heatmap |
+| **Centro de Alertas** | http://localhost:3001/dashboard/alertas | Gestión de alertas críticas |
+| **Grafos Criminales** | http://localhost:3001/dashboard/grafos | Visualización de redes |
+| **DApp Web3** | http://localhost:3002 | Wallet Pali y evidencias blockchain |
 
 ### APIs
 
@@ -296,26 +325,39 @@ IPFS_JWT=tu_jwt_de_pinata_o_infura
 ### Endpoints Clave (Agent API)
 
 ```bash
-# Crear denuncia
+# Crear denuncia (público)
 POST /v1/denuncias
 
-# Listar denuncias
+# Login policial
+POST /v1/auth/login
+
+# Listar denuncias (requiere JWT)
 GET /v1/denuncias?estado=recibido&canal=web&limit=50
 
-# Obtener una denuncia
+# Obtener una denuncia (requiere JWT)
 GET /v1/denuncias/{denuncia_id}
 
-# Procesar denuncia manualmente
+# Tracking ciudadano (público)
+GET /v1/denuncias/tracking/{tracking_code}
+
+# Procesar denuncia manualmente (público, trigger interno)
 POST /v1/denuncias/{denuncia_id}/procesar
 
-# Búsqueda semántica
+# Adjuntar evidencia
+POST /v1/denuncias/{denuncia_id}/adjuntar
+
+# Búsqueda semántica (requiere JWT)
 GET /v1/busqueda/semantica?q=extorsión+telefónica&limit=5
 
-# Métricas del dashboard
+# Métricas del dashboard (requiere JWT)
 GET /v1/dashboard/metricas
 
-# Listar alertas
+# Listar alertas (requiere JWT)
 GET /v1/alertas
+
+# Heatmap / Plan Cuadrante PNP (requiere JWT)
+GET /v1/heatmap
+GET /v1/heatmap/cuadrantes
 ```
 
 ---
@@ -340,22 +382,31 @@ System-Escudo-Ciudadano/
 ├── CHECKLIST_DEPLOY.md             # Checklist de despliegue
 │
 ├── tests/
-│   └── test_integration.py         # Tests end-to-end
+│   ├── test_integration.py         # 10 tests end-to-end (10/10 pasan)
+│   ├── Dockerfile
+│   └── requirements.txt
+│
+├── docker-compose.test.yml         # Orquestación de tests con MOCK_LLM=true
 │
 ├── intel_extorsion_agent_system/   # Subsistema de Agentes Autónomos
 │   ├── docker-compose.yml
 │   ├── requirements.txt            # Python dependencies
 │   ├── main.py                     # Entry point
+│   ├── alembic.ini                 # Migraciones Alembic
+│   ├── alembic/
 │   ├── deployments/
 │   │   └── Dockerfile              # Imagen del Agent API
 │   ├── app/
-│   │   ├── config/settings.py      # Configuración (GROQ_*, DB, QDRANT)
-│   │   ├── core/agent_graph.py     # Grafo LangGraph + LLM Groq
+│   │   ├── config/settings.py      # Configuración (GROQ_*, DB, QDRANT, JWT)
+│   │   ├── core/agent_graph.py     # Grafo LangGraph + LLM Groq + MockLLM
 │   │   ├── api/main_api.py         # Endpoints FastAPI
+│   │   ├── api/auth_router.py      # JWT login + require_user
 │   │   ├── services/agent_service.py
+│   │   ├── services/notification_service.py  # Alertas push
 │   │   ├── memory/hybrid_memory.py # FastEmbedLocal + Qdrant
 │   │   ├── prompts/system_prompts.py
-│   │   ├── agents/                 # 8 agentes autónomos
+│   │   ├── data/                   # GeoJSON Plan Cuadrante PNP
+│   │   ├── agents/                 # 10 agentes autónomos
 │   │   │   ├── intake_agent.py
 │   │   │   ├── ocr_agent.py
 │   │   │   ├── speech_agent.py
@@ -363,7 +414,9 @@ System-Escudo-Ciudadano/
 │   │   │   ├── correlation_agent.py
 │   │   │   ├── osint_agent.py
 │   │   │   ├── risk_agent.py
-│   │   │   └── alert_agent.py
+│   │   │   ├── seal_agent.py
+│   │   │   ├── alert_agent.py
+│   │   │   └── respond_agent.py
 │   │   └── models/
 │   │       ├── database.py         # Modelos SQLAlchemy
 │   │       └── db_session.py       # Sesiones async
@@ -371,7 +424,7 @@ System-Escudo-Ciudadano/
 │       └── test_agents.py
 │
 ├── intel_extorsion_web3_system/    # Subsistema Web3 / Blockchain
-│   ├── hardhat.config.js           # Config Solidity 0.8.24 + Cancun
+│   ├── hardhat.config.js           # Config Solidity 0.8.24 + Cancun + red Tanenbaum
 │   ├── contracts/                  # Smart Contracts
 │   │   ├── EvidenceRegistry.sol
 │   │   ├── CaseManager.sol
@@ -383,53 +436,45 @@ System-Escudo-Ciudadano/
 │   │   ├── Dockerfile
 │   │   ├── requirements.txt
 │   │   └── app/                    # FastAPI Web3
-│   └── dapp/                       # DApp React (futuro)
+│   └── dapp/                       # DApp React + Pali Wallet
 │
-└── intel_extorsion_frontend/       # Frontend Next.js
-    ├── Dockerfile                  # Multi-stage (builder + runner)
-    ├── next.config.mjs             # Standalone output + rewrites
-    ├── package.json
-    ├── tailwind.config.ts
-    └── src/
-        ├── app/
-        │   ├── page.tsx            # Landing
-        │   ├── portal/page.tsx     # Portal ciudadano
-        │   ├── dashboard/
-        │   │   ├── policial/page.tsx
-        │   │   ├── analitico/page.tsx
-        │   │   ├── alertas/page.tsx
-        │   │   └── grafos/page.tsx
-        │   └── layout.tsx
-        ├── services/api.ts         # Clientes axios
-        ├── stores/
-        │   ├── appStore.ts         # Estado global (Zustand)
-        │   └── walletStore.ts      # Estado wallet
-        └── types/
-            └── index.ts            # Tipos TypeScript
+├── intel_extorsion_frontend_citizen/   # Frontend Ciudadano Next.js
+│   ├── Dockerfile
+│   ├── next.config.mjs
+│   └── src/app/
+│
+├── intel_extorsion_frontend_police/    # Frontend Policial Next.js
+│   ├── Dockerfile
+│   ├── next.config.mjs
+│   └── src/app/
+│
+└── intel_extorsion_frontend/       # Frontend legacy monolítico Next.js
+    ├── Dockerfile
+    ├── next.config.mjs
+    └── src/app/
 ```
 
 ---
 
 ## Tests
 
-### Tests de Integración (desde el host)
+### Tests de Integración (Docker - recomendado)
 
 ```bash
-# Requiere Python 3.11+ y pytest
-pip install pytest aiohttp
-pytest tests/test_integration.py -v
+docker compose -f docker-compose.yml -f docker-compose.test.yml up test-runner --build --abort-on-container-exit
 ```
 
-**Resultados actuales:** 6/9 PASSED
-- ✅ test_health_checks
+**Resultados actuales:** 10/10 PASSED
+- ✅ test_health_agent_api
+- ✅ test_health_web3_backend
+- ✅ test_crear_denuncia_texto
+- ✅ test_procesar_denuncia_y_generar_tracking
+- ✅ test_tracking_por_codigo
+- ✅ test_dashboard_metricas
+- ✅ test_listar_denuncias
+- ✅ test_listar_alertas
+- ✅ test_web3_registrar_y_verificar_evidencia
 - ✅ test_busqueda_semantica
-- ✅ test_web3_did_resolver
-- ✅ test_postgresql_conectividad
-- ✅ test_qdrant_conectividad
-- ✅ test_redis_conectividad
-- ❌ test_crear_denuncia_y_procesar (requiere GROQ_API_KEY válida)
-- ❌ test_web3_verificar_evidencia (requiere contratos desplegados)
-- ❌ test_frontend_carga (frontend no ejecutado durante pytest)
 
 ### Tests de Smart Contracts
 
@@ -468,8 +513,8 @@ pytest tests/test_agents.py -v
 
 | Problema | Solución |
 |----------|----------|
-| "Error al registrar denuncia" | Verifica `GROQ_API_KEY` en `.env`. Revisa logs: `docker compose logs -f agent-api` |
-| Dashboard muestra "No hay denuncias" | Verifica que `GET /v1/denuncias` responda: `curl http://localhost:8000/v1/denuncias` |
+| "Error al registrar reporte" | Verifica `GROQ_API_KEY` en `.env`. Revisa logs: `docker compose logs -f agent-api` |
+| Dashboard muestra "No hay reportes" | Verifica que `GET /v1/denuncias` responda: `curl http://localhost:8000/v1/denuncias` |
 | Botones adjuntar no funcionan | Recompila frontend: `docker compose build frontend && docker compose up -d frontend` |
 | Build de frontend lento | Es normal (2-3 minutos). Usa cache: evita `--no-cache` |
 | Rate limit 429 (Groq) | El modelo tiene límite de 12k tokens/min. Espera 10s y reintenta |
@@ -494,11 +539,11 @@ pytest tests/test_agents.py -v
 
 ## Créditos
 
-**IntelExtorsión** es un proyecto de inteligencia policial desarrollado con fines de combate a la extorsión mediante tecnologías emergentes.
+**IntelExtorsión** es un proyecto de inteligencia ciudadana desarrollado con fines de combate a la extorsión mediante tecnologías emergentes.
 
 - **Agentes de IA:** LangGraph + GroqCloud
 - **Embeddings:** FastEmbed (ONNX local)
-- **Blockchain:** Syscoin Rollux L2
+- **Blockchain:** zkSYS Genesis Testnet
 - **Frontend:** Next.js 14 + Tailwind CSS
 
 ---

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ShieldAlert, Lock, User, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { authService } from '@/services/api';
 
 export default function PoliceLoginPage() {
   const router = useRouter();
@@ -12,7 +13,13 @@ export default function PoliceLoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (typeof window !== 'undefined' && localStorage.getItem('police_token')) {
+      router.push('/dashboard/policial');
+    }
+  }, [router]);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -22,11 +29,20 @@ export default function PoliceLoginPage() {
     }
 
     setLoading(true);
-    // Simular autenticación para el prototipo
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      const params = new URLSearchParams();
+      params.append('username', username);
+      params.append('password', password);
+      const response = await authService.login({ username, password });
+      const { access_token, rol, nombre_completo } = response.data;
+      localStorage.setItem('police_token', access_token);
+      localStorage.setItem('police_user', JSON.stringify({ username, rol, nombre_completo }));
       router.push('/dashboard/policial');
-    }, 1200);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Error al autenticar. Verifique sus credenciales.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

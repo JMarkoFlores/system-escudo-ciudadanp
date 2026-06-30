@@ -2,6 +2,7 @@ import asyncio
 import logging
 import httpx
 from typing import Dict, Any, Optional, List
+from datetime import datetime
 
 from app.config.settings import settings
 from app.schemas.agent_schemas import DenunciaIngestaRequest, CanalEntrada, TipoContenido
@@ -10,6 +11,16 @@ from app.models.db_session import AsyncSessionLocal
 from app.services.stt_service import transcribe_audio
 
 logger = logging.getLogger(__name__)
+
+# Configuración personalizada del bot de WhatsApp
+WHATSAPP_CONFIG = {
+    "BOT_NAME": "IntelExtorsión WhatsApp",
+    "BUSINESS_NAME": "IntelExtorsión",
+    "WELCOME_MESSAGE": "¡Bienvenido al sistema de Inteligencia Ciudadana!",
+    "SUPPORT_NUMBER": "+51 111",
+    "INSPECTORIA_URL": "https://www.pnp.gob.pe/inspectoría-general",  # URL informativa
+    "FISCALIA_URL": "https://www.fiscalia.gob.pe",  # URL informativa
+}
 
 
 class WhatsAppBot:
@@ -27,6 +38,7 @@ class WhatsAppBot:
         self.http_client = httpx.AsyncClient(timeout=30.0)
         self.user_states: Dict[str, str] = {}  # chat_id -> 'idle' | 'waiting_for_denuncia'
         self.pending_batches: Dict[str, Dict[str, Any]] = {}  # chat_id -> {messages: [], timer: asyncio.Task | None}
+        self.start_time = datetime.now()
 
     async def close(self):
         await self.http_client.aclose()
@@ -52,6 +64,18 @@ class WhatsAppBot:
                 logger.debug(f"Mensaje enviado con éxito a {chat_id}")
         except Exception as e:
             logger.error(f"Error HTTP al enviar mensaje a WhatsApp: {e}")
+
+    async def _send_classification_menu(self, chat_id: str):
+        """Envía el menú de clasificación RF-01 y pasa a estado 'classifying'."""
+        self.user_states[chat_id] = 'classifying'
+        menu = (
+            "🛡️ *Menú de Clasificación del Reporte*\n\n"
+            "¿La amenaza proviene de:\n\n"
+            "1️⃣ *Particular / Banda criminal*\n"
+            "2️⃣ *Funcionario público / Policía*\n\n"
+            "Responde con el número *1* o *2*."
+        )
+        await self.send_message(chat_id, menu)
 
     # -----------------------------------------
     # Descarga de archivos
@@ -176,22 +200,64 @@ class WhatsAppBot:
         # Comandos globales
         if clean_text in ["!start", "!help", "help", "ayuda", "info", "/start", "/help"]:
             welcome = (
-                "🛡️ *Bienvenido al canal oficial de IntelExtorsión en WhatsApp*\n\n"
-                "Esta plataforma te permite registrar denuncias de extorsión de forma 100% anónima y segura.\n\n"
-                "✍️ *¿Cómo registrar tu denuncia?*\n"
-                "• Escribe una descripción detallada en un mensaje de texto.\n"
-                "• Envía una nota de voz o archivo de audio explicando los hechos (lo transcribiremos automáticamente).\n\n"
-                "🔍 *¿Cómo consultar un caso?*\n"
-                "• Envía el código de tu caso en formato `TRJ-XXXX` para consultar su estado actual.\n\n"
-                "Tus evidencias quedarán custodiadas inmutablemente con hash criptográfico en la blockchain zkSYS."
+                f"🛡️ *{WHATSAPP_CONFIG['WELCOME_MESSAGE']}*\n\n"
+                f"🤖 *{WHATSAPP_CONFIG['BOT_NAME']}*\n\n"
+                "⚠️ *IMPORTANTE:* Este sistema NO es un canal directo de denuncia a la policía.\n"
+                "Es una plataforma de *INTELIGENCIA CIUDADANA* que recibe reportes de extorsión, los analiza con IA forense, y entrega información procesada a las autoridades competentes (DIVINCRI La Libertad) para que tomen acciones operativas.\n\n"
+                "📋 *¿Qué hace este sistema?*\n"
+                "• Recibe tu reporte de forma 100% anónima\n"
+                "• Analiza la información con 10 agentes de IA especializados\n"
+                "• Correlaciona tu caso con otros reportes similares\n"
+                "• Entrega inteligencia procesada a las autoridades para operativos\n"
+                "• Sella evidencias en blockchain para trazabilidad judicial\n\n"
+                "✍️ *¿Cómo reportar información?*\n"
+                "• Escribe una descripción detallada en un mensaje de texto\n"
+                "• Envía una nota de voz o archivo de audio (lo transcribiremos automáticamente)\n"
+                "• Adjunta imágenes o documentos de evidencia\n\n"
+                "🔍 *¿Cómo consultar tu reporte?*\n"
+                "• Envía el código de tu caso en formato `TRJ-XXXX` para ver su estado de análisis\n\n"
+                "📞 *Para denuncias formales:* Si necesitas presentar una denuncia formal ante la Fiscalía o la PNP, utiliza la línea 111 o acude a la comisaría más cercana. Este sistema complementa, pero no reemplaza, los canales oficiales de denuncia."
             )
             await self.send_message(chat_id, welcome)
             return
 
         if clean_text in ["cancelar", "salir", "cancel", "/cancel"]:
             self.user_states[chat_id] = 'idle'
-            await self.send_message(chat_id, "❌ *Reporte cancelado.*\n\nEl asistente de ingesta ha sido desactivado. Escribe *denunciar* para comenzar.")
+            await self.send_message(chat_id, "❌ *Reporte cancelado.*\n\nEl asistente de ingesta ha sido desactivado. Escribe *reportar* o *denunciar* para comenzar.")
             return
+
+        # --- CLASSIFYING (RF-01) ---
+        if chat_state == 'classifying':
+            if clean_text in ["1", "uno", "particular", "banda", "criminal", "delincuente"]:
+                self.user_states[chat_id] = 'waiting_for_denuncia'
+                await self.send_message(
+                    chat_id,
+                    "📝 *Asistente de Ingesta Activado.*\n\n"
+                    "Por favor, descríbeme detalladamente los hechos *en tu siguiente mensaje*. Recuerda incluir:\n"
+                    "• Teléfonos desde donde te contactaron\n"
+                    "• Nombres o cuentas bancarias de cobro si te las dieron\n"
+                    "• Tipo de amenaza o exigencias de dinero\n"
+                    "• Zona o lugar donde ocurrieron los hechos\n\n"
+                    "También puedes adjuntar imágenes o documentos de evidencia.\n\n"
+                    "⚠️ Tu información será analizada por IA forense y entregada a las autoridades competentes para inteligencia operativa. Si deseas abortar, escribe *cancelar*."
+                )
+                return
+            elif clean_text in ["2", "dos", "funcionario", "policía", "policia", "autoridad", "pnp"]:
+                self.user_states[chat_id] = 'idle'
+                await self.send_message(
+                    chat_id,
+                    "🛡️ *Reporte contra servidor público / PNP*\n\n"
+                    "Este canal está destinado a reportes de extorsión por *particulares o bandas criminales*. "
+                    "Si la amenaza proviene de un funcionario público o policía, te recomendamos canales especializados:\n\n"
+                    "• *Inspectoría General PNP:* línea 111 o https://www.pnp.gob.pe\n"
+                    "• *Fiscalía Anticorrupción:* https://www.fiscalia.gob.pe\n\n"
+                    "Tu reporte *NO* será registrado en el dashboard de la DIVINCRI por protección institucional. "
+                    "Si deseas reportar otro tipo de caso, escribe *reportar*."
+                )
+                return
+            else:
+                await self.send_message(chat_id, "⚠️ Por favor responde con *1* (particular/banda) o *2* (funcionario/policía).")
+                return
 
         # --- IDLE ---
         if chat_state == 'idle':
@@ -216,23 +282,16 @@ class WhatsAppBot:
 
             saludos = ["hola", "buenos dias", "buenas tardes", "buenas noches", "que tal", "buen dia", "hello", "hi", "saludos"]
             if clean_text in saludos or clean_text in ["hola!", "hola."]:
-                await self.send_message(chat_id, "👋 *¡Hola!* Escribe *denunciar* para activar el asistente de ingesta.")
+                await self.send_message(chat_id, "👋 *¡Hola!* Soy el asistente de Inteligencia Ciudadana IntelExtorsión.\n\nEste sistema recibe reportes de extorsión, los analiza con IA forense y entrega información procesada a las autoridades competentes para combatir el crimen organizado.\n\nPara aportar información, escribe *reportar* o *denunciar* para activar el asistente de ingesta.\n\n⚠️ Recuerda: Este NO es un canal directo de denuncia formal a la policía. Para denuncias oficiales, usa la línea 111 o acude a la comisaría.")
                 return
 
             intenciones = ["quiero denunciar", "hacer una denuncia", "hacer otra denuncia", "otra denuncia",
-                           "nueva denuncia", "registrar otra", "denunciar", "quiero reportar"]
+                           "nueva denuncia", "registrar otra", "denunciar", "quiero reportar", "reportar", "aportar informacion", "aportar información"]
             if any(i in clean_text for i in intenciones):
-                self.user_states[chat_id] = 'waiting_for_denuncia'
-                await self.send_message(
-                    chat_id,
-                    "📝 *Asistente de Ingesta Activado.*\n\n"
-                    "Por favor, descríbeme detalladamente los hechos *en tu siguiente mensaje*. "
-                    "Recuerda incluir teléfonos, cuentas bancarias, amenazas.\n\n"
-                    "También puedes adjuntar imágenes o documentos de soporte. Escribe *cancelar* para abortar."
-                )
+                await self._send_classification_menu(chat_id)
                 return
 
-            await self.send_message(chat_id, "🤖 Escribe *denunciar* para activar el asistente de ingesta.")
+            await self.send_message(chat_id, f"🤖 *Hola. Soy {WHATSAPP_CONFIG['BOT_NAME']}.*\n\nEste sistema recibe reportes de extorsión para análisis forense con IA y entrega de inteligencia a las autoridades competentes.\n\nPara aportar información, escribe *reportar* o *denunciar* para activar el asistente de ingesta.\n\n⚠️ Para denuncias formales ante la Fiscalía o PNP, utiliza la línea 111 o acude a la comisaría más cercana.")
             return
 
         # --- WAITING_FOR_DENUNCIA ---
@@ -299,9 +358,17 @@ class WhatsAppBot:
                     dest_path = f"/app/uploads/evidencias/{safe_name}"
                     downloaded = await self.download_media(media_id, dest_path)
                     if downloaded:
+                        # Mapear tipo de WhatsApp a tipo interno consistente
+                        tipo_mapped = msg_type
+                        if msg_type == "image":
+                            tipo_mapped = "imagen"
+                        elif msg_type == "voice":
+                            tipo_mapped = "audio"
+                        elif msg_type == "document":
+                            tipo_mapped = "documento"
                         archivos_descargados.append({
                             "path": dest_path,
-                            "tipo": msg_type,
+                            "tipo": tipo_mapped,
                             "mime": media_obj.get("mime_type", f"{msg_type}/{ext}"),
                             "filename": media_obj.get("filename") or safe_name,
                         })
@@ -317,8 +384,8 @@ class WhatsAppBot:
             tipos = set(a["tipo"] for a in archivos_descargados)
             if len(tipos) == 1:
                 t = list(tipos)[0]
-                tipo_contenido = TipoContenido.IMAGEN if t == "image" else \
-                                TipoContenido.AUDIO if t in ["audio", "voice"] else \
+                tipo_contenido = TipoContenido.IMAGEN if t == "imagen" else \
+                                TipoContenido.AUDIO if t == "audio" else \
                                 TipoContenido.VIDEO if t == "video" else TipoContenido.DOCUMENTO
             else:
                 tipo_contenido = TipoContenido.MIXTO
@@ -331,11 +398,11 @@ class WhatsAppBot:
         # URL del archivo principal (primero)
         url_archivo = archivos_descargados[0]["path"] if archivos_descargados else None
 
-        # Archivos adicionales en metadata
+        # Archivos adicionales en metadata (sin PII del denunciante, RNF-01)
+        import hashlib
         metadata = {
-            "whatsapp_sender": sender,
-            "whatsapp_name": sender_name,
-            "chat_id": chat_id,
+            "canal_origen": "whatsapp",
+            "session_id": hashlib.sha256(str(chat_id).encode()).hexdigest()[:16],
             "batch_size": len(messages),
         }
         if len(archivos_descargados) > 1:
@@ -345,15 +412,15 @@ class WhatsAppBot:
         clean_text = contenido_raw.lower().strip()
         if not contenido_raw.strip() or contenido_raw == "[Sin texto descriptivo]":
             if not archivos_descargados:
-                await self.send_message(chat_id, "❌ Mensaje vacío. Por favor, descríbenos los hechos o adjunta tu evidencia.")
+                await self.send_message(chat_id, "❌ Mensaje vacío. Por favor, descríbenos los hechos o adjunta tu evidencia para que podamos generar inteligencia útil.")
                 return
 
         # Filtros de relleno solo si no hay adjuntos
         if not archivos_descargados and len(clean_text) < 15:
-            await self.send_message(chat_id, "ℹ️ *Descripción muy corta.* Por favor proporciona más detalles (mínimo 15 caracteres) o envía un audio.")
+            await self.send_message(chat_id, "ℹ️ *Descripción muy corta.* Por favor proporciona más detalles para generar inteligencia útil (mínimo 15 caracteres) o envía un audio.")
             return
 
-        await self.send_message(chat_id, "🔍 _Procesando denuncia formal... Guardando evidencias y analizando con agentes de IA..._")
+        await self.send_message(chat_id, "🔍 _Procesando tu reporte... Guardando evidencias y analizando con agentes de IA forense..._")
 
         try:
             async with AsyncSessionLocal() as db:
@@ -379,11 +446,13 @@ class WhatsAppBot:
             archivos_msg = f" ({n_archivos} archivos adjuntos)" if n_archivos > 1 else ""
 
             reply_msg = (
-                f"✅ *Denuncia Registrada Exitosamente*{archivos_msg}\n\n"
+                f"✅ *Reporte Registrado Exitosamente*{archivos_msg}\n\n"
                 f"🎫 *Código de seguimiento:* `{tracking_code}`\n"
                 f"⚖️ *Nivel de Riesgo Estimado:* *{nivel_riesgo_str}*\n\n"
-                f"Puedes auditar el análisis de IA forense y el sellado de blockchain en:\n"
-                f"http://localhost:3000/tracking?code={tracking_code}"
+                f"Tu información será analizada por IA forense y entregada a las autoridades competentes para inteligencia operativa.\n\n"
+                f"Puedes consultar el estado de análisis de tu reporte en:\n"
+                f"http://localhost:3000/tracking?code={tracking_code}\n\n"
+                f"⚠️ Recuerda: Este sistema es de inteligencia ciudadana. Para denuncias formales ante la Fiscalía o PNP, utiliza la línea 111 o acude a la comisaría."
             )
             await self.send_message(chat_id, reply_msg)
 

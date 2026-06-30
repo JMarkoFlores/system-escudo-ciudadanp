@@ -4,10 +4,14 @@ Servicio de Ejecución del Grafo de Agentes
 import uuid
 import time
 import json
+import logging
 from typing import Dict, Any, Optional
 from datetime import datetime, timezone
 
+logger = logging.getLogger(__name__)
+
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import delete
 
 from app.core.agent_graph import agent_graph
 from app.schemas.agent_schemas import (
@@ -73,9 +77,28 @@ class AgentExecutionService:
             initial_state.saltar_agentes = [a for a in all_agents if a not in agentes_selectivos]
         
         # Ejecutar grafo
-        config = {"configurable": {"thread_id": str(denuncia.id)}}
-        result = await agent_graph.ainvoke(initial_state, config=config)
-        final_state = AgenteState(**result)
+        final_state = None
+        try:
+            config = {"configurable": {"thread_id": str(denuncia.id)}}
+            result = await agent_graph.ainvoke(initial_state, config=config)
+            final_state = AgenteState(**result)
+
+            # Limpiar resultados previos para evitar duplicados en reprocesamientos
+            await self.db.execute(
+                delete(ResultadoAgente).where(ResultadoAgente.denuncia_id == denuncia.id)
+            )
+        except Exception as e:
+            logger.exception(f"Error ejecutando agent_graph para denuncia {denuncia.id}: {e}")
+            denuncia.estado = EstadoDenuncia.error_procesamiento
+            await self.db.commit()
+            return EjecucionGrafoResponse(
+                denuncia_id=denuncia.id,
+                estado_final=denuncia.estado.value,
+                resultados={},
+                tiempo_total_ms=int((time.time() - start_time) * 1000),
+                alertas_generadas=0,
+                errores=[str(e)]
+            )
         
         # Persistir resultados de cada agente
         agent_results_map = {
@@ -141,7 +164,8 @@ class AgentExecutionService:
         # Generar alerta en DB si aplica
         alertas_generadas = 0
         if final_state.resultado_alerta and final_state.resultado_alerta.get("alerta_generada"):
-            alertas_generadas = await self._persistir_alerta(denuncia.id, final_state.resultado_alerta)
+            nivel_real = final_state.nivel_riesgo.value if final_state.nivel_riesgo else None
+            alertas_generadas = await self._persistir_alerta(denuncia.id, final_state.resultado_alerta, nivel_real)
         
         elapsed_ms = int((time.time() - start_time) * 1000)
         
@@ -164,9 +188,10 @@ class AgentExecutionService:
         )
         self.db.add(reg)
     
-    async def _persistir_alerta(self, denuncia_id: uuid.UUID, alerta_data: Dict[str, Any]) -> int:
-        """Persiste alerta oficial"""
-        nivel_str = alerta_data.get("nivel", "medio")
+    async def _persistir_alerta(self, denuncia_id: uuid.UUID, alerta_data: Dict[str, Any], nivel_riesgo_real: Optional[str] = None) -> int:
+        """Persiste alerta oficial usando el nivel de riesgo real y dispara notificaciones push."""
+        nivel_str = alerta_data.get("nivel") or nivel_riesgo_real or "medio"
+        nivel_str = str(nivel_str).lower().strip()
         alerta = Alerta(
             denuncia_id=denuncia_id,
             nivel=NivelRiesgoDB(nivel_str),
@@ -178,6 +203,25 @@ class AgentExecutionService:
         )
         self.db.add(alerta)
         await self.db.commit()
+
+        # Enviar notificaciones push (no bloquea si fallan)
+        try:
+            from sqlalchemy import select
+            result = await self.db.execute(select(Denuncia).where(Denuncia.id == denuncia_id))
+            denuncia = result.scalar_one_or_none()
+            from app.services.notification_service import send_alert_notifications
+            await send_alert_notifications(
+                denuncia_id=str(denuncia_id),
+                nivel=nivel_str,
+                titulo=alerta.titulo,
+                descripcion=alerta.descripcion,
+                recomendacion=alerta.recomendacion or None,
+                tracking_code=denuncia.tracking_code if denuncia else None,
+                tx_hash=denuncia.seal_tx_hash if denuncia else None,
+            )
+        except Exception as exc:
+            logger.warning(f"No se pudieron enviar notificaciones push para alerta {denuncia_id}: {exc}")
+
         return 1
     
     async def _asignar_cluster(self, denuncia: Denuncia):
@@ -271,5 +315,10 @@ class AgentExecutionService:
         if state.resultado_correlacion:
             return EstadoDenuncia.correlacionado
         if state.resultado_nlp:
+            return EstadoDenuncia.procesado
+        if state.resultado_intake:
+            # Si el intake rechazó la denuncia, se archiva para no dejarla congelada
+            if not state.resultado_intake.get("valido", True):
+                return EstadoDenuncia.archivado
             return EstadoDenuncia.procesado
         return EstadoDenuncia.en_analisis

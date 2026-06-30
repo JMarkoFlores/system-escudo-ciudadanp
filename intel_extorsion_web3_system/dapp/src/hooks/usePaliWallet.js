@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 
-const ZKSYS_CHAIN_ID = 5700;
+const ZKSYS_CHAIN_ID = 57057;
 
 export const usePaliWallet = () => {
   const [account, setAccount] = useState(null);
@@ -35,7 +35,7 @@ export const usePaliWallet = () => {
 
       // Verificar red correcta
       if (parseInt(currentChainId, 16) !== ZKSYS_CHAIN_ID) {
-        setError('Por favor conecta Pali Wallet a la red zkSYS Genesis Testnet (Chain ID 5700)');
+        setError('Por favor conecta Pali Wallet a la red zkSYS Tanenbaum Testnet (Chain ID 57057)');
       }
     } catch (err) {
       setError(err.message || 'Error al conectar con Pali Wallet');
@@ -56,7 +56,7 @@ export const usePaliWallet = () => {
     try {
       await pali.request({
         method: 'wallet_switchEthereumChain',
-        params: [{ chainId: '0x1644' }], // 5700 en hex
+        params: [{ chainId: '0xdf01' }], // 57057 en hex
       });
     } catch (switchError) {
       // Si la red no está agregada, agregarla
@@ -65,15 +65,15 @@ export const usePaliWallet = () => {
           method: 'wallet_addEthereumChain',
           params: [
             {
-              chainId: '0x1644',
-              chainName: 'zkSYS Genesis Testnet',
+              chainId: '0xdf01',
+              chainName: 'zkSYS Tanenbaum Testnet',
               nativeCurrency: {
                 name: 'Syscoin',
-                symbol: 'SYS',
+                symbol: 'TSYS',
                 decimals: 18,
               },
-              rpcUrls: ['https://rpc.genesis.zksys.io'],
-              blockExplorerUrls: ['https://explorer.genesis.zksys.io'],
+              rpcUrls: ['https://rpc-zk.tanenbaum.io'],
+              blockExplorerUrls: ['https://explorer-zk.tanenbaum.io'],
             },
           ],
         });

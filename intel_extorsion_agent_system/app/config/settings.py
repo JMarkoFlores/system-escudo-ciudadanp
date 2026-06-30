@@ -1,6 +1,7 @@
 """
 IntelExtorsión Agent System - Configuración Centralizada
 """
+import os
 from pydantic_settings import BaseSettings
 from typing import Optional
 
@@ -19,6 +20,7 @@ class Settings(BaseSettings):
     GROQ_MODEL: str = "llama-3.3-70b-versatile"
     GROQ_TEMPERATURE: float = 0.2
     GROQ_MAX_TOKENS: int = 4096
+    MOCK_LLM: bool = False
     
     # PostgreSQL
     POSTGRES_HOST: str = "localhost"
@@ -52,6 +54,11 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
     MEMORY_MAX_TOKENS: int = 8000
     
+    # Auth / JWT
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "cambiar-en-produccion")
+    JWT_ALGORITHM: str = "HS256"
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
+
     # Agent Configuration
     AGENT_MAX_RETRIES: int = 3
     AGENT_TIMEOUT_SECONDS: int = 120
@@ -68,15 +75,24 @@ class Settings(BaseSettings):
     UPLOAD_MAX_SIZE_MB: int = 50
     ALLOWED_MIME_TYPES: list = ["image/jpeg", "image/png", "image/webp", "application/pdf", "audio/mpeg", "audio/ogg", "audio/wav", "video/mp4", "text/plain"]
 
-    # Alertas
+    # Alertas / Notificaciones push
     ALERT_WEBHOOK_URL: Optional[str] = None
     ALERT_EMAIL_SMTP_HOST: Optional[str] = None
+    ALERT_EMAIL_SMTP_PORT: int = 587
+    ALERT_EMAIL_SMTP_USER: Optional[str] = None
+    ALERT_EMAIL_SMTP_PASSWORD: Optional[str] = None
     ALERT_EMAIL_FROM: Optional[str] = None
+    ALERT_EMAIL_TO: Optional[str] = None  # destinatarios separados por coma
     
     # Canales
     TELEGRAM_BOT_TOKEN: Optional[str] = None
     DISCORD_BOT_TOKEN: Optional[str] = None
     WHATSAPP_API_TOKEN: Optional[str] = None
+    
+    # Usuarios seed (producción - cambiar passwords)
+    SEED_ADMIN_PASSWORD: str = "Admin123!"
+    SEED_SUPERVISOR_PASSWORD: str = "Super123!"
+    SEED_ANALISTA_PASSWORD: str = "Analista123!"
     
     class Config:
         env_file = ".env"

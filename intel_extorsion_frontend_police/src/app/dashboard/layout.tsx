@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useWalletStore } from '@/stores/walletStore';
 import { useAppStore } from '@/stores/appStore';
 import {
@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Home,
   MessageSquare,
+  Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 
@@ -26,12 +27,44 @@ const navItems = [
   { label: 'Analítico', href: '/dashboard/analitico', icon: BarChart3 },
   { label: 'Redes Criminales', href: '/dashboard/grafos', icon: Network },
   { label: 'Alertas', href: '/dashboard/alertas', icon: ShieldAlert },
+  { label: 'Usuarios', href: '/dashboard/usuarios', icon: Users, adminOnly: true },
 ];
+
+interface PoliceUser {
+  username: string;
+  rol: string;
+  nombre_completo: string;
+}
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { sidebarOpen, toggleSidebar } = useAppStore();
   const { account, isConnected, connect, disconnect, did } = useWalletStore();
+  const [user, setUser] = useState<PoliceUser | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const raw = localStorage.getItem('police_user');
+      if (!raw) {
+        router.replace('/');
+        return;
+      }
+      try {
+        setUser(JSON.parse(raw));
+      } catch {
+        router.replace('/');
+      }
+    }
+  }, [router]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('police_token');
+    localStorage.removeItem('police_user');
+    router.replace('/');
+  };
+
+  if (!user) return null;
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
@@ -54,7 +87,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         <nav className="flex-1 py-4 space-y-1">
-          {navItems.map((item) => {
+          {navItems
+            .filter((item) => !item.adminOnly || user.rol === 'admin')
+            .map((item) => {
             const Icon = item.icon;
             const active = pathname === item.href;
             return (
@@ -136,7 +171,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
           <div className="flex items-center space-x-4">
             <span className="text-xs text-slate-400">zkSYS Tanenbaum</span>
-            <UserCircle size={24} className="text-slate-400" />
+            <div className="flex items-center space-x-2">
+              <div className="text-right hidden sm:block">
+                <div className="text-xs font-medium text-slate-700">{user.nombre_completo}</div>
+                <div className="text-[10px] uppercase tracking-wider text-blue-600">{user.rol}</div>
+              </div>
+              <UserCircle size={24} className="text-slate-400" />
+              <button
+                onClick={handleLogout}
+                className="text-slate-400 hover:text-red-500 transition"
+                title="Cerrar sesión"
+              >
+                <LogOut size={20} />
+              </button>
+            </div>
           </div>
         </header>
         <div className="p-6">{children}</div>

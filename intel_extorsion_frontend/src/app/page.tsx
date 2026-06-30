@@ -91,7 +91,7 @@ export default function LandingPage() {
             {[
               { icon: BrainCircuit, title: 'Agentes Autónomos', desc: 'Intake, OCR, Speech, NLP, Correlation, OSINT, Risk y Alert Agent con LangGraph y GPT-5.5.' },
               { icon: BarChart3, title: 'Análisis Predictivo', desc: 'Correlación de patrones, detección de redes criminales y scoring de riesgo en tiempo real.' },
-              { icon: Lock, title: 'Custodia Blockchain', desc: 'Evidencias inmutables en Syscoin Rollux L2 con hash SHA-256, DID y tokens soulbound.' },
+              { icon: Lock, title: 'Custodia Blockchain', desc: 'Evidencias inmutables en zkSYS Tanenbaum Testnet con hash SHA-256, DID y tokens soulbound.' },
             ].map((f) => (
               <div key={f.title} className="bg-slate-900 border border-slate-800 rounded-xl p-6 hover:border-blue-500/50 transition">
                 <f.icon className="text-blue-500 mb-4" size={32} />
@@ -138,7 +138,7 @@ export default function LandingPage() {
               <ul className="space-y-3 text-sm text-slate-300">
                 <li className="flex items-start"><Shield size={16} className="text-blue-500 mr-2 mt-1 shrink-0" /> Denuncias anónimas verificables</li>
                 <li className="flex items-start"><Lock size={16} className="text-blue-500 mr-2 mt-1 shrink-0" /> Cadena de custodia digital inmutable</li>
-                <li className="flex items-start"><BarChart3 size={16} className="text-blue-500 mr-2 mt-1 shrink-0" /> Trazabilidad completa en Syscoin Rollux L2</li>
+                <li className="flex items-start"><BarChart3 size={16} className="text-blue-500 mr-2 mt-1 shrink-0" /> Trazabilidad completa en zkSYS Tanenbaum Testnet</li>
               </ul>
             </div>
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
@@ -147,8 +147,8 @@ export default function LandingPage() {
                 <span className="text-xs bg-green-500/10 text-green-400 px-2 py-1 rounded">Pali Wallet</span>
               </div>
               <div className="space-y-3 text-sm">
-                <div className="flex justify-between"><span className="text-slate-500">DID</span><span className="text-slate-300 font-mono">did:ethr:rollux:0x7a...3f</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Red</span><span className="text-slate-300">Syscoin Rollux (570)</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">DID</span><span className="text-slate-300 font-mono">did:ethr:zksys:0x7a...3f</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Red</span><span className="text-slate-300">zkSYS Tanenbaum Testnet (57057)</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">Evidencias</span><span className="text-slate-300">3 registradas</span></div>
               </div>
             </div>

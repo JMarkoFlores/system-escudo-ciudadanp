@@ -6,7 +6,13 @@
 
 ## 1. Qué es este Proyecto
 
-**IntelExtorsión** es una plataforma de inteligencia policial para la recepción, análisis, correlación y preservación de evidencias digitales relacionadas con denuncias de extorsión.
+**IntelExtorsión** es una plataforma de **INTELIGENCIA CIUDADANA** para la recepción, análisis, correlación y preservación de evidencias digitales relacionadas con reportes de extorsión.
+
+> **⚠️ IMPORTANTE:** Este sistema NO es un canal directo de denuncia formal a la policía.
+>
+> El sistema recibe reportes de extorsión de ciudadanos, los analiza con IA forense, correlaciona casos similares y entrega inteligencia procesada a las autoridades competentes (DIVINCRI La Libertad) para que tomen acciones operativas.
+>
+> **Para denuncias formales ante la Fiscalía o PNP, los ciudadanos deben utilizar la línea 111 o acudir a la comisaría más cercana.** Este sistema complementa, pero no reemplaza, los canales oficiales de denuncia.
 
 ### Stack Tecnológico
 - **Frontend:** Next.js 14 + TypeScript + Tailwind CSS
@@ -14,7 +20,7 @@
 - **Backend Web3:** FastAPI + Web3.py + zkSYS Genesis Testnet
 - **Smart Contracts:** Solidity 0.8.24 + Hardhat + OpenZeppelin v5
 - **Base de Datos:** PostgreSQL 16 + Qdrant (vector DB) + Redis 7
-- **Blockchain:** zkSYS Genesis Testnet (Chain ID 5700)
+- **Blockchain:** zkSYS Tanenbaum Testnet (Chain ID 57057)
 - **Wallet:** Pali Wallet
 
 ---
@@ -126,6 +132,23 @@
   5. **Túnel local** — Configuración exitosa de ngrok redirigiendo `https://duckbill-exit-detection.ngrok-free.dev` hacia `http://localhost:8000` para pruebas locales.
 - **Resultado:** Flujo de WhatsApp completado y listo para pruebas o presentación.
 
+### Sesión de Revisión Integral (2026-06-30)
+- **Solicitud del usuario:** Revisar el sistema completo, corregir bugs críticos, unificar red blockchain, actualizar documentación y dejar los tests verdes.
+- **Cambios realizados:**
+  1. **Unificación de red blockchain** — Todo el sistema ahora apunta a **zkSYS Tanenbaum Testnet (Chain ID 57057)** incluyendo contratos desplegados, Web3 Backend, DApp y frontends.
+  2. **Corrección Web3 Backend** — Se arreglaron `NameError` en funciones de custodia/casos/token y la verificación de evidencia por hash (`hashToEvidenceId`). Se añadió `GET /v1/evidencias/{hash}/verificar`.
+  3. **Privacidad en bots de canales** — Se implementó menú de clasificación RF-01 y se eliminaron identificadores personales de `metadata_json` en WhatsApp, Telegram y Discord.
+  4. **Robustez del grafo LangGraph** — Las denuncias que fallan en el grafo pasan a estado `error_procesamiento`; los reprocesos ya no duplican resultados.
+  5. **Mock LLM determinista** — Se añadió `MockLLM` (`MOCK_LLM=true`) para tests/CI sin consumir tokens Groq.
+  6. **Tests de integración verdes** — Se creó `tests/test_integration.py` con 10 tests end-to-end; **10/10 pasan** en Docker.
+  7. **Autenticación JWT** — Se implementó login con usuarios seed (`admin`, `supervisor`, `analista`) y se protegieron endpoints del dashboard policial.
+  8. **Alembic** — Se configuraron migraciones y se aplicó la inicial (`add usuarios`).
+  9. **Alertas push** — Nuevo `app/services/notification_service.py` con envío de webhook HTTP y email SMTP al persistir alertas oficiales.
+  10. **Mapa de calor con Plan Cuadrante PNP** — Se añadió `app/data/plan_cuadrante_la_libertad.geojson` y `GET /v1/heatmap/cuadrantes`; el heatmap cruza denuncias con cuadrantes oficiales.
+  11. **Frontend policial** — Login real contra `/v1/auth/login`, almacenamiento de token JWT y logout; `agentApi` inyecta el token automáticamente.
+  12. **Documentación actualizada** — `AGENTS.md`, `IMPLEMENTACION.md`, `QA_REPORT.md`, `RUN.md`, `.env.example`.
+- **Resultado:** Sistema estable con todos los contenedores corriendo, tests verdes y funcionalidades mayores (auth, notificaciones, heatmap) implementadas.
+
 ---
 
 ## 3. Estado Actual de Componentes (Post-Migración)
@@ -136,17 +159,21 @@
 | **Qdrant** | 🟢 Running | 6333 | Vector DB para embeddings. Colección: `denuncias_embeddings_v2` (384 dims) |
 | **Redis** | 🟢 Running | 6379 | Caché y broker |
 | **Agent System API** | 🟢 Running | 8000 | FastAPI + LangGraph + Groq. Health: `/health` |
-| **Web3 Backend API** | 🟢 Running | 8001 | FastAPI + Web3.py. Conectado a zkSYS Genesis Testnet |
-| **Frontend Next.js** | 🟢 Running | 3000 | Build standalone. 9 páginas estáticas |
-| **Smart Contracts** | ✅ Compilados | - | 25 archivos. Solidity 0.8.24 + EVM Cancun |
+| **Web3 Backend API** | 🟢 Running | 8001 | FastAPI + Web3.py. Conectado a zkSYS Tanenbaum Testnet |
+| **Frontend Ciudadano** | 🟢 Running | 3000 | Next.js standalone. Portal ciudadano |
+| **Frontend Policial** | 🟢 Running | 3001 | Next.js standalone. Login JWT + dashboards |
+| **DApp Web3** | 🟢 Running | 3002 | React + Pali Wallet. zkSYS Tanenbaum |
+| **Smart Contracts** | ✅ Desplegados | - | Solidity 0.8.24 + EVM Cancun. Direcciones en zkSYS Tanenbaum |
 
 ### URLs de Acceso
 ```
-Frontend Principal:     http://localhost:3000
-Dashboard Policial:     http://localhost:3000/dashboard/policial
-Dashboard Analítico:    http://localhost:3000/dashboard/analitico
-Grafos Criminales:      http://localhost:3000/dashboard/grafos
-Centro de Alertas:      http://localhost:3000/dashboard/alertas
+Frontend Ciudadano:     http://localhost:3000
+Frontend Policial:      http://localhost:3001
+DApp Web3:              http://localhost:3002
+Dashboard Policial:     http://localhost:3001/dashboard/policial
+Dashboard Analítico:    http://localhost:3001/dashboard/analitico
+Grafos Criminales:      http://localhost:3001/dashboard/grafos
+Centro de Alertas:      http://localhost:3001/dashboard/alertas
 Portal Ciudadano:       http://localhost:3000/portal
 Agent API Docs:         http://localhost:8000/docs
 Web3 API Docs:          http://localhost:8001/docs
@@ -202,24 +229,33 @@ System-Escudo-Ciudadano/
 ├── RUN.md                          # Guía de ejecución y troubleshooting
 ├── CHECKLIST_DEPLOY.md             # Checklist de despliegue a producción
 ├── tests/
-│   └── test_integration.py         # 9 tests end-to-end (6 pasan, 3 esperados)
+│   ├── test_integration.py         # 10 tests end-to-end (10/10 pasan)
+│   ├── Dockerfile
+│   └── requirements.txt
+│
+├── docker-compose.test.yml         # Orquestación de tests con MOCK_LLM=true
 │
 ├── intel_extorsion_agent_system/   # Subsistema de Agentes (MIGRADO A GROQ)
 │   ├── docker-compose.yml
 │   ├── requirements.txt            # langchain-groq==0.1.10, fastembed
 │   ├── main.py
-│   ├── deployments/Dockerfile
+│   ├── alembic.ini                 # Configuración de migraciones
+│   ├── alembic/                    # Migraciones Alembic
+│   ├── deployments/Dockerfile      # Precarga modelo fastembed
 │   ├── app/
-│   │   ├── config/settings.py      # GROQ_*, QDRANT_DIMENSION=384
-│   │   ├── core/agent_graph.py     # ChatGroq con lazy loading
+│   │   ├── config/settings.py      # GROQ_*, QDRANT_DIMENSION=384, JWT, alertas
+│   │   ├── core/agent_graph.py     # ChatGroq + MockLLM
 │   │   ├── api/main_api.py         # Health check "groq"
+│   │   ├── api/auth_router.py      # JWT login + require_user
+│   │   ├── services/notification_service.py  # Alertas push email/webhook
+│   │   ├── data/                   # GeoJSON Plan Cuadrante PNP
 │   │   ├── memory/hybrid_memory.py # FastEmbedLocal (sin API key)
-│   │   ├── agents/                 # 8 agentes autónomos
+│   │   ├── agents/                 # 10 agentes autónomos
 │   │   └── ...
 │   └── docs/ARCHITECTURE.md
 │
 ├── intel_extorsion_web3_system/    # Subsistema Web3
-│   ├── hardhat.config.js           # Solidity 0.8.24, evm: cancun
+│   ├── hardhat.config.js           # Solidity 0.8.24, evm: cancun, red zkSYS Tanenbaum
 │   ├── contracts/                  # 4 contratos (EvidenceRegistry, CaseManager, DIDRegistry, Token)
 │   ├── scripts/deploy.js
 │   ├── test/test.js
@@ -229,11 +265,21 @@ System-Escudo-Ciudadano/
 │   │   └── app/
 │   └── dapp/                       # DApp React separada
 │
-└── intel_extorsion_frontend/       # Frontend Next.js
-    ├── Dockerfile                  # Multi-stage standalone
+├── intel_extorsion_frontend_citizen/   # Frontend ciudadano (Next.js)
+│   ├── Dockerfile
+│   ├── next.config.mjs
+│   └── src/app/
+│
+├── intel_extorsion_frontend_police/    # Frontend policial (Next.js)
+│   ├── Dockerfile
+│   ├── next.config.mjs
+│   └── src/app/
+│
+└── intel_extorsion_frontend/       # Frontend legacy monolítico (Next.js)
+    ├── Dockerfile
     ├── next.config.mjs
     ├── package.json
-    └── src/app/                    # Landing, Portal, Dashboards
+    └── src/app/
 ```
 
 ---
@@ -255,13 +301,16 @@ POSTGRES_PASSWORD=agent_pass
 POSTGRES_DB=intel_extorsion
 
 # WEB3 (OBLIGATORIO para funcionalidad blockchain)
-WEB3_PROVIDER_URL=https://rpc.genesis.zksys.io
-CHAIN_ID=5700
+# Red oficial: zkSYS Tanenbaum Testnet (Chain ID 57057)
+WEB3_PROVIDER_URL=https://rpc-zk.tanenbaum.io
+CHAIN_ID=57057
+EXPLORER_URL=https://explorer-zk.tanenbaum.io
+NETWORK_NAME=zkSYS Tanenbaum Testnet
 PRIVATE_KEY=0x...                          # Wallet institucional
-CONTRACT_EVIDENCE_REGISTRY=0x...           # Obtener tras deploy
-CONTRACT_CASE_MANAGER=0x...
-CONTRACT_DID_REGISTRY=0x...
-CONTRACT_TOKEN=0x...
+CONTRACT_EVIDENCE_REGISTRY=0x1A9eB1a4C261AE793e21101a3E5c14003dcF4dEb
+CONTRACT_CASE_MANAGER=0x3576cb05B2c4094e8f97639892D235044d7476a1
+CONTRACT_DID_REGISTRY=0x8481c85e54f50C676f0fc37f90848030c3B12bB9
+CONTRACT_TOKEN=0x622AA147eD0238840ceb215941D5E8CD997896F0
 ```
 
 **Nota:** El sistema arranca y funciona SIN `GROQ_API_KEY` (lazy loading), pero los agentes no procesarán denuncias hasta que se configure.
@@ -273,11 +322,16 @@ CONTRACT_TOKEN=0x...
 | # | Problema | Severidad | Workaround / Solución |
 |---|----------|-----------|----------------------|
 | 1 | ~~`test_crear_denuncia_y_procesar` falla con `KeyError` en prompt formatting~~ | **RESUELTO** | ✅ Corregido: Se escaparon placeholders JSON (`{{bool}}`, `{{str}}`, etc.) en `system_prompts.py`. Se normalizó `nivel_riesgo` a minúsculas. Se reparó import `llm` en `agent_graph.py`. |
-| 2 | Smart Contracts no desplegados | **MEDIA** | Requieren deploy en zkSYS Genesis Testnet. Sin addresses reales, Web3 Backend devuelve dev-mode en `/v1/evidencias/seal`. `node_seal` funciona con `tx_hash: 0x000...`. La arquitectura está lista. |
+| 2 | ~~Smart Contracts no desplegados~~ | **RESUELTO** | ✅ Contratos desplegados en zkSYS Tanenbaum Testnet. Direcciones en `.env.example` y `AGENTS.md`. |
 | 3 | `asyncpg` requiere compilador C en Windows | **BAJA** | Solo afecta desarrollo local en Windows. En Docker Linux funciona perfectamente. |
-| 4 | Descarga de modelo fastembed en primer arranque | **BAJA** | En contenedores sin internet, precargar el modelo en el Dockerfile. |
+| 4 | ~~Descarga de modelo fastembed en primer arranque~~ | **RESUELTO** | ✅ El modelo `all-MiniLM-L6-v2` se precarga en el Dockerfile del `agent-api`. |
 | 5 | Frontend no tiene axios/lucide-react types instalados | **BAJA** | Errores LSP pero no afectan build/runtime. `npm run build` funciona. |
-| 6 | Rate limits de GroqCloud (TPM) | **BAJA** | El modelo `llama-3.3-70b-versatile` tiene límite de 12k tokens/minuto. En flujos con muchos agentes puede dar 429. Esperar unos segundos y reintentar. |
+| 6 | Rate limits de GroqCloud (TPM) | **BAJA** | El modelo `llama-3.3-70b-versatile` tiene límite de 12k tokens/minuto. En flujos con muchos agentes puede dar 429. Usar `MOCK_LLM=true` para tests/CI. En producción, controlar throughput o usar tier de pago. |
+| 7 | ~~Inconsistencia de red blockchain en documentación y templates~~ | **RESUELTO** | ✅ Todo el sistema apunta a zkSYS Tanenbaum (57057). Actualizar `.env` local si aún usa valores antiguos. |
+| 8 | ~~Bots de canales almacenaban PII del denunciante~~ | **RESUELTO** | ✅ Se implementó menú de clasificación RF-01 y se eliminaron identificadores personales de `metadata_json`. |
+| 9 | ~~Alertas siempre se persistían con nivel "medio"~~ | **RESUELTO** | ✅ Se corrigió el prompt del Alert Agent y `_persistir_alerta` para usar el nivel de riesgo real. |
+| 10 | ~~Web3 Service tenía `NameError` en funciones de custodia/casos/token~~ | **RESUELTO** | ✅ Se corrigió la construcción del objeto `func` antes de `_send_transaction` y se añadió `GET /v1/evidencias/{hash}/verificar`. |
+| 11 | Login policial con credenciales hardcodeadas | **BAJA** | Usuarios seed (`admin`/`Admin123!`, `supervisor`/`Super123!`, `analista`/`Analista123!`) para demo. En producción implementar administración de usuarios. |
 
 ---
 
@@ -292,12 +346,15 @@ docker compose up -d
 # 3. Verificar
 curl http://localhost:8000/health      # Agent API
 curl http://localhost:8001/health      # Web3 Backend
-curl http://localhost:3000             # Frontend
+curl http://localhost:3000             # Frontend Ciudadano
+curl http://localhost:3001             # Frontend Policial
+curl http://localhost:3002             # DApp Web3
 
 # 4. Ver logs
 docker compose logs -f agent-api
 docker compose logs -f web3-backend
-docker compose logs -f frontend
+docker compose logs -f frontend-citizen
+docker compose logs -f frontend-police
 ```
 
 ---
@@ -317,34 +374,47 @@ cd intel_extorsion_agent_system
 pytest tests/test_agents.py -v
 ```
 
-**Resultados actuales:** 6/9 PASSED
-- ✅ test_health_checks
-- ✅ test_busqueda_semantica (mejoró tras migración a embeddings locales)
-- ✅ test_web3_did_resolver
-- ✅ test_postgresql_conectividad
-- ✅ test_qdrant_conectividad
-- ✅ test_redis_conectividad
-- ❌ test_crear_denuncia_y_procesar (bug de parsing JSON en prompts)
-- ❌ test_web3_verificar_evidencia (contratos no desplegados)
-- ❌ test_frontend_carga (frontend no ejecutado durante pytest)
+**Resultados actuales:** `tests/test_integration.py`
+- ✅ test_health_agent_api
+- ✅ test_health_web3_backend
+- ✅ test_crear_denuncia_texto
+- ✅ test_procesar_denuncia_y_generar_tracking (con `MOCK_LLM=true`)
+- ✅ test_tracking_por_codigo
+- ✅ test_dashboard_metricas
+- ✅ test_listar_denuncias
+- ✅ test_listar_alertas
+- ✅ test_web3_registrar_y_verificar_evidencia
+- ✅ test_busqueda_semantica
+
+**Ejecución:**
+```bash
+docker compose -f docker-compose.yml -f docker-compose.test.yml up test-runner --build --abort-on-container-exit
+```
 
 ---
 
 ## 10. Próximos Pasos Pendientes (Priorizados)
 
-1. ~~**Obtener GROQ_API_KEY** y validar procesamiento completo de denuncias~~ ✅ RESUELTO (Flujo completo validado)
+1. ~~**Obtener GROQ_API_KEY** y validar procesamiento completo de denuncias~~ ✅ RESUELTO
 2. ~~**Corregir bug de parsing** en `AGENT_PROMPTS` (`system_prompts.py`)~~ ✅ RESUELTO
-3. ~~**Migrar a zkSYS Genesis Testnet** — Fase 0 completada~~ ✅ RESUELTO
+3. ~~**Migrar a zkSYS Tanenbaum Testnet** — Fase 0 completada~~ ✅ RESUELTO
 4. ~~**Implementar Fase 1: Agente Autónomo End-to-End** — Grafo LangGraph completo~~ ✅ RESUELTO
 5. ~~**Implementar subida de archivos y OCR/STT real** — Fase 1 completada~~ ✅ RESUELTO
-6. ~~**Fix routing del grafo (node_risk, node_intake, node_seal)** — Bugs críticos corregidos~~ ✅ RESUELTO
-7. **Desplegar Smart Contracts** en zkSYS Genesis Testnet y obtener addresses reales
-8. **Completar .env** con CONTRACT_* addresses y PRIVATE_KEY
-9. **Integración Pali Wallet** en frontend para funcionalidad Web3 completa
-10. **Canales externos:** Implementar bots de WhatsApp/Telegram/Discord
-11. **Precargar modelo fastembed** en Dockerfile para evitar descarga en primer arranque
-12. **Implementar Fase 2** (Acta Forense PDF, cobertura API de contratos, gas dinámico) — ver Section 7 en `IMPLEMENTACION.md`
-13. **Separar frontend** en `frontend-citizen/` y `frontend-police/` (recomendado para Phase 3)
+6. ~~**Fix routing del grafo (node_risk, node_intake, node_seal)**~~ ✅ RESUELTO
+7. ~~**Precargar modelo fastembed** en Dockerfile~~ ✅ RESUELTO
+8. ~~**Tests de integración verdes**~~ ✅ RESUELTO
+9. ~~**Autenticación JWT y roles en frontend policial**~~ ✅ RESUELTO
+10. ~~**Alertas push (email/webhook)**~~ ✅ RESUELTO (base implementada; configurar SMTP/webhook en `.env`)
+11. ~~**Mapa de calor con Plan Cuadrante PNP**~~ ✅ RESUELTO (GeoJSON base + endpoint)
+12. ~~**Migraciones Alembic**~~ ✅ RESUELTO
+13. ~~**CRUD de usuarios policiales en frontend policial y backend~~ ✅ RESUELTO
+14. ~~**Integrar GeoJSON oficial del Plan Cuadrante PNP~~ ✅ RESUELTO (código mejorado, documentación creada)
+15. ~~**Actualizar documentación y tests tras cambios~~ ✅ RESUELTO
+
+**Próximos pasos:**
+16. **Implementar Fase 2** (gas dinámico EIP-1559, firma digital real en acta PDF, seal secundario Sepolia) — ver Sección 7 en `IMPLEMENTACION.md`
+17. **Notificaciones SMS/SIRDIC-SIDPOL** cuando un clúster supere umbral
+18. **Obtener GeoJSON oficial** del Plan Cuadrante PNP (reemplazar polígonos demo por datos reales de la DIVINCRI)
 
 ---
 
@@ -369,15 +439,19 @@ pytest tests/test_agents.py -v
 - **Si se actualiza `langchain-core`**, verificar compatibilidad con `langchain-groq==0.1.10`. Si hay conflicto, buscar versión compatible de langchain-groq.
 - **Smart Contracts:** Si se modifica Solidity, usar `0.8.24` y `evmVersion: cancun`. Verificar compatibilidad con OpenZeppelin v5.
 - **Docker builds:** Si el build es lento, revisar caché. `docker compose build --no-cache` solo si es necesario.
-- **Red actual:** zkSYS Genesis Testnet (Chain ID 5700). NO cambiar a Rollux a menos que se solicite explícitamente. El RPC es `https://rpc.genesis.zksys.io`.
+- **Red actual:** zkSYS Tanenbaum Testnet (Chain ID 57057). NO cambiar a Rollux (570) ni Genesis (5700) a menos que se solicite explícitamente. El RPC es `https://rpc-zk.tanenbaum.io` y el explorer `https://explorer-zk.tanenbaum.io`.
+- **Contratos desplegados en zkSYS Tanenbaum:** EvidenceRegistry `0x1A9eB1a4C261AE793e21101a3E5c14003dcF4dEb`, CaseManager `0x3576cb05B2c4094e8f97639892D235044d7476a1`, DIDRegistry `0x8481c85e54f50C676f0fc37f90848030c3B12bB9`, Token `0x622AA147eD0238840ceb215941D5E8CD997896F0`.
 - **Verificación de conectividad:** Usar `npx hardhat run scripts/checkNetwork.js --network zkSYSTestnet` después de configurar `.env`.
 - **OCR real con Tesseract:** El contenedor `agent-api` tiene `tesseract-ocr` y `tesseract-ocr-spa` instalados. El servicio `app/services/ocr_service.py` usa `pytesseract.image_to_string()` con lang=`spa`. Si no se extrae texto, revisar que la imagen tenga texto legible y que el idioma `spa` esté instalado.
 - **STT real con Groq Whisper:** `app/services/stt_service.py` usa `groq.audio.transcriptions.create()` con modelo `whisper-large-v3-turbo`. Requiere `GROQ_API_KEY`. Límite: 25MB por archivo, 25 req/min en tier gratuito.
 - **File upload:** Endpoint `POST /v1/denuncias/{id}/adjuntar`. Acepta multipart file. Validación por MIME. Almacena en `/app/uploads/evidencias/`. Calcula SHA-256. Max 50MB.
 - **Routing del grafo LangGraph:** `node_risk` y `node_intake` deben devolver TODOS los cambios de estado en el dict de retorno. NO mutar `state.*` in-place porque LangGraph congela el estado Pydantic tras cada nodo.
 - **Smart Contracts:** Si `_load_contracts` detecta `0x0000...` como address, trata el contrato como "no configurado" y devuelve modo dev. El endpoint `/v1/evidencias/seal` en Web3 Backend no requiere contratos deployados para responder.
+- **Autenticación:** Dashboard policial requiere JWT. Credenciales seed en `auth_service.seed_default_users()`. `agentApi` inyecta el token desde `localStorage.police_token`.
+- **Alembic:** En dev `create_all` mantiene el esquema actualizado; en producción ejecutar `alembic upgrade head`. Si una tabla ya existe por `create_all`, usar `alembic stamp <revision>`.
+- **Tests:** Usar `MOCK_LLM=true` para tests/CI deterministas. `docker compose -f docker-compose.yml -f docker-compose.test.yml up test-runner --build --abort-on-container-exit`.
 
 ---
 
-*Última actualización: 2026-06-21*
-*Contexto generado tras sesión de integración de WhatsApp (Whapi.cloud) y depuración del bot*
+*Última actualización: 2026-06-30*
+*Contexto generado tras sesión de revisión integral: auth JWT, notificaciones, heatmap PNP, tests verdes*

@@ -22,6 +22,9 @@ WORKDIR /app
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 
+# Copy package.json for runtime dependencies
+COPY --from=builder /app/package.json ./
+
 # Copy build output
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./

@@ -30,8 +30,8 @@ import {
 import { Denuncia } from '@/types';
 
 export default function PortalPage() {
-  const { account, isConnected, connect, did, error, switchToZkSYS, init, disconnect } = useWalletStore();
-  
+  const { account, isConnected, connect, did, error, switchToZkSYS, init, disconnect, provider } = useWalletStore();
+
   useEffect(() => {
     init();
   }, [init]);
@@ -41,6 +41,39 @@ export default function PortalPage() {
       toast.error(error, { id: 'wallet-error' });
     }
   }, [error]);
+
+  const handleConnectWallet = async () => {
+    const pali = (window as any).pali || (window as any).ethereum;
+    if (!pali) {
+      toast.error('Pali Wallet no detectada. Instálala desde https://paliwallet.com');
+      return;
+    }
+    try {
+      // wallet_requestPermissions SIEMPRE muestra el modal de selección de cuentas
+      await pali.request({
+        method: 'wallet_requestPermissions',
+        params: [{ eth_accounts: {} }],
+      });
+      // Después de que el usuario elija, leer la cuenta seleccionada (sin modal)
+      const accounts = await pali.request({ method: 'eth_accounts' });
+      const chainIdHex = await pali.request({ method: 'eth_chainId' });
+      const chainId = parseInt(chainIdHex, 16);
+      if (accounts && accounts.length > 0) {
+        useWalletStore.setState({
+          account: accounts[0],
+          chainId,
+          provider: pali,
+          isConnected: true,
+          did: `did:zsys:tanenbaum:${accounts[0].toLowerCase()}`,
+          error: chainId !== 57057 ? 'Por favor cambia a la red zkSYS Tanenbaum Testnet (Chain ID 57057)' : null,
+        });
+      }
+    } catch (err: any) {
+      // Usuario canceló el modal
+      if (err?.code === 4001) return;
+      console.error('Connection error:', err);
+    }
+  };
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'chat' | 'evidencias' | 'ayuda'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -452,32 +485,66 @@ export default function PortalPage() {
 
     return (
       <div className="space-y-6 w-full animate-fadeIn">
-        {/* Profile Card */}
-        <div className="bg-slate-900/60 backdrop-blur border border-slate-800 rounded-2xl p-6 shadow-xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-teal-500/5 rounded-full blur-xl pointer-events-none" />
-          <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block mb-2">
-            Tu Identidad Descentralizada (DID)
-          </span>
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <span className="font-mono text-sm text-teal-300 break-all select-all">{did}</span>
-            <button
-              onClick={copyToClipboard}
-              className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-xl border border-slate-700 transition flex items-center space-x-2 shrink-0 self-start md:self-center font-semibold shadow-sm"
-            >
-              <Copy size={14} />
-              {isCopied ? <span>¡Copiado!</span> : <span>Copiar DID</span>}
-            </button>
+        {/* DID Identity Card - Premium */}
+        <div className="relative bg-gradient-to-br from-slate-900 via-slate-900 to-teal-950/30 border border-teal-500/20 rounded-2xl p-6 shadow-2xl overflow-hidden group">
+          {/* Animated glow */}
+          <div className="absolute -top-20 -right-20 w-40 h-40 bg-teal-500/10 rounded-full blur-3xl pointer-events-none group-hover:bg-teal-500/15 transition-all duration-700" />
+          <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-blue-500/5 rounded-full blur-2xl pointer-events-none" />
+          
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500/20 to-blue-500/10 border border-teal-500/30 flex items-center justify-center shadow-inner">
+                  <ShieldAlert className="text-teal-400" size={20} />
+                </div>
+                <div>
+                  <span className="text-xs text-teal-400 font-bold uppercase tracking-wider block">Identidad Descentralizada</span>
+                  <span className="text-[10px] text-slate-500 font-mono">W3C DID Core 1.0</span>
+                </div>
+              </div>
+              <div className="flex items-center space-x-1.5 bg-teal-500/10 border border-teal-500/20 px-2.5 py-1 rounded-full">
+                <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
+                <span className="text-[10px] text-teal-400 font-bold uppercase tracking-wider">Activo</span>
+              </div>
+            </div>
+
+            <div className="bg-slate-950/50 border border-slate-800/50 rounded-xl p-4 mb-4">
+              <div className="flex items-center justify-between gap-4">
+                <span className="font-mono text-sm text-teal-300/90 break-all select-all leading-relaxed">{did}</span>
+                <button
+                  onClick={copyToClipboard}
+                  className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2.5 rounded-xl border border-slate-700/50 transition flex items-center space-x-2 shrink-0 font-semibold shadow-sm hover:border-teal-500/30 active:scale-95"
+                >
+                  <Copy size={14} />
+                  {isCopied ? <span className="text-teal-400">¡Copiado!</span> : <span>Copiar</span>}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 text-[10px]">
+              <div className="flex items-center space-x-1.5 text-slate-400">
+                <CheckCircle2 size={12} className="text-teal-400" />
+                <span>Sin datos personales</span>
+              </div>
+              <div className="w-px h-3 bg-slate-700" />
+              <div className="flex items-center space-x-1.5 text-slate-400">
+                <CheckCircle2 size={12} className="text-teal-400" />
+                <span>Seudónimo verificable</span>
+              </div>
+              <div className="w-px h-3 bg-slate-700" />
+              <div className="flex items-center space-x-1.5 text-slate-400">
+                <span className="font-mono text-blue-400">zkSYS Tanenbaum</span>
+                <span>·</span>
+                <span className="font-mono text-slate-500">57057</span>
+              </div>
+            </div>
           </div>
-          <p className="text-xs text-slate-500 mt-4 flex items-center space-x-2">
-            <span>🛡️</span>
-            <span>No se recopilan datos personales. Anonimato garantizado por protocolo DID W3C.</span>
-          </p>
         </div>
 
         {/* KPIs Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-slate-900/60 backdrop-blur border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between h-32 hover:border-teal-500/30 transition group hover:shadow-[0_4px_20px_rgba(13,148,136,0.05)]">
-            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block">Evidencias Selladas</span>
+          <div className="bg-gradient-to-br from-slate-900 to-teal-950/20 border border-teal-500/15 rounded-2xl p-5 shadow-lg flex flex-col justify-between h-32 hover:border-teal-500/30 transition-all duration-300 group hover:shadow-[0_4px_24px_rgba(13,148,136,0.08)]">
+            <span className="text-xs text-teal-500/80 font-bold uppercase tracking-wider block">Evidencias Selladas</span>
             <div className="flex items-baseline space-x-2 my-2">
               <span className="text-4xl font-extrabold text-white group-hover:text-teal-400 transition">{selladasCount}</span>
               <span className="text-sm text-teal-400 font-bold">✓</span>
@@ -485,24 +552,24 @@ export default function PortalPage() {
             <span className="text-xs text-slate-500 font-mono">Blockchain zkSYS</span>
           </div>
 
-          <div className="bg-slate-900/60 backdrop-blur border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between h-32 hover:border-amber-500/30 transition group hover:shadow-[0_4px_20px_rgba(245,158,11,0.05)]">
-            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block">En Proceso</span>
+          <div className="bg-gradient-to-br from-slate-900 to-amber-950/10 border border-amber-500/10 rounded-2xl p-5 shadow-lg flex flex-col justify-between h-32 hover:border-amber-500/25 transition-all duration-300 group hover:shadow-[0_4px_24px_rgba(245,158,11,0.06)]">
+            <span className="text-xs text-amber-500/70 font-bold uppercase tracking-wider block">En Proceso</span>
             <div className="flex items-baseline space-x-2 my-2">
               <span className="text-4xl font-extrabold text-white group-hover:text-amber-400 transition">{enProcesoCount}</span>
             </div>
             <span className="text-xs text-slate-500">Agentes ejecutándose</span>
           </div>
 
-          <div className="bg-slate-900/60 backdrop-blur border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between h-32 hover:border-blue-500/30 transition group hover:shadow-[0_4px_20px_rgba(59,130,246,0.05)]">
-            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block">Autoridades Notif.</span>
+          <div className="bg-gradient-to-br from-slate-900 to-blue-950/10 border border-blue-500/10 rounded-2xl p-5 shadow-lg flex flex-col justify-between h-32 hover:border-blue-500/25 transition-all duration-300 group hover:shadow-[0_4px_24px_rgba(59,130,246,0.06)]">
+            <span className="text-xs text-blue-500/70 font-bold uppercase tracking-wider block">Autoridades Notif.</span>
             <div className="flex items-baseline space-x-2 my-2">
               <span className="text-4xl font-extrabold text-white group-hover:text-blue-400 transition">{notificadasCount}</span>
             </div>
             <span className="text-xs text-slate-500">Riesgo Alto / Crítico</span>
           </div>
 
-          <div className="bg-slate-900/60 backdrop-blur border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between h-32 hover:border-purple-500/30 transition group hover:shadow-[0_4px_20px_rgba(168,85,247,0.05)]">
-            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block">Clústeres Activos</span>
+          <div className="bg-gradient-to-br from-slate-900 to-purple-950/10 border border-purple-500/10 rounded-2xl p-5 shadow-lg flex flex-col justify-between h-32 hover:border-purple-500/25 transition-all duration-300 group hover:shadow-[0_4px_24px_rgba(168,85,247,0.06)]">
+            <span className="text-xs text-purple-500/70 font-bold uppercase tracking-wider block">Clústeres Activos</span>
             <div className="flex items-baseline space-x-2 my-2">
               <span className="text-4xl font-extrabold text-white group-hover:text-purple-400 transition">{clustersCount}</span>
             </div>
@@ -528,9 +595,14 @@ export default function PortalPage() {
             )}
 
             {/* Recent Evidences List */}
-            <div className="bg-slate-900/60 backdrop-blur border border-slate-800 rounded-2xl p-6 shadow-xl">
+            <div className="bg-gradient-to-br from-slate-900 to-slate-900/80 backdrop-blur border border-slate-800/80 rounded-2xl p-6 shadow-xl">
               <div className="flex items-center justify-between mb-5">
-                <h4 className="text-sm font-bold text-slate-200 uppercase tracking-wider">Evidencias Recientes</h4>
+                <div className="flex items-center space-x-2">
+                  <h4 className="text-sm font-bold text-slate-200 uppercase tracking-wider">Evidencias Recientes</h4>
+                  {denuncias.length > 0 && (
+                    <span className="text-[10px] bg-teal-500/10 text-teal-400 px-2 py-0.5 rounded-full font-bold border border-teal-500/20">{denuncias.length}</span>
+                  )}
+                </div>
                 <button
                   onClick={() => setActiveTab('evidencias')}
                   className="text-xs text-teal-400 hover:text-teal-300 font-bold transition hover:underline"
@@ -548,55 +620,85 @@ export default function PortalPage() {
                   No se han registrado evidencias con este DID.
                 </div>
               ) : (
-                <div className="divide-y divide-slate-800/80">
-                  {denuncias.slice(0, 3).map((d) => (
-                    <div key={d.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 first:pt-0 last:pb-0">
-                      <div className="flex items-center space-x-4 truncate">
-                        <div className="w-10 h-10 rounded-xl bg-slate-800/50 flex items-center justify-center text-slate-400 shrink-0 border border-slate-800">
-                          <FileText size={18} />
-                        </div>
-                        <div className="truncate space-y-0.5">
-                          <span className="text-sm font-bold text-slate-200 block">
-                            {d.tracking_code || 'En proceso de custodia...'}
-                          </span>
-                          <span className="text-xs text-slate-500 block uppercase">
-                            {new Date(d.created_at).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' })} · {d.tipo_contenido} · {d.canal}
-                          </span>
-                        </div>
-                      </div>
+                <div className="space-y-3">
+                  {denuncias.slice(0, 3).map((d) => {
+                    const isSealed = d.seal_status === 'success' || !!d.seal_tx_hash;
+                    return (
+                      <div key={d.id} className="bg-slate-950/40 border border-slate-800/50 rounded-xl p-4 hover:border-slate-700/60 transition-all duration-300 group hover:shadow-lg">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-center space-x-3.5 truncate">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
+                              isSealed 
+                                ? 'bg-teal-500/10 border-teal-500/20 text-teal-400' 
+                                : 'bg-slate-800/50 border-slate-800 text-slate-400'
+                            }`}>
+                              {isSealed ? <CheckCircle2 size={18} /> : <FileText size={18} />}
+                            </div>
+                            <div className="truncate space-y-0.5">
+                              <span className="text-sm font-bold text-slate-200 block group-hover:text-teal-400 transition">
+                                {d.tracking_code || 'Custodia en proceso...'}
+                              </span>
+                              <div className="flex items-center flex-wrap gap-1.5 text-[10px] text-slate-500">
+                                <span>{new Date(d.created_at).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                <span className="text-slate-700">·</span>
+                                <span className="text-slate-400 uppercase font-semibold">{d.tipo_contenido}</span>
+                                <span className="text-slate-700">·</span>
+                                <span className="text-slate-400 uppercase font-semibold">{d.canal}</span>
+                              </div>
+                            </div>
+                          </div>
 
-                      <div className="flex items-center space-x-3 shrink-0 self-end sm:self-center">
-                        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border tracking-wide ${
-                          d.nivel_riesgo?.toLowerCase() === 'critico'
-                            ? 'bg-red-500/10 text-red-400 border-red-500/20'
-                            : d.nivel_riesgo?.toLowerCase() === 'alto'
-                            ? 'bg-orange-500/10 text-orange-400 border-orange-500/20'
-                            : d.nivel_riesgo?.toLowerCase() === 'medio'
-                            ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
-                            : 'bg-slate-800/40 text-slate-400 border-slate-700/80'
-                        }`}>
-                          {d.nivel_riesgo ? d.nivel_riesgo.toUpperCase() : 'PENDIENTE'}
-                        </span>
-                        
-                        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border tracking-wide ${
-                          d.seal_status === 'success' || !!d.seal_tx_hash
-                            ? 'bg-green-500/10 text-green-400 border-green-500/20'
-                            : 'bg-slate-800/40 text-slate-400 border-slate-700/80'
-                        }`}>
-                          {d.seal_status === 'success' || !!d.seal_tx_hash ? 'SELLADO' : 'CUSTODIA'}
-                        </span>
+                          <div className="flex items-center space-x-2 shrink-0 self-end sm:self-center">
+                            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border tracking-wide ${
+                              d.nivel_riesgo?.toLowerCase() === 'critico'
+                                ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                                : d.nivel_riesgo?.toLowerCase() === 'alto'
+                                ? 'bg-orange-500/10 text-orange-400 border-orange-500/20'
+                                : d.nivel_riesgo?.toLowerCase() === 'medio'
+                                ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+                                : 'bg-slate-800/40 text-slate-400 border-slate-700/80'
+                            }`}>
+                              {d.nivel_riesgo ? d.nivel_riesgo.toUpperCase() : 'PENDIENTE'}
+                            </span>
+                            
+                            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border tracking-wide flex items-center space-x-1 ${
+                              isSealed
+                                ? 'bg-teal-500/10 text-teal-400 border-teal-500/20'
+                                : 'bg-slate-800/40 text-slate-400 border-slate-700/80'
+                            }`}>
+                              {isSealed && <div className="w-1 h-1 rounded-full bg-teal-400 animate-pulse" />}
+                              <span>{isSealed ? 'SELLADO' : 'CUSTODIA'}</span>
+                            </span>
 
-                        {d.tracking_code && (
-                          <Link
-                            href={`/tracking?code=${d.tracking_code}`}
-                            className="text-xs bg-slate-850 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-xl border border-slate-700 transition font-semibold"
-                          >
-                            Auditar
-                          </Link>
+                            {d.tracking_code && (
+                              <Link
+                                href={`/tracking?code=${d.tracking_code}`}
+                                className="text-[10px] bg-teal-600/80 hover:bg-teal-500 text-white px-3 py-1.5 rounded-lg transition font-bold flex items-center space-x-1 shadow-sm hover:shadow-[0_2px_8px_rgba(13,148,136,0.2)]"
+                              >
+                                <span>Auditar</span>
+                                <ExternalLink size={10} />
+                              </Link>
+                            )}
+                          </div>
+                        </div>
+
+                        {isSealed && d.seal_tx_hash && (
+                          <div className="mt-3 pt-3 border-t border-slate-800/50 flex items-center space-x-1.5 text-[10px]">
+                            <span className="text-slate-500">TX:</span>
+                            <a
+                              href={`https://explorer-zk.tanenbaum.io/tx/${d.seal_tx_hash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-teal-400/80 hover:text-teal-300 font-mono truncate max-w-[280px] flex items-center space-x-1 transition"
+                            >
+                              <span className="truncate">{d.seal_tx_hash}</span>
+                              <ExternalLink size={9} />
+                            </a>
+                          </div>
                         )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -605,47 +707,65 @@ export default function PortalPage() {
           {/* Right column */}
           <div className="space-y-6">
             {/* Quick Actions */}
-            <div className="bg-slate-900/60 backdrop-blur border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Acciones de Emergencia</h4>
+            <div className="bg-gradient-to-br from-slate-900 to-slate-900/80 backdrop-blur border border-slate-800/80 rounded-2xl p-6 shadow-xl space-y-3">
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Acciones Rápidas</h4>
               
               <button
                 onClick={() => setActiveTab('chat')}
-                className="w-full group bg-gradient-to-r from-teal-900/20 to-slate-800 border border-teal-500/20 hover:border-teal-500/40 rounded-xl p-4 text-left transition flex items-center space-x-4 shadow-sm"
+                className="w-full group bg-gradient-to-r from-teal-900/30 to-slate-800/50 border border-teal-500/20 hover:border-teal-500/40 rounded-xl p-4 text-left transition-all duration-300 flex items-center space-x-4 shadow-sm hover:shadow-[0_4px_16px_rgba(13,148,136,0.08)]"
               >
-                <div className="w-10 h-10 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-400 shrink-0 group-hover:scale-105 transition shadow-inner">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500/15 to-teal-500/5 border border-teal-500/20 flex items-center justify-center text-teal-400 shrink-0 group-hover:scale-110 transition-all duration-300 shadow-inner">
                   <PlusCircle size={20} />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-slate-200">Subir Evidencia</h4>
-                  <p className="text-xs text-slate-400 mt-0.5">Reportar audio, chat o número extorsionador.</p>
+                  <h4 className="text-sm font-bold text-slate-200 group-hover:text-teal-300 transition">Subir Evidencia</h4>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Audio, chat, número extorsionador o documentos.</p>
                 </div>
               </button>
 
               <button
                 onClick={() => setActiveTab('evidencias')}
-                className="w-full group bg-slate-800 border border-slate-700 hover:border-slate-650 rounded-xl p-4 text-left transition flex items-center space-x-4 shadow-sm"
+                className="w-full group bg-slate-800/40 border border-slate-700/50 hover:border-slate-600/60 rounded-xl p-4 text-left transition-all duration-300 flex items-center space-x-4 shadow-sm"
               >
-                <div className="w-10 h-10 rounded-xl bg-slate-700/50 flex items-center justify-center text-slate-400 shrink-0 group-hover:scale-105 transition shadow-inner">
+                <div className="w-10 h-10 rounded-xl bg-slate-700/30 border border-slate-700/50 flex items-center justify-center text-slate-400 shrink-0 group-hover:scale-110 transition-all duration-300 shadow-inner">
                   <FileText size={20} />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-slate-200">Ver Mis Evidencias</h4>
-                  <p className="text-xs text-slate-400 mt-0.5 font-medium">Historial completo con enlaces de blockchain.</p>
+                  <h4 className="text-sm font-bold text-slate-200 group-hover:text-white transition">Ver Mis Evidencias</h4>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Historial con enlaces de verificación blockchain.</p>
                 </div>
               </button>
             </div>
 
-            {/* Quick Tips */}
-            <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 text-xs text-slate-400 space-y-3 leading-relaxed">
-              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center space-x-1.5">
-                <span>💡</span> <span>Consejo Útil</span>
-              </h4>
-              <p>
-                Recuerda que cada reporte recibe un código único de custodia <strong className="text-teal-450 font-bold">TRJ-XXXX</strong>.
-              </p>
-              <p>
-                Puedes compartir este código con fiscalías o autoridades policiales para que auditen el expediente inmutable y la validez forense en la blockchain zkSYS.
-              </p>
+            {/* Blockchain Info Card */}
+            <div className="bg-gradient-to-br from-teal-950/20 to-slate-900/80 border border-teal-500/10 rounded-2xl p-5 text-xs space-y-3">
+              <div className="flex items-center space-x-2 mb-2">
+                <div className="w-8 h-8 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
+                  <ShieldAlert className="text-teal-400" size={16} />
+                </div>
+                <h4 className="font-bold text-teal-300 uppercase tracking-wider text-[10px]">Custodia Forense</h4>
+              </div>
+              <div className="space-y-2.5 text-slate-400 leading-relaxed">
+                <div className="flex items-start space-x-2">
+                  <CheckCircle2 size={12} className="text-teal-400 mt-0.5 shrink-0" />
+                  <span>Cada evidencia recibe un hash <strong className="text-teal-300 font-bold font-mono">SHA-256</strong> inmutable.</span>
+                </div>
+                <div className="flex items-start space-x-2">
+                  <CheckCircle2 size={12} className="text-teal-400 mt-0.5 shrink-0" />
+                  <span>El hash se sella en la <strong className="text-teal-300 font-bold">blockchain zkSYS</strong> (testnet).</span>
+                </div>
+                <div className="flex items-start space-x-2">
+                  <CheckCircle2 size={12} className="text-teal-400 mt-0.5 shrink-0" />
+                  <span>Se genera un <strong className="text-teal-300 font-bold">acta PDF</strong> compatible con el art. 158-B del CPP.</span>
+                </div>
+              </div>
+              <div className="pt-2 mt-2 border-t border-teal-500/10 flex items-center space-x-1.5 text-[10px] text-slate-500">
+                <span className="font-mono text-teal-400/70">zkSYS Tanenbaum</span>
+                <span>·</span>
+                <span className="font-mono">Chain 57057</span>
+                <span>·</span>
+                <span className="text-teal-400/70">Testnet</span>
+              </div>
             </div>
           </div>
         </div>
@@ -664,103 +784,132 @@ export default function PortalPage() {
 
     if (denuncias.length === 0) {
       return (
-        <div className="text-center py-16 bg-slate-900/60 backdrop-blur border border-slate-800 rounded-xl max-w-lg mx-auto shadow-md">
-          <FileText className="mx-auto text-slate-600 mb-3" size={40} />
-          <h3 className="font-semibold text-slate-300 text-sm mb-1">Sin evidencias registradas</h3>
-          <p className="text-xs text-slate-500 mb-5 max-w-xs mx-auto">
-            Aún no has registrado ningún reporte de extorsión con este DID.
+        <div className="text-center py-20 bg-gradient-to-br from-slate-900 to-slate-900/80 border border-slate-800/50 rounded-2xl max-w-lg mx-auto shadow-xl">
+          <div className="w-16 h-16 rounded-2xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center mx-auto mb-4">
+            <FileText className="text-teal-400" size={28} />
+          </div>
+          <h3 className="font-bold text-slate-200 text-sm mb-2">Sin evidencias registradas</h3>
+          <p className="text-xs text-slate-500 mb-6 max-w-xs mx-auto leading-relaxed">
+            Aún no has registrado ningún reporte de extorsión con este DID. Tu primera evidencia será sellada en blockchain zkSYS.
           </p>
           <button
             onClick={() => setActiveTab('chat')}
-            className="bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition shadow-md"
+            className="bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-500 hover:to-teal-400 text-white text-xs font-bold px-6 py-3 rounded-xl transition-all duration-300 shadow-lg hover:shadow-[0_4px_16px_rgba(13,148,136,0.3)] flex items-center space-x-2 mx-auto"
           >
-            📝 Registrar Primera Evidencia
+            <PlusCircle size={14} />
+            <span>Registrar Primera Evidencia</span>
           </button>
         </div>
       );
     }
 
     return (
-      <div className="space-y-4 w-full animate-fadeIn">
+      <div className="space-y-5 w-full animate-fadeIn">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">Historial de Evidencias</h3>
-          <span className="text-xs text-slate-400 font-mono">{denuncias.length} registros</span>
+          <div className="flex items-center space-x-3">
+            <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">Historial de Evidencias</h3>
+            <span className="text-[10px] bg-teal-500/10 text-teal-400 px-2.5 py-0.5 rounded-full font-bold border border-teal-500/20">{denuncias.length} registros</span>
+          </div>
+          <button
+            onClick={() => setActiveTab('chat')}
+            className="text-xs bg-teal-600/80 hover:bg-teal-500 text-white px-3 py-1.5 rounded-lg transition font-bold flex items-center space-x-1"
+          >
+            <PlusCircle size={12} />
+            <span>Nueva</span>
+          </button>
         </div>
 
         <div className="grid grid-cols-1 gap-4">
-          {denuncias.map((d) => (
-            <div key={d.id} className="bg-slate-900/60 backdrop-blur border border-slate-800 rounded-2xl p-5 hover:border-slate-700/80 transition flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-md group">
-              <div className="space-y-3 truncate max-w-full md:max-w-xl">
-                <div className="flex items-center flex-wrap gap-2">
-                  <span className="text-base font-bold text-white group-hover:text-teal-400 transition">
-                    Expediente {d.tracking_code || 'Custodiando...'}
-                  </span>
-                  <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-mono uppercase font-bold border border-slate-750">
-                    {d.tipo_contenido}
-                  </span>
-                  <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-mono uppercase font-bold border border-slate-750">
-                    {d.canal}
-                  </span>
-                </div>
-                <p className="text-sm text-slate-300 truncate leading-relaxed">
-                  {d.contenido_raw}
-                </p>
-                <div className="text-xs text-slate-450 space-y-1.5">
-                  <div className="flex items-center space-x-1 text-slate-500">
-                    <span>🗓️ Registrado:</span>
-                    <span>{new Date(d.created_at).toLocaleString()}</span>
-                  </div>
-                  {(d.seal_tx_hash || d.seal_status === 'success') && (
-                    <div className="flex items-center space-x-1.5 font-mono text-xs text-teal-450">
-                      <span className="text-slate-500">TX Hash:</span>
-                      <a
-                        href={`https://explorer.genesis.zksys.io/tx/${d.seal_tx_hash || '0x0000000000000000000000000000000000000000'}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hover:underline flex items-center space-x-1 truncate max-w-[280px]"
-                      >
-                        <span className="truncate">{d.seal_tx_hash || 'Simulado en testnet'}</span>
-                        <ExternalLink size={12} />
-                      </a>
+          {denuncias.map((d) => {
+            const isSealed = d.seal_status === 'success' || !!d.seal_tx_hash;
+            return (
+              <div key={d.id} className={`bg-gradient-to-br from-slate-900 to-slate-900/80 backdrop-blur border rounded-2xl p-5 transition-all duration-300 shadow-md group ${
+                isSealed ? 'border-teal-500/15 hover:border-teal-500/30' : 'border-slate-800/80 hover:border-slate-700/80'
+              }`}>
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-5">
+                  <div className="space-y-3 truncate max-w-full md:max-w-xl">
+                    <div className="flex items-center flex-wrap gap-2">
+                      <div className="flex items-center space-x-2">
+                        {isSealed && <div className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />}
+                        <span className="text-base font-bold text-white group-hover:text-teal-400 transition">
+                          Expediente {d.tracking_code || 'Custodiando...'}
+                        </span>
+                      </div>
+                      <span className="text-[10px] bg-slate-800/80 text-slate-400 px-2 py-0.5 rounded font-mono uppercase font-bold border border-slate-750">
+                        {d.tipo_contenido}
+                      </span>
+                      <span className="text-[10px] bg-slate-800/80 text-slate-400 px-2 py-0.5 rounded font-mono uppercase font-bold border border-slate-750">
+                        {d.canal}
+                      </span>
                     </div>
-                  )}
+                    <p className="text-sm text-slate-300 truncate leading-relaxed">
+                      {d.contenido_raw}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[10px]">
+                      <div className="flex items-center space-x-1.5 text-slate-500">
+                        <span className="text-slate-400">Registrado:</span>
+                        <span className="text-slate-400 font-medium">{new Date(d.created_at).toLocaleString()}</span>
+                      </div>
+                      {d.seal_block && (
+                        <div className="flex items-center space-x-1.5 text-slate-500">
+                          <span className="text-slate-400">Bloque:</span>
+                          <span className="text-blue-400 font-mono font-bold">#{d.seal_block}</span>
+                        </div>
+                      )}
+                      {isSealed && d.seal_tx_hash && (
+                        <div className="flex items-center space-x-1.5 font-mono">
+                          <span className="text-slate-500">TX:</span>
+                          <a
+                            href={`https://explorer-zk.tanenbaum.io/tx/${d.seal_tx_hash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-teal-400/80 hover:text-teal-300 flex items-center space-x-1 transition"
+                          >
+                            <span className="truncate max-w-[200px]">{d.seal_tx_hash}</span>
+                            <ExternalLink size={9} />
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-row md:flex-col items-center md:items-end gap-3 shrink-0 w-full md:w-auto justify-between border-t md:border-t-0 pt-4 md:pt-0 border-slate-800/50">
+                    <div className="flex items-center space-x-2 md:mb-1.5">
+                      <span className={`text-[10px] font-bold px-3 py-1 rounded-full border tracking-wide uppercase ${
+                        d.nivel_riesgo?.toLowerCase() === 'critico'
+                          ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                          : d.nivel_riesgo?.toLowerCase() === 'alto'
+                          ? 'bg-orange-500/10 text-orange-400 border-orange-500/20'
+                          : d.nivel_riesgo?.toLowerCase() === 'medio'
+                          ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+                          : 'bg-slate-800 text-slate-400 border-slate-700'
+                      }`}>
+                        {d.nivel_riesgo ? d.nivel_riesgo : 'PENDIENTE'}
+                      </span>
+                      <span className={`text-[10px] font-bold px-3 py-1 rounded-full border tracking-wide uppercase flex items-center space-x-1 ${
+                        isSealed
+                          ? 'bg-teal-500/10 text-teal-400 border-teal-500/20'
+                          : 'bg-slate-800 text-slate-400 border-slate-700'
+                      }`}>
+                        {isSealed && <div className="w-1 h-1 rounded-full bg-teal-400 animate-pulse" />}
+                        <span>{isSealed ? 'SELLADO' : 'CUSTODIA'}</span>
+                      </span>
+                    </div>
+
+                    {d.tracking_code && (
+                      <Link
+                        href={`/tracking?code=${d.tracking_code}`}
+                        className="bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-500 hover:to-teal-400 text-white font-bold px-4 py-2 rounded-xl text-xs transition-all duration-300 flex items-center space-x-1.5 shadow-md hover:shadow-[0_4px_16px_rgba(13,148,136,0.25)]"
+                      >
+                        <span>Auditar IA & Web3</span>
+                        <ExternalLink size={11} />
+                      </Link>
+                    )}
+                  </div>
                 </div>
               </div>
-
-              <div className="flex flex-row md:flex-col items-center md:items-end gap-3 shrink-0 w-full md:w-auto justify-between border-t md:border-t-0 pt-4 md:pt-0 border-slate-800/80">
-                <div className="flex items-center space-x-2 md:mb-1.5">
-                  <span className={`text-[10px] font-bold px-3 py-1 rounded-full border tracking-wide uppercase ${
-                    d.nivel_riesgo?.toLowerCase() === 'critico'
-                      ? 'bg-red-500/10 text-red-400 border-red-500/20'
-                      : d.nivel_riesgo?.toLowerCase() === 'alto'
-                      ? 'bg-orange-500/10 text-orange-400 border-orange-500/20'
-                      : d.nivel_riesgo?.toLowerCase() === 'medio'
-                      ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
-                      : 'bg-slate-800 text-slate-400 border-slate-700'
-                  }`}>
-                    {d.nivel_riesgo ? d.nivel_riesgo : 'PENDIENTE'}
-                  </span>
-                  <span className={`text-[10px] font-bold px-3 py-1 rounded-full border tracking-wide uppercase ${
-                    d.seal_status === 'success' || !!d.seal_tx_hash
-                      ? 'bg-green-500/10 text-green-400 border-green-500/20'
-                      : 'bg-slate-800 text-slate-400 border-slate-700'
-                  }`}>
-                    {d.seal_status === 'success' || !!d.seal_tx_hash ? 'SELLADO' : 'CUSTODIA'}
-                  </span>
-                </div>
-
-                {d.tracking_code && (
-                  <Link
-                    href={`/tracking?code=${d.tracking_code}`}
-                    className="bg-teal-600 hover:bg-teal-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition flex items-center space-x-1.5 shadow-md hover:shadow-[0_4px_12px_rgba(13,148,136,0.25)]"
-                  >
-                    <span>Auditar IA & Web3</span>
-                    <ExternalLink size={12} />
-                  </Link>
-                )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
@@ -769,44 +918,107 @@ export default function PortalPage() {
   const renderAyuda = () => {
     return (
       <div className="w-full max-w-4xl space-y-6 animate-fadeIn">
-        <div className="bg-slate-900/60 backdrop-blur border border-slate-800 rounded-2xl p-6 shadow-sm">
-          <h3 className="font-bold text-sm text-slate-200 mb-4 uppercase tracking-wider">Glosario de Seguridad</h3>
-          <div className="space-y-4 text-xs md:text-sm leading-relaxed text-slate-400">
-            <div>
-              <h4 className="font-semibold text-slate-300 mb-1">1. Identidad Descentralizada (DID)</h4>
-              <p>
-                Es un identificador único regulado bajo el estándar del W3C que se genera directamente a partir de tu billetera criptográfica. A diferencia de las cuentas tradicionales, un DID no almacena nombres, correos ni datos personales, garantizando que tu reporte sea 100% anónimo pero verificable.
+        {/* Glosario */}
+        <div className="bg-gradient-to-br from-slate-900 to-slate-900/80 backdrop-blur border border-slate-800/60 rounded-2xl p-6 shadow-xl">
+          <div className="flex items-center space-x-2 mb-5">
+            <div className="w-8 h-8 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
+              <ShieldAlert className="text-teal-400" size={16} />
+            </div>
+            <h3 className="font-bold text-sm text-slate-200 uppercase tracking-wider">Glosario de Seguridad</h3>
+          </div>
+          <div className="space-y-5 text-xs md:text-sm leading-relaxed text-slate-400">
+            <div className="bg-slate-950/40 border border-slate-800/40 rounded-xl p-4">
+              <div className="flex items-center space-x-2 mb-2">
+                <div className="w-6 h-6 rounded-md bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-[10px] font-bold text-purple-400">1</div>
+                <h4 className="font-bold text-slate-200">Identidad Descentralizada (DID)</h4>
+              </div>
+              <p className="text-slate-400 leading-relaxed">
+                Identificador único bajo estándar <strong className="text-slate-300">W3C DID Core 1.0</strong> generado desde tu Pali Wallet. No almacena nombres, correos ni datos personales. Tu reporte es <strong className="text-teal-400">seudónimo pero verificable</strong> ante la DIVINCRI si tú lo autorizas.
               </p>
             </div>
-            <div>
-              <h4 className="font-semibold text-slate-300 mb-1">2. Sellado en Blockchain</h4>
-              <p>
-                Una vez que envías una evidencia (texto, audio o captura de pantalla), calculamos su huella digital criptográfica (SHA-256) y la registramos en la blockchain zkSYS Genesis Testnet. Esto asegura que la evidencia no pueda ser alterada, borrada o manipulada por nadie (incluso por administradores o la policía), preservando la cadena de custodia legal.
+            <div className="bg-slate-950/40 border border-slate-800/40 rounded-xl p-4">
+              <div className="flex items-center space-x-2 mb-2">
+                <div className="w-6 h-6 rounded-md bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-[10px] font-bold text-emerald-400">2</div>
+                <h4 className="font-bold text-slate-200">Sellado en Blockchain</h4>
+              </div>
+              <p className="text-slate-400 leading-relaxed">
+                Tu evidencia se protege con un hash <strong className="text-emerald-400">SHA-256</strong> inmutable registrado en <strong className="text-slate-300">zkSYS Tanenbaum Testnet</strong>. Nadie puede alterar, borrar o manipular la evidencia — ni siquiera administradores o la policía.
               </p>
             </div>
-            <div>
-              <h4 className="font-semibold text-slate-300 mb-1">3. Clústeres y Redes Criminales</h4>
-              <p>
-                Los agentes de inteligencia correlacionan los números telefónicos, cuentas bancarias de cobro y patrones lingüísticos de las denuncias históricas. Si tu reporte comparte datos con otros reportes en la base de datos de Trujillo, el sistema detecta automáticamente un "clúster" o red delictiva activa.
+            <div className="bg-slate-950/40 border border-slate-800/40 rounded-xl p-4">
+              <div className="flex items-center space-x-2 mb-2">
+                <div className="w-6 h-6 rounded-md bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-[10px] font-bold text-blue-400">3</div>
+                <h4 className="font-bold text-slate-200">Clústeres y Redes Criminales</h4>
+              </div>
+              <p className="text-slate-400 leading-relaxed">
+                Los agentes de IA correlacionan teléfonos, cuentas bancarias y patrones lingüísticos. Si tu reporte coincide con otros en Trujillo, se detecta automáticamente un <strong className="text-blue-400">clúster o red delictiva activa</strong>.
               </p>
             </div>
           </div>
         </div>
 
-        <div className="bg-slate-900/60 backdrop-blur border border-slate-800 rounded-2xl p-6 shadow-sm">
-          <h3 className="font-bold text-sm text-slate-200 mb-4 uppercase tracking-wider">Preguntas Frecuentes</h3>
+        {/* FAQ */}
+        <div className="bg-gradient-to-br from-slate-900 to-slate-900/80 backdrop-blur border border-slate-800/60 rounded-2xl p-6 shadow-xl">
+          <div className="flex items-center space-x-2 mb-5">
+            <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+              <HelpCircle className="text-blue-400" size={16} />
+            </div>
+            <h3 className="font-bold text-sm text-slate-200 uppercase tracking-wider">Preguntas Frecuentes</h3>
+          </div>
           <div className="space-y-4 text-xs md:text-sm leading-relaxed text-slate-400">
-            <div>
-              <h4 className="font-semibold text-slate-300 mb-1">¿Cómo puedo ver el estado de mi caso?</h4>
-              <p>
-                Cada reporte recibe un código de seguimiento del tipo <code className="text-teal-300 font-mono font-bold bg-slate-950 px-1.5 py-0.5 rounded">TRJ-XXXX</code>. Puedes usar la pestaña "Mis Evidencias" para hacer clic en "Auditar IA & Web3" o ingresar el código directamente en el Portal de Tracking.
+            <div className="bg-slate-950/40 border border-slate-800/40 rounded-xl p-4">
+              <h4 className="font-bold text-slate-200 mb-2 flex items-center space-x-2">
+                <span className="text-teal-400">Q.</span>
+                <span>¿Cómo puedo ver el estado de mi caso?</span>
+              </h4>
+              <p className="text-slate-400 pl-5">
+                Cada reporte recibe un código único <code className="text-teal-300 font-mono font-bold bg-slate-900 px-1.5 py-0.5 rounded">TRJ-XXXX</code>. Úsalo en "Mis Evidencias" → "Auditar IA & Web3" o en el Portal de Tracking.
               </p>
             </div>
-            <div>
-              <h4 className="font-semibold text-slate-300 mb-1">¿La policía puede ver mi clave privada o mis fondos?</h4>
-              <p>
-                No. Conectar tu Pali Wallet solo sirve para firmar digitalmente el reporte de forma anónima y asociarlo a tu DID. El sistema nunca tendrá acceso a tus claves privadas ni a tus activos.
+            <div className="bg-slate-950/40 border border-slate-800/40 rounded-xl p-4">
+              <h4 className="font-bold text-slate-200 mb-2 flex items-center space-x-2">
+                <span className="text-teal-400">Q.</span>
+                <span>¿La policía puede ver mi clave privada?</span>
+              </h4>
+              <p className="text-slate-400 pl-5">
+                <strong className="text-red-400">No.</strong> Conectar Pali Wallet solo firma tu reporte de forma anónima. El sistema nunca accede a tus claves privadas ni fondos.
               </p>
+            </div>
+            <div className="bg-slate-950/40 border border-slate-800/40 rounded-xl p-4">
+              <h4 className="font-bold text-slate-200 mb-2 flex items-center space-x-2">
+                <span className="text-teal-400">Q.</span>
+                <span>¿Qué es el acta forense PDF?</span>
+              </h4>
+              <p className="text-slate-400 pl-5">
+                Documento digital con hash SHA-256, timestamp, DID, número de bloque y firma del sistema. Compatible con el <strong className="text-slate-300">artículo 158-B del CPP peruano</strong> para evidencia digital trazable.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Canales de Atención */}
+        <div className="bg-gradient-to-br from-teal-950/20 to-slate-900/80 border border-teal-500/10 rounded-2xl p-6 shadow-xl">
+          <div className="flex items-center space-x-2 mb-4">
+            <div className="w-8 h-8 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
+              <MessageCircle className="text-teal-400" size={16} />
+            </div>
+            <h3 className="font-bold text-sm text-teal-300 uppercase tracking-wider">Canales de Atención</h3>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <div className="bg-slate-950/40 border border-slate-800/40 rounded-xl p-3 text-center">
+              <span className="text-lg block mb-1">📱</span>
+              <span className="text-slate-300 font-bold block">WhatsApp</span>
+              <span className="text-slate-500">Envía un mensaje directo</span>
+            </div>
+            <div className="bg-slate-950/40 border border-slate-800/40 rounded-xl p-3 text-center">
+              <span className="text-lg block mb-1">✈️</span>
+              <span className="text-slate-300 font-bold block">Telegram</span>
+              <span className="text-slate-500">@IntelExtorsion_bot</span>
+            </div>
+            <div className="bg-slate-950/40 border border-slate-800/40 rounded-xl p-3 text-center">
+              <span className="text-lg block mb-1">💬</span>
+              <span className="text-slate-300 font-bold block">Discord</span>
+              <span className="text-slate-500">Servidor oficial</span>
             </div>
           </div>
         </div>
@@ -823,237 +1035,332 @@ export default function PortalPage() {
 
   const renderChat = () => {
     return (
-      <div className="max-w-5xl mx-auto flex flex-col h-[calc(100vh-10rem)] w-full animate-fadeIn">
-        {/* Chat area */}
-        <div className="bg-slate-900/60 backdrop-blur border border-slate-800 rounded-2xl shadow-2xl flex-1 flex flex-col overflow-hidden">
-          <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
+      <div className="w-full h-[calc(100vh-10rem)] animate-fadeIn flex gap-5">
+        {/* Left: Chat Panel */}
+        <div className="flex-1 flex flex-col min-w-0">
+          <div className="bg-gradient-to-br from-slate-900 to-slate-900/80 backdrop-blur border border-slate-800/60 rounded-2xl shadow-2xl flex-1 flex flex-col overflow-hidden">
+            {/* Chat Header */}
+            <div className="px-5 py-3.5 border-b border-slate-800/40 flex items-center justify-between shrink-0">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500/15 to-blue-500/10 border border-teal-500/20 flex items-center justify-center">
+                  <ShieldAlert className="text-teal-400" size={16} />
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-slate-200 block">Asistente de Ingesta</span>
+                  <span className="text-[10px] text-slate-500">Agentes de IA forense disponibles</span>
+                </div>
+              </div>
+              <div className="flex items-center space-x-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                <span className="text-[10px] text-green-400 font-bold">En línea</span>
+              </div>
+            </div>
+
+            {/* Messages */}
+            <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-5 space-y-4">
+              {messages.map((msg) => (
                 <div
-                  className={`max-w-[85%] rounded-2xl px-5 py-3 text-sm leading-relaxed ${
-                    msg.role === 'user'
-                      ? 'bg-gradient-to-br from-teal-600 to-teal-700 text-white rounded-br-md shadow-lg'
-                      : msg.role === 'system'
-                      ? 'bg-slate-900 border border-slate-800/80 text-slate-200 rounded-bl-md shadow-sm'
-                      : 'bg-gradient-to-br from-green-950/40 to-green-950/20 text-green-200 border border-green-500/20 rounded-bl-md shadow-sm'
-                  }`}
+                  key={msg.id}
+                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
-                  {msg.role === 'user' ? (
-                    <p className="whitespace-pre-line">{msg.content}</p>
-                  ) : (
-                    <div dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }} />
-                  )}
-
-                  {msg.id === 'welcome' && chatState === 'idle' && (
-                    <div className="mt-4 flex flex-col sm:flex-row gap-2 select-none">
-                      <button
-                        onClick={() => {
-                          setChatState('waiting_for_denuncia');
-                          setMessages((prev) => [
-                            ...prev,
-                            {
-                              id: `bot-start-${Date.now()}`,
-                              role: 'system',
-                              content: '📝 *Asistente de Ingesta Activado.*\n\nPor favor, redacta detalladamente lo sucedido en tu siguiente mensaje. Puedes adjuntar capturas, audios o documentos como evidencia.\n\n💡 *Consejo:* Incluye datos clave como teléfonos de extorsión, números de cuenta, montos o fechas.\n\n*Si deseas cancelar en cualquier momento, escribe "cancelar".*',
-                              timestamp: new Date(),
-                            },
-                          ]);
-                        }}
-                        className="flex items-center justify-center space-x-2 bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-500 hover:to-teal-400 text-white font-bold px-6 py-3 rounded-xl text-sm transition shadow-lg hover:shadow-[0_4px_16px_rgba(13,148,136,0.3)]"
-                      >
-                        <span>📝 Iniciar Reporte Seguro</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          setMessages((prev) => [
-                            ...prev,
-                            {
-                              id: `bot-track-${Date.now()}`,
-                              role: 'system',
-                              content: '🔍 *Rastreo de Denuncia.*\n\nPor favor, escribe tu código de seguimiento (por ejemplo, `TRJ-AFEZ`) en el chat y presiona enviar.',
-                              timestamp: new Date(),
-                            },
-                          ]);
-                        }}
-                        className="flex items-center justify-center space-x-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold px-5 py-3 rounded-xl text-sm transition shadow-sm"
-                      >
-                        <span>🔍 Rastrear Caso</span>
-                      </button>
+                  {msg.role !== 'user' && (
+                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-teal-500/15 to-blue-500/10 border border-teal-500/20 flex items-center justify-center shrink-0 mr-2.5 mt-1">
+                      <ShieldAlert className="text-teal-400" size={12} />
                     </div>
                   )}
-
-                  {!!msg.metadata?.trackingCode && (
-                    <div className="mt-3 bg-green-950/30 border border-green-500/20 rounded-xl p-3 select-none">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <CheckCircle2 size={14} className="text-green-400" />
-                        <span className="text-[10px] text-green-400 font-bold uppercase tracking-wider">Caso Procesado</span>
-                      </div>
-                      <p className="text-xs text-slate-300 mb-2">Tu reporte ha sido analizado y sellado en blockchain.</p>
-                      <Link
-                        href={`/tracking?code=${String(msg.metadata.trackingCode)}`}
-                        className="inline-flex items-center space-x-1.5 bg-green-600 hover:bg-green-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition shadow-md hover:shadow-[0_2px_12px_rgba(34,197,94,0.25)]"
-                      >
-                        <span>Ver Expediente {String(msg.metadata.trackingCode)}</span>
-                        <ExternalLink size={12} />
-                      </Link>
-                    </div>
-                  )}
-
-                  {!!msg.metadata?.showTrackingButton && (
-                    <div className="mt-3 bg-teal-950/30 border border-teal-500/20 rounded-xl p-3 select-none">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <Loader2 size={14} className="text-teal-400" />
-                        <span className="text-[10px] text-teal-400 font-bold uppercase tracking-wider">Código Detectado</span>
-                      </div>
-                      <Link
-                        href={`/tracking?code=${String(msg.metadata.showTrackingButton)}`}
-                        className="inline-flex items-center space-x-1.5 bg-teal-600 hover:bg-teal-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition shadow-md hover:shadow-[0_2px_12px_rgba(13,148,136,0.25)]"
-                      >
-                        <span>Rastrear {String(msg.metadata.showTrackingButton)}</span>
-                        <ExternalLink size={12} />
-                      </Link>
-                    </div>
-                  )}
-
-                  <span className="text-[10px] opacity-40 mt-2 block text-right">
-                    {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-              </div>
-            ))}
-            {loading && (
-              <div className="flex justify-start">
-                <div className="bg-slate-900 border border-slate-800/80 rounded-2xl px-5 py-3.5 flex items-center space-x-3 shadow-sm">
-                  <Loader2 size={16} className="animate-spin text-teal-400" />
-                  <span className="text-xs text-slate-400 font-medium">Procesando con agentes de IA...</span>
-                </div>
-              </div>
-            )}
-            <div ref={scrollRef} />
-          </div>
-
-          {/* Input */}
-          <div className="border-t border-slate-800 p-4 bg-slate-900/80 shrink-0">
-            {/* Attachment chips preview */}
-            {attachments.length > 0 && (
-              <div className="mb-3 flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-thin">
-                {attachments.map((att, idx) => (
                   <div
-                    key={`${att.file.name}-${idx}`}
-                    className="flex items-center space-x-2 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 shrink-0 group relative"
+                    className={`max-w-[80%] rounded-2xl px-5 py-3.5 text-sm leading-relaxed ${
+                      msg.role === 'user'
+                        ? 'bg-gradient-to-br from-teal-600 to-teal-700 text-white rounded-br-md shadow-lg shadow-teal-500/10'
+                        : msg.role === 'system'
+                        ? 'bg-slate-800/40 border border-slate-700/30 text-slate-200 rounded-bl-md'
+                        : 'bg-gradient-to-br from-green-950/40 to-green-950/20 text-green-200 border border-green-500/20 rounded-bl-md'
+                    }`}
                   >
-                    {att.type === 'imagen' && att.preview ? (
-                      <img src={att.preview} alt="preview" className="h-8 w-8 object-cover rounded-lg border border-slate-600" />
-                    ) : att.type === 'audio' ? (
-                      <div className="h-8 w-8 rounded-lg bg-teal-500/10 flex items-center justify-center">
-                        <Mic size={14} className="text-teal-400" />
-                      </div>
+                    {msg.role === 'user' ? (
+                      <p className="whitespace-pre-line">{msg.content}</p>
                     ) : (
-                      <div className="h-8 w-8 rounded-lg bg-slate-700/50 flex items-center justify-center">
-                        <FileText size={14} className="text-slate-400" />
+                      <div dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }} />
+                    )}
+
+                    {msg.id === 'welcome' && chatState === 'idle' && (
+                      <div className="mt-5 space-y-3 select-none">
+                        <button
+                          onClick={() => {
+                            setChatState('waiting_for_denuncia');
+                            setMessages((prev) => [
+                              ...prev,
+                              {
+                                id: `bot-start-${Date.now()}`,
+                                role: 'system',
+                                content: '📝 *Asistente de Ingesta Activado.*\n\nPor favor, redacta detalladamente lo sucedido en tu siguiente mensaje. Puedes adjuntar capturas, audios o documentos como evidencia.\n\n💡 *Consejo:* Incluye datos clave como teléfonos de extorsión, números de cuenta, montos o fechas.\n\n*Si deseas cancelar en cualquier momento, escribe "cancelar".*',
+                                timestamp: new Date(),
+                              },
+                            ]);
+                          }}
+                          className="w-full flex items-center justify-center space-x-2.5 bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-500 hover:to-teal-400 text-white font-bold px-6 py-3.5 rounded-xl text-sm transition-all duration-300 shadow-lg hover:shadow-[0_4px_20px_rgba(13,148,136,0.3)] active:scale-[0.98]"
+                        >
+                          <div className="w-6 h-6 rounded-md bg-white/10 flex items-center justify-center">
+                            <Send size={12} />
+                          </div>
+                          <span>Iniciar Reporte Seguro</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setMessages((prev) => [
+                              ...prev,
+                              {
+                                id: `bot-track-${Date.now()}`,
+                                role: 'system',
+                                content: '🔍 *Rastreo de Denuncia.*\n\nPor favor, escribe tu código de seguimiento (por ejemplo, `TRJ-AFEZ`) en el chat y presiona enviar.',
+                                timestamp: new Date(),
+                              },
+                            ]);
+                          }}
+                          className="w-full flex items-center justify-center space-x-2.5 bg-slate-800/50 hover:bg-slate-800 text-slate-300 border border-slate-700/50 hover:border-slate-600/60 font-bold px-5 py-3 rounded-xl text-sm transition-all duration-300"
+                        >
+                          <span>Rastrear Caso Existente</span>
+                        </button>
                       </div>
                     )}
-                    <div className="max-w-[120px]">
-                      <p className="text-[10px] text-slate-200 font-semibold truncate">{att.file.name}</p>
-                      <p className="text-[9px] text-slate-500 capitalize">{att.type}</p>
-                    </div>
-                    <button
-                      onClick={() => removeAttachment(idx)}
-                      className="text-slate-500 hover:text-red-400 p-0.5 rounded-full hover:bg-slate-700 transition ml-1"
-                    >
-                      <X size={12} />
-                    </button>
+
+                    {!!msg.metadata?.trackingCode && (
+                      <div className="mt-4 bg-gradient-to-br from-green-950/30 to-teal-950/20 border border-green-500/20 rounded-xl p-4 select-none">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <div className="w-6 h-6 rounded-md bg-green-500/10 border border-green-500/20 flex items-center justify-center">
+                            <CheckCircle2 size={12} className="text-green-400" />
+                          </div>
+                          <span className="text-[10px] text-green-400 font-bold uppercase tracking-wider">Caso Procesado y Sellado</span>
+                        </div>
+                        <p className="text-xs text-slate-300 mb-3 leading-relaxed">Tu reporte ha sido analizado por los agentes de IA y sellado de forma inmutable en blockchain zkSYS.</p>
+                        <Link
+                          href={`/tracking?code=${String(msg.metadata.trackingCode)}`}
+                          className="inline-flex items-center space-x-1.5 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white font-bold px-5 py-2.5 rounded-xl text-xs transition-all duration-300 shadow-md hover:shadow-[0_4px_16px_rgba(34,197,94,0.25)]"
+                        >
+                          <span>Ver Expediente {String(msg.metadata.trackingCode)}</span>
+                          <ExternalLink size={11} />
+                        </Link>
+                      </div>
+                    )}
+
+                    {!!msg.metadata?.showTrackingButton && (
+                      <div className="mt-4 bg-gradient-to-br from-teal-950/30 to-slate-900/50 border border-teal-500/20 rounded-xl p-4 select-none">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <div className="w-6 h-6 rounded-md bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
+                            <Loader2 size={12} className="text-teal-400" />
+                          </div>
+                          <span className="text-[10px] text-teal-400 font-bold uppercase tracking-wider">Código Detectado</span>
+                        </div>
+                        <Link
+                          href={`/tracking?code=${String(msg.metadata.showTrackingButton)}`}
+                          className="inline-flex items-center space-x-1.5 bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-500 hover:to-teal-400 text-white font-bold px-5 py-2.5 rounded-xl text-xs transition-all duration-300 shadow-md hover:shadow-[0_4px_16px_rgba(13,148,136,0.25)]"
+                        >
+                          <span>Rastrear {String(msg.metadata.showTrackingButton)}</span>
+                          <ExternalLink size={11} />
+                        </Link>
+                      </div>
+                    )}
+
+                    <span className="text-[10px] opacity-30 mt-2 block text-right">
+                      {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
                   </div>
-                ))}
-                <div className="shrink-0 bg-slate-800 border border-slate-700 rounded-full px-2.5 py-1">
-                  <span className="text-[10px] text-slate-400 font-bold">{attachments.length}/5</span>
                 </div>
-              </div>
-            )}
-
-            {/* Hidden file inputs */}
-            <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => handleFileSelect(e, 'documento')} />
-            <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFileSelect(e, 'imagen')} />
-            <input ref={audioInputRef} type="file" accept="audio/*" className="hidden" onChange={(e) => handleFileSelect(e, 'audio')} />
-
-            <div className="flex items-end space-x-2">
-              {/* Add file dropdown */}
-              <div className="relative" ref={addMenuRef}>
-                <button
-                  onClick={() => setIsAddMenuOpen(!isAddMenuOpen)}
-                  className="p-3 text-slate-400 hover:text-teal-400 rounded-xl hover:bg-slate-800 transition border border-transparent hover:border-slate-700"
-                  title="Adjuntar archivo"
-                >
-                  <PlusCircle size={20} />
-                </button>
-                {isAddMenuOpen && (
-                  <div className="absolute bottom-full left-0 mb-2 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50 min-w-[160px] animate-in fade-in slide-in-from-bottom-2">
-                    <button
-                      onClick={() => { imageInputRef.current?.click(); setIsAddMenuOpen(false); }}
-                      className="w-full flex items-center space-x-3 px-4 py-3 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition"
-                    >
-                      <ImageIcon size={14} className="text-blue-400" />
-                      <span>Imagen</span>
-                    </button>
-                    <button
-                      onClick={() => { audioInputRef.current?.click(); setIsAddMenuOpen(false); }}
-                      className="w-full flex items-center space-x-3 px-4 py-3 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition border-t border-slate-700/50"
-                    >
-                      <Mic size={14} className="text-teal-400" />
-                      <span>Audio</span>
-                    </button>
-                    <button
-                      onClick={() => { fileInputRef.current?.click(); setIsAddMenuOpen(false); }}
-                      className="w-full flex items-center space-x-3 px-4 py-3 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition border-t border-slate-700/50"
-                    >
-                      <FileText size={14} className="text-purple-400" />
-                      <span>Documento</span>
-                    </button>
+              ))}
+              {loading && (
+                <div className="flex justify-start">
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-teal-500/15 to-blue-500/10 border border-teal-500/20 flex items-center justify-center shrink-0 mr-2.5">
+                    <ShieldAlert className="text-teal-400" size={12} />
                   </div>
-                )}
-              </div>
-
-              {/* Quick attach buttons */}
-              <button
-                onClick={() => imageInputRef.current?.click()}
-                className="p-3 text-slate-500 hover:text-blue-400 rounded-xl hover:bg-slate-800 transition hidden sm:block"
-                title="Adjuntar imagen"
-              >
-                <ImageIcon size={18} />
-              </button>
-              <button
-                onClick={() => audioInputRef.current?.click()}
-                className="p-3 text-slate-500 hover:text-teal-400 rounded-xl hover:bg-slate-800 transition hidden sm:block"
-                title="Adjuntar audio"
-              >
-                <Mic size={18} />
-              </button>
-
-              {/* Text input */}
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && !loading && handleSend()}
-                placeholder={chatState === 'waiting_for_denuncia' ? "Describe los detalles de la extorsión..." : "Escribe un mensaje o presiona 'Iniciar Reporte'..."}
-                className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl px-5 py-3.5 text-sm focus:ring-1 focus:ring-teal-500 outline-none text-slate-200 placeholder-slate-500 shadow-inner transition"
-              />
-
-              {/* Send button */}
-              <button
-                onClick={() => handleSend()}
-                disabled={(!input.trim() && attachments.length === 0) || loading}
-                className="p-3.5 bg-teal-600 hover:bg-teal-500 disabled:bg-slate-800 disabled:text-slate-600 text-white rounded-2xl transition shadow-md hover:shadow-[0_2px_12px_rgba(13,148,136,0.3)] shrink-0"
-              >
-                <Send size={18} />
-              </button>
+                  <div className="bg-slate-800/40 border border-slate-700/30 rounded-2xl px-5 py-3.5 flex items-center space-x-3">
+                    <div className="flex space-x-1">
+                      <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                    <span className="text-xs text-slate-400 font-medium">Agentes procesando...</span>
+                  </div>
+                </div>
+              )}
+              <div ref={scrollRef} />
             </div>
-            <p className="text-[10px] text-slate-500 mt-2.5 text-center">
-              Tu denuncia es anónima y custodiada bajo hash SHA-256 en blockchain zkSYS.
-            </p>
+
+            {/* Input */}
+            <div className="border-t border-slate-800/40 p-4 bg-slate-900/40 shrink-0">
+              {attachments.length > 0 && (
+                <div className="mb-3 flex items-center space-x-2 overflow-x-auto pb-1">
+                  {attachments.map((att, idx) => (
+                    <div
+                      key={`${att.file.name}-${idx}`}
+                      className="flex items-center space-x-2 bg-slate-800/50 border border-slate-700/40 rounded-xl px-3 py-2 shrink-0 group hover:border-slate-600/50 transition"
+                    >
+                      {att.type === 'imagen' && att.preview ? (
+                        <img src={att.preview} alt="preview" className="h-8 w-8 object-cover rounded-lg border border-slate-600" />
+                      ) : att.type === 'audio' ? (
+                        <div className="h-8 w-8 rounded-lg bg-teal-500/10 flex items-center justify-center">
+                          <Mic size={14} className="text-teal-400" />
+                        </div>
+                      ) : (
+                        <div className="h-8 w-8 rounded-lg bg-slate-700/50 flex items-center justify-center">
+                          <FileText size={14} className="text-slate-400" />
+                        </div>
+                      )}
+                      <div className="max-w-[120px]">
+                        <p className="text-[10px] text-slate-200 font-semibold truncate">{att.file.name}</p>
+                        <p className="text-[9px] text-slate-500 capitalize">{att.type}</p>
+                      </div>
+                      <button
+                        onClick={() => removeAttachment(idx)}
+                        className="text-slate-500 hover:text-red-400 p-0.5 rounded-full hover:bg-slate-700 transition ml-1"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                  <div className="shrink-0 bg-slate-800/50 border border-slate-700/40 rounded-full px-2.5 py-1">
+                    <span className="text-[10px] text-slate-400 font-bold">{attachments.length}/5</span>
+                  </div>
+                </div>
+              )}
+
+              <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => handleFileSelect(e, 'documento')} />
+              <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFileSelect(e, 'imagen')} />
+              <input ref={audioInputRef} type="file" accept="audio/*" className="hidden" onChange={(e) => handleFileSelect(e, 'audio')} />
+
+              <div className="flex items-end space-x-2">
+                <div className="relative" ref={addMenuRef}>
+                  <button
+                    onClick={() => setIsAddMenuOpen(!isAddMenuOpen)}
+                    className="p-3 text-slate-400 hover:text-teal-400 rounded-xl hover:bg-slate-800/50 transition border border-transparent hover:border-slate-700/50"
+                    title="Adjuntar archivo"
+                  >
+                    <PlusCircle size={20} />
+                  </button>
+                  {isAddMenuOpen && (
+                    <div className="absolute bottom-full left-0 mb-2 bg-slate-800/95 backdrop-blur border border-slate-700/60 rounded-xl shadow-2xl overflow-hidden z-50 min-w-[160px]">
+                      <button
+                        onClick={() => { imageInputRef.current?.click(); setIsAddMenuOpen(false); }}
+                        className="w-full flex items-center space-x-3 px-4 py-3 text-xs font-semibold text-slate-300 hover:bg-slate-700/60 hover:text-white transition"
+                      >
+                        <ImageIcon size={14} className="text-blue-400" />
+                        <span>Imagen</span>
+                      </button>
+                      <button
+                        onClick={() => { audioInputRef.current?.click(); setIsAddMenuOpen(false); }}
+                        className="w-full flex items-center space-x-3 px-4 py-3 text-xs font-semibold text-slate-300 hover:bg-slate-700/60 hover:text-white transition border-t border-slate-700/30"
+                      >
+                        <Mic size={14} className="text-teal-400" />
+                        <span>Audio</span>
+                      </button>
+                      <button
+                        onClick={() => { fileInputRef.current?.click(); setIsAddMenuOpen(false); }}
+                        className="w-full flex items-center space-x-3 px-4 py-3 text-xs font-semibold text-slate-300 hover:bg-slate-700/60 hover:text-white transition border-t border-slate-700/30"
+                      >
+                        <FileText size={14} className="text-purple-400" />
+                        <span>Documento</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => imageInputRef.current?.click()}
+                  className="p-3 text-slate-500 hover:text-blue-400 rounded-xl hover:bg-slate-800/50 transition hidden sm:block"
+                  title="Adjuntar imagen"
+                >
+                  <ImageIcon size={18} />
+                </button>
+                <button
+                  onClick={() => audioInputRef.current?.click()}
+                  className="p-3 text-slate-500 hover:text-teal-400 rounded-xl hover:bg-slate-800/50 transition hidden sm:block"
+                  title="Adjuntar audio"
+                >
+                  <Mic size={18} />
+                </button>
+
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && !loading && handleSend()}
+                  placeholder={chatState === 'waiting_for_denuncia' ? "Describe los detalles de la extorsión..." : "Escribe un mensaje..."}
+                  className="flex-1 bg-slate-950/50 border border-slate-800/40 rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-teal-500/40 focus:border-teal-500/30 outline-none text-slate-200 placeholder-slate-500 transition-all duration-300"
+                />
+
+                <button
+                  onClick={() => handleSend()}
+                  disabled={(!input.trim() && attachments.length === 0) || loading}
+                  className="p-3 bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-500 hover:to-teal-400 disabled:bg-slate-800 disabled:text-slate-600 text-white rounded-xl transition-all duration-300 shadow-md hover:shadow-[0_4px_16px_rgba(13,148,136,0.3)] shrink-0 active:scale-95"
+                >
+                  <Send size={18} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Info Panel */}
+        <div className="hidden xl:flex w-72 flex-col gap-4 shrink-0">
+          {/* Security Badge */}
+          <div className="bg-gradient-to-br from-teal-950/20 to-slate-900/80 border border-teal-500/10 rounded-2xl p-4">
+            <div className="flex items-center space-x-2 mb-3">
+              <div className="w-7 h-7 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
+                <ShieldAlert className="text-teal-400" size={14} />
+              </div>
+              <span className="text-[10px] font-bold text-teal-300 uppercase tracking-wider">Custodia Segura</span>
+            </div>
+            <div className="space-y-2 text-[11px] text-slate-400">
+              <div className="flex items-center space-x-2">
+                <CheckCircle2 size={11} className="text-teal-400 shrink-0" />
+                <span>Hash SHA-256 inmutable</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <CheckCircle2 size={11} className="text-teal-400 shrink-0" />
+                <span>Sellado en blockchain zkSYS</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <CheckCircle2 size={11} className="text-teal-400 shrink-0" />
+                <span>Acta PDF forense</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <CheckCircle2 size={11} className="text-teal-400 shrink-0" />
+                <span>Identidad pseudónima DID</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Tips */}
+          <div className="bg-slate-900/50 border border-slate-800/40 rounded-2xl p-4 flex-1">
+            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Consejos para tu reporte</h4>
+            <div className="space-y-3 text-[11px] text-slate-400 leading-relaxed">
+              <div className="bg-slate-950/30 border border-slate-800/30 rounded-lg p-3">
+                <span className="text-slate-300 font-semibold block mb-1">Teléfonos</span>
+                <span>Incluye todos los números desde los que te contactaron.</span>
+              </div>
+              <div className="bg-slate-950/30 border border-slate-800/30 rounded-lg p-3">
+                <span className="text-slate-300 font-semibold block mb-1">Cuentas bancarias</span>
+                <span>Números de cuenta o CCI donde piden los depósitos.</span>
+              </div>
+              <div className="bg-slate-950/30 border border-slate-800/30 rounded-lg p-3">
+                <span className="text-slate-300 font-semibold block mb-1">Montos y fechas</span>
+                <span>Cuánto pidieron y cuándo ocurrió la extorsión.</span>
+              </div>
+              <div className="bg-slate-950/30 border border-slate-800/30 rounded-lg p-3">
+                <span className="text-slate-300 font-semibold block mb-1">Evidencia</span>
+                <span>Adjunta audios, capturas de chat o documentos.</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Network Status */}
+          <div className="bg-slate-900/50 border border-slate-800/40 rounded-2xl p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
+                <span className="text-[10px] text-slate-400 font-mono">zkSYS Tanenbaum</span>
+              </div>
+              <span className="text-[10px] text-teal-400/70 font-mono">57057</span>
+            </div>
           </div>
         </div>
       </div>
@@ -1104,7 +1411,7 @@ export default function PortalPage() {
             </div>
 
             <button
-              onClick={connect}
+              onClick={handleConnectWallet}
               className="w-full bg-teal-600 hover:bg-teal-550 text-white font-semibold py-3 px-4 rounded-xl transition shadow-[0_4px_12px_rgba(13,148,136,0.25)] flex items-center justify-center space-x-2 text-sm font-bold"
             >
               <Wallet size={16} />
@@ -1183,25 +1490,32 @@ export default function PortalPage() {
       >
         <div className="p-4 flex-1 flex flex-col overflow-y-auto min-h-0">
           <div className="flex items-center space-x-2.5 mb-6 px-1 select-none">
-            <ShieldAlert className="text-teal-400" size={24} />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-500/20 to-blue-500/10 border border-teal-500/20 flex items-center justify-center">
+              <ShieldAlert className="text-teal-400" size={20} />
+            </div>
             <div>
               <span className="font-extrabold text-sm tracking-tight text-white block">IntelExtorsión</span>
-              <span className="text-[10px] text-slate-400 block">Syscoin zkSYS · DID</span>
+              <span className="text-[10px] text-slate-500 block">Custodia Forense · DID</span>
             </div>
           </div>
 
           {/* DID Card */}
-          <div className="bg-teal-950/20 border border-teal-500/30 rounded-xl p-3.5 mb-6 shadow-inner">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-teal-400 block mb-1.5 select-none">Tu DID</span>
-            <span className="text-[10px] font-mono text-teal-300 break-all select-all block leading-tight">
+          <div className="bg-gradient-to-br from-teal-950/30 to-slate-900 border border-teal-500/15 rounded-xl p-3.5 mb-6 shadow-inner relative overflow-hidden">
+            <div className="absolute -top-8 -right-8 w-16 h-16 bg-teal-500/5 rounded-full blur-xl pointer-events-none" />
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-teal-400 select-none">Tu DID</span>
+              <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
+            </div>
+            <span className="text-[10px] font-mono text-teal-300/80 break-all select-all block leading-tight">
               {did ? `${did.slice(0, 16)}...${did.slice(-10)}` : 'did:zksys:unknown'}
             </span>
           </div>
 
           {/* Navigation Menu */}
-          <nav className="space-y-1 flex-1">
+          <nav className="space-y-1.5 flex-1">
             {sidebarItems.map((item) => {
               const Icon = item.icon;
+              const isActive = activeTab === item.key;
               return (
                 <button
                   key={item.key}
@@ -1209,10 +1523,10 @@ export default function PortalPage() {
                     setActiveTab(item.key);
                     setIsSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl text-xs font-bold transition select-none ${
-                    activeTab === item.key
-                      ? 'bg-teal-600 text-white shadow-[0_4px_12px_rgba(13,148,136,0.25)]'
-                      : 'text-slate-450 hover:bg-slate-800/60 hover:text-slate-200'
+                  className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl text-xs font-bold transition-all duration-200 select-none ${
+                    isActive
+                      ? 'bg-gradient-to-r from-teal-600 to-teal-500 text-white shadow-lg shadow-teal-500/15'
+                      : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
                   }`}
                 >
                   <Icon size={16} />
@@ -1225,11 +1539,14 @@ export default function PortalPage() {
 
         {/* Sidebar Footer */}
         <div className="p-4 border-t border-slate-800/80 space-y-3 bg-slate-900/50 shrink-0">
-          <div className="text-[10px] text-slate-500 text-center font-mono">
-            Chain ID: 57057
+          <div className="flex items-center justify-center space-x-2 text-[10px] text-slate-500 font-mono">
+            <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
+            <span>zkSYS Tanenbaum</span>
+            <span className="text-slate-700">·</span>
+            <span className="text-teal-400/70">57057</span>
           </div>
           <button
-            onClick={disconnect}
+            onClick={() => disconnect()}
             className="w-full flex items-center justify-center space-x-2 text-xs font-semibold text-slate-400 hover:text-red-400 transition bg-slate-800 hover:bg-red-500/10 py-2.5 rounded-xl border border-slate-700/60 hover:border-red-500/20"
           >
             <LogOut size={14} />
@@ -1241,36 +1558,42 @@ export default function PortalPage() {
       {/* Main Container */}
       <main className="absolute top-0 right-0 bottom-0 left-0 lg:left-64 flex flex-col bg-transparent overflow-hidden">
         {/* Top Header */}
-        <header className="absolute top-0 left-0 right-0 h-16 border-b border-slate-800 bg-slate-900/40 backdrop-blur px-6 flex items-center justify-between select-none z-10">
+        <header className="absolute top-0 left-0 right-0 h-16 border-b border-slate-800/60 bg-slate-950/80 backdrop-blur-xl px-6 flex items-center justify-between select-none z-10">
           <div className="flex items-center space-x-3">
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className="p-2 hover:bg-slate-800 rounded-xl lg:hidden text-slate-400 hover:text-white transition"
+              className="p-2 hover:bg-slate-800/60 rounded-xl lg:hidden text-slate-400 hover:text-white transition"
               title="Menu"
             >
               <Menu size={20} />
             </button>
-            <h2 className="font-bold text-xs md:text-sm text-slate-200 uppercase tracking-wider">
-              {activeTab === 'dashboard' && 'Panel Principal'}
-              {activeTab === 'chat' && 'Nueva Denuncia'}
-              {activeTab === 'evidencias' && 'Mis Evidencias'}
-              {activeTab === 'ayuda' && 'Ayuda y Glosario'}
-            </h2>
+            <div className="flex items-center space-x-2">
+              <h2 className="font-bold text-xs md:text-sm text-slate-200 uppercase tracking-wider">
+                {activeTab === 'dashboard' && 'Panel Principal'}
+                {activeTab === 'chat' && 'Nueva Denuncia'}
+                {activeTab === 'evidencias' && 'Mis Evidencias'}
+                {activeTab === 'ayuda' && 'Ayuda y Glosario'}
+              </h2>
+              {activeTab === 'chat' && (
+                <span className="text-[9px] bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full border border-amber-500/20 font-bold uppercase tracking-wider">En vivo</span>
+              )}
+            </div>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2.5">
             {error && (
               <span className="text-[10px] text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20 animate-pulse font-medium">
                 Red Errónea
               </span>
             )}
-            <div className="text-xs text-teal-400 font-medium flex items-center bg-teal-950/20 px-3 py-1.5 rounded-full border border-teal-500/30 shadow-inner">
-              <CheckCircle2 size={12} className="mr-1.5 text-teal-400" /> {account?.slice(0, 8)}...
+            <div className="flex items-center space-x-2 bg-slate-800/50 border border-slate-700/40 px-3 py-1.5 rounded-full">
+              <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
+              <span className="text-[10px] text-teal-400 font-mono font-bold">{account?.slice(0, 6)}...{account?.slice(-4)}</span>
             </div>
           </div>
         </header>
 
         {/* Tab Content Container */}
-        <div ref={mainContainerRef} className="absolute top-16 left-0 right-0 bottom-0 overflow-y-auto p-4 md:p-8 bg-slate-950">
+        <div ref={mainContainerRef} className="absolute top-16 left-0 right-0 bottom-0 overflow-y-auto p-4 md:p-8 bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900">
           {activeTab === 'dashboard' && renderDashboard()}
           {activeTab === 'chat' && renderChat()}
           {activeTab === 'evidencias' && renderEvidencias()}

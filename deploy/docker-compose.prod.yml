@@ -1,0 +1,242 @@
+# ============================================================
+# IntelExtorsión - Docker Compose PRODUCCIÓN
+# Traefik reverse proxy + SSL automático (Let's Encrypt)
+# Dominio: intelextorsion.duckdns.org
+# ============================================================
+
+services:
+  # ----------------------------------------------------------
+  # TRAEFIK - Reverse Proxy + SSL
+  # ----------------------------------------------------------
+  traefik:
+    image: traefik:v3.0
+    container_name: intel_extorsion_traefik
+    restart: unless-stopped
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=false"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-admin@intelextorsion.duckdns.org}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--log.level=INFO"
+      - "--accesslog=true"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_certs:/letsencrypt
+    networks:
+      - intel_extorsion_network
+    labels:
+      - "traefik.enable=true"
+      # Dashboard (acceso admin)
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.intelextorsion.duckdns.org`)"
+      - "traefik.http.routers.dashboard.entrypoints=websecure"
+      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.dashboard.service=api@internal"
+      - "traefik.http.routers.dashboard.middlewares=auth"
+      - "traefik.http.middlewares.auth.basicauth.users=${TRAEFIK_DASHBOARD_AUTH:-admin:$$apr1$$xyz}"
+
+  # ----------------------------------------------------------
+  # INFRAESTRUCTURA
+  # ----------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: intel_extorsion_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-agent_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?ERROR: POSTGRES_PASSWORD requerido}
+      POSTGRES_DB: ${POSTGRES_DB:-intel_extorsion}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - intel_extorsion_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-agent_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  qdrant:
+    image: qdrant/qdrant:v1.9.1
+    container_name: intel_extorsion_qdrant
+    restart: unless-stopped
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - intel_extorsion_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: intel_extorsion_redis
+    restart: unless-stopped
+    networks:
+      - intel_extorsion_network
+
+  # ----------------------------------------------------------
+  # AGENT API (FastAPI + LangGraph)
+  # ----------------------------------------------------------
+  agent-api:
+    build:
+      context: ./intel_extorsion_agent_system
+      dockerfile: deployments/Dockerfile
+    container_name: intel_extorsion_agent_api
+    restart: unless-stopped
+    environment:
+      API_HOST: "0.0.0.0"
+      API_PORT: "8000"
+      GROQ_API_KEY: ${GROQ_API_KEY:?ERROR: GROQ_API_KEY requerido}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
+      GROQ_TEMPERATURE: "0.2"
+      GROQ_MAX_TOKENS: "4096"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-intel_extorsion}
+      POSTGRES_USER: ${POSTGRES_USER:-agent_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6333"
+      REDIS_URL: "redis://redis:6379/0"
+      DEBUG: "false"
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-Admin123!}
+      SEED_SUPERVISOR_PASSWORD: ${SEED_SUPERVISOR_PASSWORD:-Super123!}
+      SEED_ANALISTA_PASSWORD: ${SEED_ANALISTA_PASSWORD:-Analista123!}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-}
+      WHATSAPP_API_TOKEN: ${WHATSAPP_API_TOKEN:-}
+    networks:
+      - intel_extorsion_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      redis:
+        condition: service_started
+    volumes:
+      - evidencias_data:/app/uploads/evidencias
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.agent-api.rule=Host(`intelextorsion.duckdns.org`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.agent-api.entrypoints=websecure"
+      - "traefik.http.routers.agent-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.agent-api.loadbalancer.server.port=8000"
+      - "traefik.http.routers.agent-api.middlewares=stripprefix"
+      - "traefik.http.middlewares.stripprefix.stripprefix.prefixes=/api"
+
+  # ----------------------------------------------------------
+  # WEB3 BACKEND
+  # ----------------------------------------------------------
+  web3-backend:
+    build:
+      context: ./intel_extorsion_web3_system/backend
+      dockerfile: Dockerfile
+    container_name: intel_extorsion_web3_backend
+    restart: unless-stopped
+    environment:
+      API_HOST: "0.0.0.0"
+      API_PORT: "8001"
+      WEB3_PROVIDER_URL: ${WEB3_PROVIDER_URL:-https://rpc-zk.tanenbaum.io}
+      CHAIN_ID: ${CHAIN_ID:-57057}
+      EXPLORER_URL: ${EXPLORER_URL:-https://explorer-zk.tanenbaum.io}
+      NETWORK_NAME: ${NETWORK_NAME:-zkSYS Tanenbaum Testnet}
+      PRIVATE_KEY: ${PRIVATE_KEY:?ERROR: PRIVATE_KEY requerido}
+      CONTRACT_EVIDENCE_REGISTRY: ${CONTRACT_EVIDENCE_REGISTRY}
+      CONTRACT_CASE_MANAGER: ${CONTRACT_CASE_MANAGER}
+      CONTRACT_DID_REGISTRY: ${CONTRACT_DID_REGISTRY}
+      CONTRACT_TOKEN: ${CONTRACT_TOKEN}
+      IPFS_JWT: ${IPFS_JWT:-}
+      AGENT_SYSTEM_API_URL: http://agent-api:8000
+    networks:
+      - intel_extorsion_network
+    depends_on:
+      - agent-api
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.web3-api.rule=Host(`intelextorsion.duckdns.org`) && PathPrefix(`/web3api`)"
+      - "traefik.http.routers.web3-api.entrypoints=websecure"
+      - "traefik.http.routers.web3-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.web3-api.loadbalancer.server.port=8001"
+      - "traefik.http.routers.web3-api.middlewares=stripprefix-web3"
+      - "traefik.http.middlewares.stripprefix-web3.stripprefix.prefixes=/web3api"
+
+  # ----------------------------------------------------------
+  # FRONTEND CIUDADANO
+  # ----------------------------------------------------------
+  frontend-citizen:
+    build:
+      context: ./intel_extorsion_frontend_citizen
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_AGENT_API_URL: https://intelextorsion.duckdns.org/api
+        NEXT_PUBLIC_WEB3_API_URL: https://intelextorsion.duckdns.org/web3api
+        NEXT_PUBLIC_RPC_URL: ${WEB3_PROVIDER_URL:-https://rpc-zk.tanenbaum.io}
+        NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID:-57057}
+        NEXT_PUBLIC_EXPLORER_URL: ${EXPLORER_URL:-https://explorer-zk.tanenbaum.io}
+        NEXT_PUBLIC_CONTRACT_EVIDENCE_REGISTRY: ${CONTRACT_EVIDENCE_REGISTRY}
+        NEXT_PUBLIC_CONTRACT_CASE_MANAGER: ${CONTRACT_CASE_MANAGER}
+        NEXT_PUBLIC_CONTRACT_DID_REGISTRY: ${CONTRACT_DID_REGISTRY}
+        NEXT_PUBLIC_CONTRACT_TOKEN: ${CONTRACT_TOKEN}
+    container_name: intel_extorsion_frontend_citizen
+    restart: unless-stopped
+    networks:
+      - intel_extorsion_network
+    depends_on:
+      - agent-api
+      - web3-backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.citizen.rule=Host(`intelextorsion.duckdns.org`)"
+      - "traefik.http.routers.citizen.entrypoints=websecure"
+      - "traefik.http.routers.citizen.tls.certresolver=letsencrypt"
+      - "traefik.http.services.citizen.loadbalancer.server.port=3000"
+
+  # ----------------------------------------------------------
+  # FRONTEND POLICIAL
+  # ----------------------------------------------------------
+  frontend-police:
+    build:
+      context: ./intel_extorsion_frontend_police
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_AGENT_API_URL: https://intelextorsion.duckdns.org/api
+        NEXT_PUBLIC_WEB3_API_URL: https://intelextorsion.duckdns.org/web3api
+        NEXT_PUBLIC_RPC_URL: ${WEB3_PROVIDER_URL:-https://rpc-zk.tanenbaum.io}
+        NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID:-57057}
+        NEXT_PUBLIC_EXPLORER_URL: ${EXPLORER_URL:-https://explorer-zk.tanenbaum.io}
+        NEXT_PUBLIC_CONTRACT_EVIDENCE_REGISTRY: ${CONTRACT_EVIDENCE_REGISTRY}
+        NEXT_PUBLIC_CONTRACT_CASE_MANAGER: ${CONTRACT_CASE_MANAGER}
+        NEXT_PUBLIC_CONTRACT_DID_REGISTRY: ${CONTRACT_DID_REGISTRY}
+        NEXT_PUBLIC_CONTRACT_TOKEN: ${CONTRACT_TOKEN}
+    container_name: intel_extorsion_frontend_police
+    restart: unless-stopped
+    networks:
+      - intel_extorsion_network
+    depends_on:
+      - agent-api
+      - web3-backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.police.rule=Host(`intelextorsion.duckdns.org`) && PathPrefix(`/policial`)"
+      - "traefik.http.routers.police.entrypoints=websecure"
+      - "traefik.http.routers.police.tls.certresolver=letsencrypt"
+      - "traefik.http.services.police.loadbalancer.server.port=3000"
+      - "traefik.http.routers.police.middlewares=stripprefix-police"
+      - "traefik.http.middlewares.stripprefix-police.stripprefix.prefixes=/policial"
+
+volumes:
+  postgres_data:
+  qdrant_data:
+  evidencias_data:
+  traefik_certs:
+
+networks:
+  intel_extorsion_network:
+    driver: bridge

@@ -5,7 +5,7 @@ from app.schemas.agent_schemas import AgenteState
 
 def generate_tracking_code() -> str:
     chars = string.ascii_uppercase + string.digits
-    suffix = ''.join(secrets.choice(chars) for _ in range(4))
+    suffix = ''.join(secrets.choice(chars) for _ in range(8))
     return f"TRJ-{suffix}"
 
 async def node_respond(state: AgenteState) -> Dict[str, Any]:
@@ -15,7 +15,7 @@ async def node_respond(state: AgenteState) -> Dict[str, Any]:
         mensaje = (
             f"✅ Denuncia registrada con código {tracking_code}. "
             f"Tu caso ha sido escalado a nuestra unidad de inteligencia. "
-            f"Un oficial se comunicará contigo a la brevedad."
+            f"La información será entregada a las autoridades competentes para acciones operativas."
         )
     else:
         mensaje = (

@@ -12,9 +12,9 @@ class Settings(BaseSettings):
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8001
     
-    # Blockchain (zkSYS Genesis Testnet para desarrollo/demo)
-    WEB3_PROVIDER_URL: str = "https://rpc.genesis.zksys.io"
-    CHAIN_ID: int = 5700
+    # Blockchain (zkSYS Tanenbaum Testnet para desarrollo/demo)
+    WEB3_PROVIDER_URL: str = "https://rpc-zk.tanenbaum.io"
+    CHAIN_ID: int = 57057
     
     # Cuenta institucional (backend signer)
     # EN PRODUCCION: usar AWS KMS / HashiCorp Vault / HSM
@@ -26,10 +26,16 @@ class Settings(BaseSettings):
     CONTRACT_EVIDENCE_REGISTRY: Optional[str] = None
     CONTRACT_CASE_MANAGER: Optional[str] = None
     CONTRACT_TOKEN: Optional[str] = None
+    CONTRACT_EVIDENCE_SEAL: Optional[str] = None
     
     # IPFS
     IPFS_API_URL: str = "https://api.pinata.cloud"
     IPFS_JWT: str = ""
+    
+    # Certificado X.509 para firma de actas (PEM)
+    # EN PRODUCCION: usar certificado emitido por CA autorizada
+    X509_CERT_PEM: Optional[str] = None
+    X509_KEY_PEM: Optional[str] = None
     
     # Agent System Integration
     AGENT_SYSTEM_API_URL: str = "http://localhost:8000"

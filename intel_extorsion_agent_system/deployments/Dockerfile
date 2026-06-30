@@ -23,12 +23,21 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Precargar modelo de embeddings fastembed para evitar descarga en el primer arranque
+RUN python - <<'PY'
+from fastembed import TextEmbedding
+TextEmbedding(model_name="sentence-transformers/all-MiniLM-L6-v2")
+print("Modelo fastembed precargado")
+PY
+
 # Crear directorio de uploads
 RUN mkdir -p /app/uploads/evidencias
 
 # Copiar código fuente
 COPY app/ ./app/
 COPY main.py .
+COPY alembic.ini .
+COPY alembic/ ./alembic/
 
 # Puerto de la API
 EXPOSE 8000

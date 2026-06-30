@@ -9,7 +9,7 @@ interface WalletState {
   reputation: number;
   error: string | null;
   connect: () => Promise<void>;
-  disconnect: () => void;
+  disconnect: () => Promise<void>;
   switchToZkSYS: () => Promise<void>;
   setDID: (did: string) => void;
   init: () => void;
@@ -17,6 +17,11 @@ interface WalletState {
 
 const ZKSYS_CHAIN_ID = 57057;
 const ZKSYS_HEX = '0xdf01';
+const EXPLORER_URL = 'https://explorer-zk.tanenbaum.io';
+
+function formatDID(address: string): string {
+  return `did:zsys:tanenbaum:${address.toLowerCase()}`;
+}
 
 export const useWalletStore = create<WalletState>((set, get) => ({
   account: null,
@@ -41,7 +46,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
       } else {
         set({
           account: accounts[0],
-          did: `did:zksys:${accounts[0]}`
+          did: formatDID(accounts[0]),
         });
       }
     };
@@ -67,7 +72,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
           account: accounts[0],
           provider: pali,
           isConnected: true,
-          did: `did:zksys:${accounts[0]}`
+          did: formatDID(accounts[0]),
         });
         pali.request({ method: 'eth_chainId' }).then((chainIdHex: string) => {
           const chainId = parseInt(chainIdHex, 16);
@@ -103,7 +108,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
       });
 
       // Auto-resolve DID
-      const did = `did:zksys:${accounts[0]}`;
+      const did = formatDID(accounts[0]);
       set({ did });
 
       // Inicializar listeners si no se han iniciado
@@ -113,11 +118,20 @@ export const useWalletStore = create<WalletState>((set, get) => ({
     }
   },
 
-  disconnect: () => {
+  disconnect: async () => {
+    if (typeof window !== 'undefined') {
+      const pali = (window as any).pali || (window as any).ethereum;
+      if (pali) {
+        try {
+          await pali.request({ method: 'wallet_revokePermissions', params: [{ eth_accounts: {} }] });
+        } catch {}
+      }
+    }
     set({
       account: null,
       chainId: null,
       isConnected: false,
+      provider: null,
       did: null,
       reputation: 0,
       error: null,

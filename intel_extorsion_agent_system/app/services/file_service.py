@@ -1,5 +1,6 @@
 import hashlib
 import uuid
+import io
 import aiofiles
 from pathlib import Path
 from typing import Tuple, Optional
@@ -14,6 +15,38 @@ ALLOWED_EXTENSIONS = {
     "text/plain": ".txt",
 }
 
+
+def _strip_image_metadata(content: bytes, mime_type: str) -> bytes:
+    """
+    Elimina metadatos EXIF/ICC/XMP de imágenes para cumplir RF-06.
+    Preserva la integridad visual; solo elimina metadata que expose
+    información del dispositivo, GPS, serial, etc.
+    """
+    try:
+        from PIL import Image
+        img = Image.open(io.BytesIO(content))
+
+        data = list(img.getdata())
+        clean_img = Image.new(img.mode, img.size)
+        clean_img.putdata(data)
+
+        buf = io.BytesIO()
+        fmt_map = {
+            "image/jpeg": ("JPEG", {"quality": 95, "optimize": True}),
+            "image/png": ("PNG", {"optimize": True}),
+            "image/webp": ("WEBP", {"quality": 95}),
+        }
+        fmt, save_kwargs = fmt_map.get(mime_type, ("PNG", {}))
+        clean_img.save(buf, format=fmt, **save_kwargs)
+        return buf.getvalue()
+    except Exception:
+        return content
+
+
+def _compute_hash(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()
+
+
 async def save_upload(file: UploadFile, denuncia_id: str) -> Tuple[str, str, int]:
     if file.content_type not in settings.ALLOWED_MIME_TYPES:
         raise HTTPException(400, f"Tipo de archivo no permitido: {file.content_type}")
@@ -23,7 +56,10 @@ async def save_upload(file: UploadFile, denuncia_id: str) -> Tuple[str, str, int
     if size_mb > settings.UPLOAD_MAX_SIZE_MB:
         raise HTTPException(400, f"Archivo excede el límite de {settings.UPLOAD_MAX_SIZE_MB}MB")
 
-    file_hash = hashlib.sha256(content).hexdigest()
+    if file.content_type.startswith("image/"):
+        content = _strip_image_metadata(content, file.content_type)
+
+    file_hash = _compute_hash(content)
     ext = ALLOWED_EXTENSIONS.get(file.content_type, ".bin")
     filename = f"{denuncia_id}_{file_hash[:16]}_{uuid.uuid4().hex[:8]}{ext}"
 
@@ -43,4 +79,6 @@ async def download_from_url(url: str) -> Tuple[bytes, str]:
         resp.raise_for_status()
         content = resp.read()
         mime = resp.headers.get("content-type", "application/octet-stream")
+        if mime.startswith("image/"):
+            content = _strip_image_metadata(content, mime)
         return content, mime

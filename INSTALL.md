@@ -32,6 +32,30 @@ nano .env
 ```
 GROQ_API_KEY=gsk_tu-clave-aqui
 POSTGRES_PASSWORD=tu-password-segura
+PRIVATE_KEY=0x...                    # Wallet institucional para Web3
+
+# Red oficial: zkSYS Tanenbaum Testnet (Chain ID 57057)
+WEB3_PROVIDER_URL=https://rpc-zk.tanenbaum.io
+CHAIN_ID=57057
+EXPLORER_URL=https://explorer-zk.tanenbaum.io
+NETWORK_NAME=zkSYS Tanenbaum Testnet
+
+# Contratos desplegados en Tanenbaum
+CONTRACT_EVIDENCE_REGISTRY=0x1A9eB1a4C261AE793e21101a3E5c14003dcF4dEb
+CONTRACT_CASE_MANAGER=0x3576cb05B2c4094e8f97639892D235044d7476a1
+CONTRACT_DID_REGISTRY=0x8481c85e54f50C676f0fc37f90848030c3B12bB9
+CONTRACT_TOKEN=0x622AA147eD0238840ceb215941D5E8CD997896F0
+
+# JWT para dashboard policial
+JWT_SECRET_KEY=tu-clave-secreta-jwt-minimo-32-caracteres
+
+# Notificaciones push de alertas (opcional)
+ALERT_EMAIL_SMTP_HOST=
+ALERT_EMAIL_SMTP_USER=
+ALERT_EMAIL_SMTP_PASSWORD=
+ALERT_EMAIL_FROM=
+ALERT_EMAIL_TO=
+ALERT_WEBHOOK_URL=
 ```
 
 ### Paso 3: Levantar infraestructura base
@@ -48,9 +72,16 @@ docker compose ps
 ### Paso 4: Construir y levantar servicios de aplicación
 
 ```bash
-docker compose build agent-api web3-backend frontend
+docker compose build --no-cache
 docker compose up -d
 ```
+
+Servicios levantados:
+- Frontend Ciudadano: http://localhost:3000
+- Frontend Policial: http://localhost:3001
+- DApp Web3: http://localhost:3002
+- Agent System API: http://localhost:8000/docs
+- Web3 Backend API: http://localhost:8001/docs
 
 ### Paso 5: Verificar instalación
 
@@ -128,15 +159,27 @@ python main.py
 
 Accesible en: http://localhost:8001/docs
 
-### 4. Frontend (Next.js)
+### 4. Frontends (Next.js)
 
 ```bash
-cd intel_extorsion_frontend
+# Frontend Ciudadano
+cd intel_extorsion_frontend_citizen
 npm install
 npm run dev
-```
+# Accesible en: http://localhost:3000
 
-Accesible en: http://localhost:3000
+# Frontend Policial
+cd intel_extorsion_frontend_police
+npm install
+npm run dev
+# Accesible en: http://localhost:3001
+
+# DApp Web3
+cd intel_extorsion_web3_system/dapp
+npm install
+npm run dev
+# Accesible en: http://localhost:5173 (o el puerto que indique Vite)
+```
 
 ### 5. Smart Contracts (Hardhat)
 
@@ -165,14 +208,29 @@ curl http://localhost:8000/health
 # 3. Web3 Backend responde
 curl http://localhost:8001/health
 
-# 4. Frontend accesible
+# 4. Frontend Ciudadano accesible
 # Abrir navegador en http://localhost:3000
 
-# 5. PostgreSQL tiene tablas
+# 5. Frontend Policial accesible
+# Abrir navegador en http://localhost:3001
+
+# 6. DApp Web3 accesible
+# Abrir navegador en http://localhost:3002
+
+# 5. Login policial funciona
+TOKEN=$(curl -s -X POST http://localhost:8000/v1/auth/login \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=admin&password=Admin123!" | jq -r '.access_token')
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/v1/denuncias?limit=1
+
+# 6. PostgreSQL tiene tablas
 docker exec -it intel_extorsion_postgres psql -U agent_user -d intel_extorsion -c "\dt"
 
-# 6. Qdrant accesible
+# 7. Qdrant accesible
 curl http://localhost:6333
+
+# 8. Tests de integración (opcional)
+docker compose -f docker-compose.yml -f docker-compose.test.yml up test-runner --build --abort-on-container-exit
 ```
 
 ---

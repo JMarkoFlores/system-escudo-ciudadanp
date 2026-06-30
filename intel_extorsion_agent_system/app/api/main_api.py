@@ -23,12 +23,13 @@ from app.schemas.agent_schemas import (
     EjecucionGrafoResponse,
     HealthCheckResponse
 )
-from app.models.db_session import get_db, init_db
+from app.models.db_session import get_db, init_db, AsyncSessionLocal
 from app.models.database import Denuncia, ResultadoAgente, Alerta, Cluster, EstadoDenuncia, NivelRiesgo
 from app.services.agent_service import AgentExecutionService
 from app.memory.hybrid_memory import memory_system
 from app.api.clusters_router import router as clusters_router
 from app.api.heatmap_router import router as heatmap_router
+from app.api.auth_router import router as auth_router, require_user
 
 app = FastAPI(
     title="IntelExtorsión - Agent System API",
@@ -38,11 +39,17 @@ app = FastAPI(
 
 app.include_router(clusters_router)
 app.include_router(heatmap_router)
+app.include_router(auth_router)
 
-# CORS
+# CORS: configurable vía variable de entorno; por defecto permite orígenes de desarrollo
+import os
+_cors_origins = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:5173").split(",")
+if os.getenv("CORS_ALLOW_ALL", "").lower() in ("true", "1"):
+    _cors_origins = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -60,7 +67,16 @@ whatsapp_bot_client = None
 async def startup():
     print("FastAPI startup: inicializando base de datos...", flush=True)
     await init_db()
-    
+
+    # Crear usuarios por defecto para el dashboard policial
+    try:
+        async with AsyncSessionLocal() as db:
+            from app.services.auth_service import seed_default_users
+            await seed_default_users(db)
+            print("FastAPI startup: usuarios por defecto verificados", flush=True)
+    except Exception as e:
+        print(f"FastAPI startup: error seeding usuarios: {e}", flush=True)
+
     # Telegram Bot
     global bot_client
     if settings.TELEGRAM_BOT_TOKEN:
@@ -77,8 +93,18 @@ async def startup():
         print(f"FastAPI startup: detectado DISCORD_BOT_TOKEN, iniciando bot de Discord...", flush=True)
         import asyncio
         from app.channels.discord_bot import DiscordBot
-        discord_bot_client = DiscordBot(settings.DISCORD_BOT_TOKEN)
-        asyncio.create_task(discord_bot_client.start(settings.DISCORD_BOT_TOKEN))
+
+        async def _start_discord_bot():
+            global discord_bot_client
+            try:
+                discord_bot_client = DiscordBot(settings.DISCORD_BOT_TOKEN)
+                await discord_bot_client.start(settings.DISCORD_BOT_TOKEN)
+            except Exception as e:
+                print(f"[Discord Bot] FATAL: {e}", flush=True)
+                import logging
+                logging.getLogger(__name__).error(f"Discord bot failed to start: {e}", exc_info=True)
+
+        asyncio.create_task(_start_discord_bot())
     else:
         print("FastAPI startup: NO se detectó DISCORD_BOT_TOKEN en settings", flush=True)
         
@@ -197,9 +223,16 @@ async def procesar_denuncia(
     service = AgentExecutionService(db)
     modo = req.modo if req else "completo"
     agentes = req.agentes if req else None
-    
-    response = await service.ejecutar_grafo(denuncia, modo=modo, agentes_selectivos=agentes)
-    return response
+
+    try:
+        response = await service.ejecutar_grafo(denuncia, modo=modo, agentes_selectivos=agentes)
+        return response
+    except Exception as e:
+        logger.exception(f"Error ejecutando grafo para denuncia {denuncia_id}: {e}")
+        # Actualizar estado a error para que el ciudadano no vea 'en_analisis' congelado
+        denuncia.estado = EstadoDenuncia.error_procesamiento
+        await db.commit()
+        raise HTTPException(status_code=503, detail=f"El motor de agentes no pudo procesar la denuncia: {str(e)}")
 
 # ==========================================
 # Consultas
@@ -212,7 +245,8 @@ async def listar_denuncias(
     did_denunciante: Optional[str] = Query(None, description="Filtrar por DID del denunciante"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    user = Depends(require_user)
 ):
     """
     Lista denuncias registradas en el sistema, ordenadas por fecha descendente.
@@ -259,7 +293,8 @@ async def listar_denuncias(
 @app.get("/v1/denuncias/{denuncia_id}", response_model=DenunciaResponse)
 async def obtener_denuncia(
     denuncia_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    user = Depends(require_user)
 ):
     result = await db.execute(select(Denuncia).where(Denuncia.id == denuncia_id))
     denuncia = result.scalar_one_or_none()
@@ -560,7 +595,8 @@ async def listar_alertas(
     nivel: Optional[str] = Query(None, description="Filtrar por nivel de riesgo"),
     leida: Optional[bool] = Query(None, description="Filtrar por estado de lectura"),
     limit: int = Query(50, ge=1, le=200),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    user = Depends(require_user)
 ):
     """
     Lista todas las alertas generadas por el sistema.
@@ -595,8 +631,8 @@ async def actualizar_alerta(
     alerta_id: uuid.UUID,
     leida: Optional[bool] = None,
     atendida: Optional[bool] = None,
-    data: dict = Body(default={}),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    user = Depends(require_user)
 ):
     """
     Actualiza el estado de lectura o atención de una alerta.
@@ -657,7 +693,10 @@ async def actualizar_alerta(
 # ==========================================
 
 @app.get("/v1/dashboard/metricas")
-async def obtener_metricas(db: AsyncSession = Depends(get_db)):
+async def obtener_metricas(
+    db: AsyncSession = Depends(get_db),
+    user = Depends(require_user)
+):
     """
     Devuelve métricas agregadas para el dashboard policial.
     """
@@ -821,5 +860,15 @@ async def _run_grafo_background(denuncia_id: uuid.UUID, modo: str, agentes: Opti
         service = AgentExecutionService(db)
         result = await db.execute(select(Denuncia).where(Denuncia.id == denuncia_id))
         denuncia = result.scalar_one_or_none()
-        if denuncia:
+        if not denuncia:
+            logger.warning(f"_run_grafo_background: denuncia {denuncia_id} no encontrada")
+            return
+        try:
             await service.ejecutar_grafo(denuncia, modo=modo, agentes_selectivos=agentes)
+        except Exception as e:
+            logger.exception(f"Error en background ejecutando grafo para denuncia {denuncia_id}: {e}")
+            try:
+                denuncia.estado = EstadoDenuncia.error_procesamiento
+                await db.commit()
+            except Exception as inner:
+                logger.exception(f"No se pudo actualizar estado de error para denuncia {denuncia_id}: {inner}")

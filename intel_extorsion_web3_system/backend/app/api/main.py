@@ -8,6 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from pydantic import BaseModel, Field
 import io
+import time
+import json
 from typing import Optional, List, Dict, Any
 import hashlib
 import httpx
@@ -129,7 +131,20 @@ class ChangeCaseStatusRequest(BaseModel):
 
 class MintTokenRequest(BaseModel):
     to_address: str
-    amount: int
+    evidence_id: int
+    evidence_hash: Optional[str] = None
+    ipfs_uri: Optional[str] = ""
+
+class ActaFirmadaResponse(BaseModel):
+    success: bool
+    evidence_id: int
+    acta_evidence_id: Optional[int]
+    acta_hash: str
+    signature: Optional[str]
+    signer_address: Optional[str]
+    tx_hash: Optional[str]
+    block_number: Optional[int]
+    message: str
 
 # ==========================================
 # Endpoints
@@ -213,6 +228,12 @@ async def seal_evidence(req: SealEvidenceRequest):
             message=f"Error al sellar evidencia: {str(e)}"
         )
 
+@app.get("/v1/evidencias/{content_hash}/verificar")
+async def verify_hash(content_hash: str):
+    """Verifica si un hash SHA-256 ya fue sellado en blockchain."""
+    return web3_service.verify_hash_exists(content_hash)
+
+
 @app.post("/v1/evidencias/verify", response_model=VerifyEvidenceResponse)
 async def verify_evidence(
     evidence_id: int = Form(...),
@@ -247,10 +268,74 @@ async def download_acta_pdf(evidence_id: int):
     datos = web3_service.get_evidence(evidence_id)
     pdf_bytes = acta_service.generar_acta_pdf(datos)
     return StreamingResponse(
-        io.BytesIO(pdf_bytes), 
-        media_type="application/pdf", 
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=Acta_Forense_{evidence_id}.pdf"}
     )
+
+@app.post("/v1/evidencias/{evidence_id}/acta-firmada", response_model=ActaFirmadaResponse)
+async def generar_acta_firmada(evidence_id: int):
+    """
+    Genera el Acta Forense PDF, la firma digitalmente (ECDSA + X.509 opcional),
+    genera metadata estructurada para sellado y sella el hash del acta en blockchain.
+    Compatible con CPP art. 158-B.
+    """
+    try:
+        datos = web3_service.get_evidence(evidence_id)
+        pdf_bytes = acta_service.generar_acta_pdf(datos)
+
+        cert_pem = settings.X509_CERT_PEM if hasattr(settings, 'X509_CERT_PEM') else None
+        firma = acta_service.firmar_acta(pdf_bytes, settings.PRIVATE_KEY, cert_pem=cert_pem)
+
+        metadata_sellado = acta_service.generar_metadata_sellado(datos, firma)
+
+        sellado = web3_service.seal_evidence_by_hash(
+            evidence_hash=firma["acta_hash"],
+            case_id=0,
+            metadata={
+                "tipo": "acta_forense",
+                "evidencia_origen_id": evidence_id,
+                "signer": firma["signer_address"],
+                "signature": firma["signature"],
+                "firma_metodo": firma.get("firma_metodo", ""),
+                "ec_signature_p256": firma.get("ec_signature_p256"),
+                "cert_info": firma.get("cert_info"),
+                "metadata_sellado": metadata_sellado,
+                "timestamp": str(time.time())
+            }
+        )
+
+        audit_seal_service.log_event("acta_forense_generada", {
+            "evidence_id": evidence_id,
+            "acta_evidence_id": sellado.get("evidence_id"),
+            "acta_hash": firma["acta_hash"],
+            "signer": firma["signer_address"],
+            "firma_metodo": firma.get("firma_metodo"),
+        })
+
+        return ActaFirmadaResponse(
+            success=True,
+            evidence_id=evidence_id,
+            acta_evidence_id=sellado.get("evidence_id"),
+            acta_hash=firma["acta_hash"],
+            signature=firma["signature"],
+            signer_address=firma["signer_address"],
+            tx_hash=sellado.get("tx_hash"),
+            block_number=sellado.get("block_number"),
+            message=firma["message"]
+        )
+    except Exception as e:
+        return ActaFirmadaResponse(
+            success=False,
+            evidence_id=evidence_id,
+            acta_evidence_id=None,
+            acta_hash="",
+            signature=None,
+            signer_address=None,
+            tx_hash=None,
+            block_number=None,
+            message=f"Error al generar acta firmada: {str(e)}"
+        )
 
 # --------- Casos ---------
 
@@ -315,13 +400,37 @@ async def get_token_balance(address: str):
     return {"address": address, "balance": balance}
 
 @app.post("/v1/token/mint")
-async def mint_achievement(req: MintTokenRequest):
-    result = web3_service.mint_achievement(req.to_address, req.amount)
+async def mint_evidence_token(req: MintTokenRequest):
+    evidence_hash = req.evidence_hash or ("0x" + hashlib.sha256(str(req.evidence_id).encode()).hexdigest())
+    result = web3_service.mint_evidence_token(
+        req.to_address,
+        req.evidence_id,
+        evidence_hash,
+        req.ipfs_uri or ""
+    )
     return {"success": result["status"] == 1, **result}
 
 @app.post("/v1/admin/seal-audit-log")
 async def manual_seal_audit_log():
     return audit_seal_service.seal_daily_audit_log()
+
+@app.post("/v1/admin/audit/log")
+async def log_audit_event(action: str, details: str = "{}"):
+    """Registra un evento en el log de auditoría pendiente de sellado diario."""
+    try:
+        parsed = json.loads(details)
+    except Exception:
+        parsed = {"raw": details}
+    audit_seal_service.log_event(action, parsed)
+    return {"success": True, "action": action, "pending_events": len(audit_seal_service.get_events())}
+
+@app.get("/v1/admin/audit/logs")
+async def get_audit_logs():
+    """Devuelve eventos de auditoría pendientes y ya sellados on-chain."""
+    return {
+        "pending": audit_seal_service.get_events(),
+        "sealed": audit_seal_service.get_sealed_logs()
+    }
 
 # ==========================================
 # Helpers

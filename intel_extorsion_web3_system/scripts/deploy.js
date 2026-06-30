@@ -35,7 +35,14 @@ async function main() {
   const ieTokenAddress = await ieToken.getAddress();
   console.log('IntelExtorsionToken deployed to:', ieTokenAddress);
 
-  // 5. Grant roles to deployer and cross-contract
+  // 5. Deploy EvidenceSeal (secondary seal contract)
+  const EvidenceSeal = await ethers.getContractFactory('EvidenceSeal');
+  const evidenceSeal = await EvidenceSeal.deploy();
+  await evidenceSeal.waitForDeployment();
+  const evidenceSealAddress = await evidenceSeal.getAddress();
+  console.log('EvidenceSeal deployed to:', evidenceSealAddress);
+
+  // 6. Grant roles to deployer and cross-contract
   console.log('Configuring roles...');
 
   // EvidenceRegistry roles
@@ -48,6 +55,9 @@ async function main() {
     deployer.address
   );
 
+  // EvidenceSeal roles
+  await evidenceSeal.grantRole(await evidenceSeal.SEALER_ROLE(), deployer.address);
+
   // CaseManager roles
   await caseManager.grantRole(await caseManager.FISCAL_ROLE(), deployer.address);
   await caseManager.grantRole(await caseManager.POLICE_ROLE(), deployer.address);
@@ -55,7 +65,7 @@ async function main() {
   // Token roles
   await ieToken.grantRole(await ieToken.MINTER_ROLE(), deployer.address);
 
-  // 6. Save deployment info
+  // 7. Save deployment info
   const deploymentInfo = {
     network: (await ethers.provider.getNetwork()).name,
     chainId: Number((await ethers.provider.getNetwork()).chainId),
@@ -66,6 +76,7 @@ async function main() {
       EvidenceRegistry: evidenceRegistryAddress,
       CaseManager: caseManagerAddress,
       IntelExtorsionToken: ieTokenAddress,
+      EvidenceSeal: evidenceSealAddress,
     },
   };
 

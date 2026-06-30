@@ -1,12 +1,18 @@
 # Plan de Implementación — IntelExtorsión
 
-## Plataforma de Inteligencia Policial para Denuncias de Extorsión
+## Plataforma de Inteligencia Ciudadana contra la Extorsión
+
+> **⚠️ IMPORTANTE:** IntelExtorsión es una plataforma de **INTELIGENCIA CIUDADANA**, no un canal directo de denuncia formal a la policía.
+>
+> El sistema recibe reportes de extorsión de ciudadanos, los analiza con IA forense, correlaciona casos similares y entrega inteligencia procesada a las autoridades competentes (DIVINCRI La Libertad) para que tomen acciones operativas.
+>
+> **Para denuncias formales ante la Fiscalía o PNP, los ciudadanos deben utilizar la línea 111 o acudir a la comisaría más cercana.** Este sistema complementa, pero no reemplaza, los canales oficiales de denuncia.
 
 ---
 
 ## 1. Objetivo del Plan de Implementación
 
-Completar el desarrollo de IntelExtorsión desde su estado actual (arquitectura base funcional: Docker Compose operativo, 6/9 tests pasando, frontend Next.js en build, agentes LangGraph + GroqCloud procesando, embeddings locales con fastembed) hasta un sistema completo, integrado y demostrable que cubra: recepción multicanal de denuncias, análisis con agentes autónomos, sellado blockchain en zkSYS Genesis Testnet, clustering forense e inteligencia para el dashboard DIVINCRI.
+Completar el desarrollo de IntelExtorsión desde su estado actual (arquitectura base funcional: Docker Compose operativo, 6/9 tests pasando, frontend Next.js en build, agentes LangGraph + GroqCloud procesando, embeddings locales con fastembed) hasta un sistema completo, integrado y demostrable que cubra: recepción multicanal de reportes ciudadanos, análisis con agentes autónomos, sellado blockchain en zkSYS Genesis Testnet, clustering forense e inteligencia para el dashboard DIVINCRI.
 
 El plan organiza 6 fases (0–5) distribuidas entre 5 personas del equipo, detallando objetivos, componentes, entregables y criterios de aceptación de cada fase.
 
@@ -52,7 +58,7 @@ El plan organiza 6 fases (0–5) distribuidas entre 5 personas del equipo, detal
 
 ---
 
-### FASE 0 — Migración a zkSYS Genesis Testnet
+### FASE 0 — Migración a zkSYS Tanenbaum Testnet
 
 | Atributo | Valor |
 |----------|-------|
@@ -60,34 +66,40 @@ El plan organiza 6 fases (0–5) distribuidas entre 5 personas del equipo, detal
 | **Prioridad** | CRÍTICA — Bloquea todas las demás fases |
 | **Duración estimada** | 1–2 días |
 | **Dependencias** | Ninguna |
-| **Riesgo si no se hace** | Todo el sistema sigue apuntando a Rollux Mainnet; los contratos no se pueden desplegar en testnet; la demo no funciona sin fondos reales |
+| **Riesgo si no se hace** | Inconsistencias entre RPC, chain ID y contratos desplegados; el sellado blockchain falla o apunta a una red sin fondos/controlados. |
 
 #### 4.0.1 Objetivo
 
-Migrar la configuración de red de Syscoin Rollux Mainnet (Chain ID 570) a zkSYS Genesis Testnet para desarrollo y demo. Actualizar todos los puntos del sistema que referencian la red anterior.
+Unificar toda la configuración blockchain del sistema para que apunte a la red donde los contratos están realmente desplegados: **zkSYS Tanenbaum Testnet (Chain ID 57057)**.
 
 #### 4.0.2 Problema que resuelve
 
-El sistema actual apunta a `WEB3_PROVIDER_URL=https://rpc.rollux.com` y `CHAIN_ID=570` (Rollux Mainnet). En testnet los contratos se pueden desplegar sin fondos reales, las transacciones son gratuitas y el equipo puede demostrar el sellado blockchain sin riesgo económico.
+El sistema tenía referencias dispersas a Rollux Mainnet (570), zkSYS Genesis Testnet (5700) y zkSYS Tanenbaum Testnet (57057). Eso provocaba errores de chain ID, direcciones de contratos inválidas y fallos en el sellado/verificación.
 
 #### 4.0.3 Archivos a modificar
 
 | Archivo | Cambio |
 |---------|--------|
-| `.env.example` | `WEB3_PROVIDER_URL`, `CHAIN_ID`, `EXPLORER_URL` |
-| `intel_extorsion_web3_system/hardhat.config.js` | Añadir red `zkSYSTestnet` |
-| `intel_extorsion_web3_system/backend/app/config.py` | Chain ID y RPC URL |
-| `intel_extorsion_frontend/src/lib/web3Config.ts` | Chain config para Pali Wallet |
-| `docker-compose.yml` | Variables de entorno de red |
+| `.env.example` | `WEB3_PROVIDER_URL`, `CHAIN_ID`, `EXPLORER_URL`, `NETWORK_NAME` |
+| `docker-compose.yml` | Variables de entorno de red para agent-api, web3-backend y frontends |
+| `intel_extorsion_web3_system/hardhat.config.js` | Red `zkSYSTestnet` con RPC y chain ID correctos |
+| `intel_extorsion_web3_system/backend/app/config/settings.py` | Defaults a Tanenbaum |
+| `intel_extorsion_web3_system/dapp/` | Chain config, RPC, explorer |
+| `intel_extorsion_frontend_citizen/`, `intel_extorsion_frontend_police/` | `.env.example` con Tanenbaum |
 
-#### 4.0.4 Configuración zkSYS Genesis Testnet
+#### 4.0.4 Configuración zkSYS Tanenbaum Testnet
 
-```
-WEB3_PROVIDER_URL=https://rpc.genesis.zksys.io
-CHAIN_ID=5700
-EXPLORER_URL=https://explorer.genesis.zksys.io
-NETWORK_NAME=zkSYS Genesis Testnet
-FAUCET_URL=https://faucet.genesis.zksys.io
+```bash
+WEB3_PROVIDER_URL=https://rpc-zk.tanenbaum.io
+CHAIN_ID=57057
+EXPLORER_URL=https://explorer-zk.tanenbaum.io
+NETWORK_NAME="zkSYS Tanenbaum Testnet"
+
+# Contratos desplegados
+CONTRACT_EVIDENCE_REGISTRY=0x1A9eB1a4C261AE793e21101a3E5c14003dcF4dEb
+CONTRACT_CASE_MANAGER=0x3576cb05B2c4094e8f97639892D235044d7476a1
+CONTRACT_DID_REGISTRY=0x8481c85e54f50C676f0fc37f90848030c3B12bB9
+CONTRACT_TOKEN=0x622AA147eD0238840ceb215941D5E8CD997896F0
 ```
 
 ```javascript
@@ -104,14 +116,14 @@ networks: {
 
 #### 4.0.5 Entregables
 
-- `.env.example` actualizado con zkSYS Genesis Testnet
-- `hardhat.config.js` con nueva red configurada
-- Confirmación de conectividad: `npx hardhat run scripts/checkNetwork.js --network zkSYSTestnet`
-- Wallet institucional con fondos del faucet para despliegue
+- `.env.example` actualizado con zkSYS Tanenbaum Testnet.
+- `hardhat.config.js` con red configurada.
+- Contratos desplegados en Tanenbaum y direcciones documentadas.
+- Confirmación de conectividad: `npx hardhat run scripts/checkNetwork.js --network zkSYSTestnet`.
 
 #### 4.0.6 Estado de implementación
 
-**Implementado:** ✅ Sí — Todos los archivos de configuración actualizados a zkSYS Genesis Testnet. Script `checkNetwork.js` creado para verificar conectividad. Pendiente solicitar fondos del faucet para wallet institucional.
+**Implementado:** ✅ Sí — Red unificada a zkSYS Tanenbaum Testnet. Sellado y verificación de evidencias funcionando end-to-end con contratos reales.
 
 #### 4.0.7 Criterios de aceptación
 
@@ -800,6 +812,41 @@ Tras un análisis exhaustivo del código fuente (junio 2026) y su contraste cont
 | **Total** | **28** | **~54 días adicionales** |
 
 > **Nota:** Estas tareas no reemplazan el contenido original de las fases, sino que lo complementan. Las fases originales 0–5 ya están descritas en las secciones 4.0–4.5 de este documento. La sección 7 identifica brechas detectadas durante el code review y las asigna a la fase correspondiente para su ejecución.
+
+---
+
+## 8. Estado Post-Revisión (30 de junio de 2026)
+
+Durante la revisión integral se ejecutaron correcciones críticas y se dejó el sistema en un estado funcional demostrable. A continuación el resumen:
+
+### ✅ Completado en esta revisión
+
+| Tarea | Archivos / componentes afectados | Resultado |
+|-------|----------------------------------|-----------|
+| Unificación de red blockchain | `.env.example`, `docker-compose.yml`, `hardhat.config.js`, `walletStore.ts`, `usePaliWallet.js`, `WalletConnect.jsx`, `web3_service.py`, `settings.py` | Red oficial: **zkSYS Tanenbaum Testnet (Chain ID 57057)**. Contratos desplegados y validados. |
+| Corrección Web3 Backend | `web3_service.py`, `main.py` | Se corrigieron `NameError` en custodia/casos/token, hash `bytes` en verificación y se añadió `GET /v1/evidencias/{hash}/verificar`. |
+| Sellado y verificación real | Endpoint `/v1/evidencias` | Evidencias se sellan on-chain con hash SHA-256 y se verifica existencia vía `hashToEvidenceId`. |
+| Corrección bots de canales | `whatsapp_bot.py`, `telegram_bot.py`, `discord_bot.py` | Se implementó menú RF-01 y se eliminó PII de `metadata_json` (se usa `session_id` hash). |
+| Corrección Alert Agent | `system_prompts.py`, `alert_agent.py`, `agent_service.py` | Las alertas ahora usan el nivel de riesgo real (no siempre "medio"). |
+| Corrección Respond Agent | `respond_agent.py` | Tracking code de 8 caracteres y mensaje ciudadano neutral. |
+| Corrección frontend tracking | `tracking/page.tsx`, `api.ts` | Ya no usa `localhost:8000` hardcodeado; apunta al agent API y explorer Tanenbaum. |
+| Manejo de errores del grafo | `agent_service.py`, `main_api.py` | Las denuncias no se quedan congeladas en `en_analisis`; pasan a `error_procesamiento`. |
+| Tests de integración | `tests/test_integration.py`, `tests/Dockerfile`, `docker-compose.test.yml` | **10/10 tests pasan** en contenedor con `MOCK_LLM=true`. |
+| Mock LLM determinista | `agent_graph.py`, `settings.py` | Permite CI/CD y desarrollo sin consumir tokens Groq. |
+| Precarga modelo fastembed | `deployments/Dockerfile` | El modelo `all-MiniLM-L6-v2` se descarga durante el build, no en runtime. |
+| Sincronización enum PostgreSQL | `db_session.py` | `error_procesamiento` se añade al enum `estadodenuncia` sin recrear la BD. |
+| Autenticación JWT | `auth_service.py`, `auth_router.py`, `database.py`, `page.tsx`, `api.ts` | Login real con usuarios seed en frontend policial; endpoints protegidos. |
+| Migraciones Alembic | `alembic.ini`, `alembic/versions/7a42b88cad10_add_usuarios.py` | Configuración de migraciones y tabla `usuarios` aplicada. |
+| Alertas push | `notification_service.py`, `agent_service.py`, `settings.py` | Envío de webhook HTTP y email SMTP al persistir alertas oficiales. |
+| Mapa de calor PNP | `plan_cuadrante_la_libertad.geojson`, `heatmap_router.py` | GeoJSON de cuadrantes y endpoint `/v1/heatmap/cuadrantes`. |
+
+### ⚠️ Pendiente (siguiente iteración)
+
+- Implementar Fase 2 avanzada: acta forense PDF, log de auditoría, endpoints faltantes de contratos.
+- Notificaciones SMS/SIRDIC-SIDPOL.
+- CRUD de usuarios en frontend policial.
+- Integrar GeoJSON oficial del Plan Cuadrante PNP.
+- Anonimización con Presidio y OSINT real.
 
 ---
 

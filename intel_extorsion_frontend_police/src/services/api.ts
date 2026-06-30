@@ -1,9 +1,26 @@
 import axios from 'axios';
 import { Denuncia, Alerta, MetricasDashboard, CriminalGraph, Cluster, ClusterDenunciaAnonima, HeatmapPoint } from '@/types';
 
-const agentApi = axios.create({
+export interface LoginResponse {
+  access_token: string;
+  token_type: string;
+  rol: string;
+  nombre_completo: string;
+}
+
+export const agentApi = axios.create({
   baseURL: process.env.NEXT_PUBLIC_AGENT_API_URL || '/api/agents',
   timeout: 30000,
+});
+
+agentApi.interceptors.request.use((config) => {
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('police_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
 });
 
 const web3Api = axios.create({
@@ -146,4 +163,18 @@ export const clusterService = {
 export const heatmapService = {
   obtener: (params?: { zona?: string; periodo?: number }) =>
     agentApi.get<{ puntos: HeatmapPoint[] }>('/heatmap', { params }),
+};
+
+export const authService = {
+  login: (data: { username: string; password: string }) =>
+    agentApi.post<LoginResponse>('/auth/login', data, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    }),
+  me: () => agentApi.get<{ username: string; rol: string; nombre_completo: string }>('/auth/me'),
+  logout: () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('police_token');
+      localStorage.removeItem('police_user');
+    }
+  },
 };

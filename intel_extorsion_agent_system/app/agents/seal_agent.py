@@ -47,7 +47,7 @@ async def node_seal(state: AgenteState) -> Dict[str, Any]:
             "sellado": success,
             "tx_hash": tx_hash,
             "block_number": block_number,
-            "red": "zkSYS Genesis Testnet",
+            "red": "zkSYS Tanenbaum Testnet",
             "content_hash": content_hash,
             "case_id": case_id
         },
