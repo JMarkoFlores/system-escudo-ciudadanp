@@ -36,8 +36,9 @@ class WhatsAppBot:
         self.token = token
         self.api_url = "https://gate.whapi.cloud"
         self.http_client = httpx.AsyncClient(timeout=30.0)
-        self.user_states: Dict[str, str] = {}  # chat_id -> 'idle' | 'waiting_for_denuncia'
-        self.pending_batches: Dict[str, Dict[str, Any]] = {}  # chat_id -> {messages: [], timer: asyncio.Task | None}
+        self.user_states: Dict[str, str] = {}
+        self.user_data: Dict[str, Dict[str, Any]] = {}
+        self.pending_batches: Dict[str, Dict[str, Any]] = {}
         self.start_time = datetime.now()
 
     async def close(self):
@@ -461,6 +462,14 @@ class WhatsAppBot:
                             tipo_mapped = "audio"
                         elif msg_type == "document":
                             tipo_mapped = "documento"
+
+                        # Transcribir audio automáticamente con Whisper
+                        if msg_type in ("audio", "voice"):
+                            stt_res = await transcribe_audio(dest_path)
+                            if stt_res.get("transcripcion"):
+                                textos.append(f"[Transcripción de audio]: {stt_res['transcripcion']}")
+                                logger.info(f"[WhatsApp] Audio transcrito: {len(stt_res['transcripcion'])} chars")
+
                         archivos_descargados.append({
                             "path": dest_path,
                             "tipo": tipo_mapped,
