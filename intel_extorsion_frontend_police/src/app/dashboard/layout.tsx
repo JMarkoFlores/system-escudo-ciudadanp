@@ -27,6 +27,7 @@ const navItems = [
   { label: 'Analítico', href: '/dashboard/analitico', icon: BarChart3 },
   { label: 'Redes Criminales', href: '/dashboard/grafos', icon: Network },
   { label: 'Alertas', href: '/dashboard/alertas', icon: ShieldAlert },
+  { label: 'Revelaciones', href: '/dashboard/revelaciones', icon: Users },
   { label: 'Usuarios', href: '/dashboard/usuarios', icon: Users, adminOnly: true },
 ];
 

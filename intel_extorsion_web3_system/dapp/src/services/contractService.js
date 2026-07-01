@@ -30,11 +30,31 @@ const EvidenceSealABI = [
   "event EvidenceSealed(uint256 indexed sealId, uint256 indexed evidenceId, bytes32 indexed sealHash, address sealedBy, uint256 timestamp)"
 ];
 
+const IdentityRevealABI = [
+  "function requestReveal(string _citizenDID, string _caseId, string _motivoRevelacion) returns (uint256)",
+  "function authorizeReveal(uint256 _requestId)",
+  "function rejectReveal(uint256 _requestId, string _motivo)",
+  "function executeReveal(uint256 _requestId, string _civilIdentityHash)",
+  "function revokeAuthorization(uint256 _requestId)",
+  "function markExpired(uint256 _requestId)",
+  "function getRequest(uint256 _requestId) view returns (tuple(uint256 id, string citizenDID, string caseId, string requestedByDID, string motivoRevelacion, uint256 timestamp, uint256 expiresAt, uint8 state, string civilIdentityHash, uint256 revealedAt, address revealedBy))",
+  "function getRequestsByCitizen(string _citizenDID) view returns (uint256[])",
+  "function getRequestsByCase(string _caseId) view returns (uint256[])",
+  "function getTotalReveals() view returns (uint256)",
+  "function getStateLabel(uint8 _state) view returns (string)",
+  "event RevealRequested(uint256 indexed requestId, string indexed citizenDID, string indexed caseId, string requestedByDID, string motivoRevelacion, uint256 expiresAt)",
+  "event RevealAuthorized(uint256 indexed requestId, string indexed citizenDID, uint256 timestamp)",
+  "event RevealExecuted(uint256 indexed requestId, string indexed citizenDID, string civilIdentityHash, address revealedBy, uint256 timestamp)",
+  "event RevealRevoked(uint256 indexed requestId, string indexed citizenDID, string motivo, uint256 timestamp)",
+  "event RevealExpired(uint256 indexed requestId, uint256 timestamp)"
+];
+
 const CONTRACTS = {
   evidenceRegistry: import.meta.env.VITE_CONTRACT_EVIDENCE_REGISTRY || '',
   caseManager: import.meta.env.VITE_CONTRACT_CASE_MANAGER || '',
   didRegistry: import.meta.env.VITE_CONTRACT_DID_REGISTRY || '',
   evidenceSeal: import.meta.env.VITE_CONTRACT_EVIDENCE_SEAL || '',
+  identityReveal: import.meta.env.VITE_CONTRACT_IDENTITY_REVEAL || '',
   token: import.meta.env.VITE_CONTRACT_TOKEN || '',
 };
 
@@ -74,6 +94,10 @@ export class ContractService {
 
   getEvidenceSeal() {
     return this._getContract(CONTRACTS.evidenceSeal, EvidenceSealABI);
+  }
+
+  getIdentityReveal() {
+    return this._getContract(CONTRACTS.identityReveal, IdentityRevealABI);
   }
 
   // ─── DID ────────────────────────────────────────────────────────
@@ -213,6 +237,97 @@ export class ContractService {
     if (!contract) return null;
     const sealId = await contract.getSealByEvidenceId(evidenceId);
     return Number(sealId) > 0 ? Number(sealId) : null;
+  }
+
+  // ─── IDENTITY REVEAL ──────────────────────────────────────────
+
+  /**
+   * Ciudadano autoriza explícitamente la revelación de su identidad
+   * @param {number} requestId - ID de la solicitud
+   * @returns {Promise<{txHash: string}>}
+   */
+  async authorizeReveal(requestId) {
+    const contract = this.getIdentityReveal();
+    if (!contract) throw new Error('IdentityReveal contract not configured');
+    const tx = await contract.authorizeReveal(requestId);
+    await tx.wait();
+    return { txHash: tx.hash };
+  }
+
+  /**
+   * Ciudadano rechaza la solicitud de revelación
+   * @param {number} requestId - ID de la solicitud
+   * @param {string} motivo - Motivo del rechazo
+   * @returns {Promise<{txHash: string}>}
+   */
+  async rejectReveal(requestId, motivo = '') {
+    const contract = this.getIdentityReveal();
+    if (!contract) throw new Error('IdentityReveal contract not configured');
+    const tx = await contract.rejectReveal(requestId, motivo);
+    await tx.wait();
+    return { txHash: tx.hash };
+  }
+
+  /**
+   * Ciudadano revoca una autorización previa
+   * @param {number} requestId - ID de la solicitud
+   * @returns {Promise<{txHash: string}>}
+   */
+  async revokeAuthorization(requestId) {
+    const contract = this.getIdentityReveal();
+    if (!contract) throw new Error('IdentityReveal contract not configured');
+    const tx = await contract.revokeAuthorization(requestId);
+    await tx.wait();
+    return { txHash: tx.hash };
+  }
+
+  /**
+   * Obtiene el detalle de una solicitud de revelación
+   * @param {number} requestId - ID de la solicitud
+   * @returns {Promise<Object>}
+   */
+  async getRevealRequest(requestId) {
+    const contract = this.getIdentityReveal();
+    if (!contract) throw new Error('IdentityReveal contract not configured');
+    const r = await contract.getRequest(requestId);
+    const stateLabels = ['Pendiente', 'Autorizada', 'Revelada', 'Rechazada', 'Expirada'];
+    return {
+      id: Number(r.id),
+      citizenDID: r.citizenDID,
+      caseId: r.caseId,
+      requestedByDID: r.requestedByDID,
+      motivoRevelacion: r.motivoRevelacion,
+      timestamp: Number(r.timestamp),
+      expiresAt: Number(r.expiresAt),
+      state: Number(r.state),
+      stateLabel: stateLabels[Number(r.state)] || 'Desconocido',
+      civilIdentityHash: r.civilIdentityHash,
+      revealedAt: Number(r.revealedAt),
+      revealedBy: r.revealedBy,
+    };
+  }
+
+  /**
+   * Obtiene todas las solicitudes de revelación de un ciudadano
+   * @param {string} citizenDID - DID del ciudadano
+   * @returns {Promise<number[]>}
+   */
+  async getRevealRequestsByCitizen(citizenDID) {
+    const contract = this.getIdentityReveal();
+    if (!contract) throw new Error('IdentityReveal contract not configured');
+    const ids = await contract.getRequestsByCitizen(citizenDID);
+    return ids.map(id => Number(id));
+  }
+
+  /**
+   * Obtiene el total de revelaciones ejecutadas
+   * @returns {Promise<number>}
+   */
+  async getTotalReveals() {
+    const contract = this.getIdentityReveal();
+    if (!contract) return 0;
+    const total = await contract.getTotalReveals();
+    return Number(total);
   }
 
   // ─── UTILITY ────────────────────────────────────────────────────

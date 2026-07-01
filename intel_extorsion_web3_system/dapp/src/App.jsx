@@ -6,6 +6,7 @@ import DIDResolver from './components/DIDResolver';
 import EvidenceUploader from './components/EvidenceUploader';
 import EvidenceVerifier from './components/EvidenceVerifier';
 import ChannelConnect from './components/ChannelConnect';
+import RevealAuthorization from './components/RevealAuthorization';
 
 function App() {
   const { provider, isConnected, account, error } = usePaliWallet();
@@ -111,7 +112,8 @@ function App() {
               {[
                 { id: 'identidad', label: '1. Identidad Descentralizada', icon: '🆔' },
                 { id: 'evidencia', label: '2. Custodia de Evidencia', icon: '🔒' },
-                { id: 'canales', label: '3. Otros Canales', icon: '📡' },
+                { id: 'autorizacion', label: '3. Autorización de Revelación', icon: '🔐' },
+                { id: 'canales', label: '4. Otros Canales', icon: '📡' },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -168,7 +170,24 @@ function App() {
               </div>
             )}
 
-            {/* Section 3: Channels */}
+            {/* Section 3: Identity Reveal Authorization */}
+            {activeSection === 'autorizacion' && (
+              <div>
+                <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-6 text-sm text-orange-800">
+                  <p className="font-semibold mb-1">📌 Control total de tu identidad</p>
+                  <ol className="text-xs leading-relaxed list-decimal pl-4 space-y-1">
+                    <li><strong>Solicitud:</strong> La DIVINCRI solicita vincular tu DID con tu identidad civil para un caso</li>
+                    <li><strong>Notificación:</strong> Recibes una solicitud con el motivo y detalles del caso</li>
+                    <li><strong>Decisión:</strong> Tú decides si autorizas, rechazas o ignoras la solicitud</li>
+                    <li><strong>Revocación:</strong> Puedes revocar tu autorización en cualquier momento antes de que se ejecute</li>
+                    <li><strong>Trazabilidad:</strong> Cada acción queda registrada en blockchain de forma inmutable</li>
+                  </ol>
+                </div>
+                <RevealAuthorization provider={provider} account={account} />
+              </div>
+            )}
+
+            {/* Section 4: Channels */}
             {activeSection === 'canales' && (
               <ChannelConnect />
             )}

@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     CONTRACT_CASE_MANAGER: Optional[str] = None
     CONTRACT_TOKEN: Optional[str] = None
     CONTRACT_EVIDENCE_SEAL: Optional[str] = None
+    CONTRACT_IDENTITY_REVEAL: Optional[str] = None
     
     # IPFS
     IPFS_API_URL: str = "https://api.pinata.cloud"

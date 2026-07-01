@@ -432,6 +432,114 @@ async def get_audit_logs():
         "sealed": audit_seal_service.get_sealed_logs()
     }
 
+# --------- Identity Reveal ---------
+
+class RevealRequest(BaseModel):
+    citizen_did: str = Field(..., description="DID del ciudadano (seudónimo)")
+    case_id: str = Field(..., description="ID del caso")
+    motivo_revelacion: str = Field(..., description="Motivo justificado de la solicitud")
+
+class RevealRequestResponse(BaseModel):
+    success: bool
+    request_id: Optional[int] = None
+    citizen_did: str
+    case_id: str
+    tx_hash: Optional[str] = None
+    message: str
+
+class RevealExecuteRequest(BaseModel):
+    request_id: int
+    civil_identity_hash: str = Field(..., description="Hash de la identidad civil del ciudadano")
+
+class RevealStatusResponse(BaseModel):
+    request_id: int
+    citizen_did: str
+    case_id: str
+    motivo_revelacion: str
+    state: int
+    state_label: str
+    timestamp: int
+    expires_at: int
+    civil_identity_hash: Optional[str] = None
+    revealed_at: Optional[int] = None
+
+@app.post("/v1/reveal/solicitar", response_model=RevealRequestResponse)
+async def solicitar_revelacion(req: RevealRequest):
+    """
+    La DIVINCRI solicita la revelación de identidad de un ciudadano.
+    El ciudadano recibirá una notificación en su DApp para autorizar o rechazar.
+    """
+    try:
+        result = web3_service.request_reveal(
+            citizen_did=req.citizen_did,
+            case_id=req.case_id,
+            motivo_revelacion=req.motivo_revelacion
+        )
+        return RevealRequestResponse(
+            success=result.get("success", False),
+            request_id=result.get("request_id"),
+            citizen_did=req.citizen_did,
+            case_id=req.case_id,
+            tx_hash=result.get("tx_hash"),
+            message="Solicitud de revelación enviada. El ciudadano recibirá una notificación en su DApp."
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al solicitar revelación: {str(e)}")
+
+@app.get("/v1/reveal/pendientes/{citizen_did}")
+async def obtener_solicitudes_pendientes(citizen_did: str):
+    """
+    Obtiene las solicitudes de revelación pendientes para un ciudadano.
+    El ciudadano consulta esto en su DApp para ver qué autorizar.
+    """
+    try:
+        requests = web3_service.get_reveal_requests_by_citizen(citizen_did)
+        return {
+            "citizen_did": citizen_did,
+            "requests": requests,
+            "total": len(requests)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener solicitudes: {str(e)}")
+
+@app.get("/v1/reveal/{request_id}")
+async def obtener_detalle_solicitud(request_id: int):
+    """Obtiene el detalle completo de una solicitud de revelación."""
+    try:
+        req = web3_service.get_reveal_request(request_id)
+        if not req or req.get("id", 0) == 0:
+            raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+        return req
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener solicitud: {str(e)}")
+
+@app.get("/v1/reveal/caso/{case_id}")
+async def obtener_solicitudes_por_caso(case_id: str):
+    """Obtiene todas las solicitudes de revelación para un caso específico."""
+    try:
+        requests = web3_service.get_reveal_requests_by_case(case_id)
+        return {
+            "case_id": case_id,
+            "requests": requests,
+            "total": len(requests)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener solicitudes: {str(e)}")
+
+@app.get("/v1/reveal/stats")
+async def estadisticas_revelaciones():
+    """Obtiene estadísticas de revelaciones de identidad."""
+    try:
+        total = web3_service.get_total_reveals()
+        return {
+            "total_reveals": total,
+            "blockchain": "zkSYS Tanenbaum Testnet"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener estadísticas: {str(e)}")
+
 # ==========================================
 # Helpers
 # ==========================================

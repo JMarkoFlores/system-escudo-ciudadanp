@@ -464,5 +464,131 @@ class Web3Service:
 
         return {**receipt_dict, "token_id": token_id}
 
+    # ==========================================
+    # IdentityReveal Methods
+    # ==========================================
+    
+    def _load_identity_reveal_contract(self):
+        """Carga el contrato IdentityReveal si está configurado."""
+        zero_addr = "0x0000000000000000000000000000000000000000"
+        contract_addr = getattr(settings, 'CONTRACT_IDENTITY_REVEAL', None)
+        
+        if contract_addr and contract_addr != zero_addr:
+            return self.w3.eth.contract(
+                address=Web3.to_checksum_address(contract_addr),
+                abi=self._load_abi("IdentityReveal")
+            )
+        return None
+    
+    def request_reveal(
+        self,
+        citizen_did: str,
+        case_id: str,
+        motivo_revelacion: str
+    ) -> Dict[str, Any]:
+        """
+        La DIVINCRI solicita la revelación de identidad de un ciudadano.
+        """
+        contract = self._load_identity_reveal_contract()
+        if not contract:
+            return {
+                "success": False,
+                "error": "IdentityReveal contract not configured",
+                "message": "El contrato IdentityReveal no está desplegado"
+            }
+        
+        func = contract.functions.requestReveal(
+            citizen_did,
+            case_id,
+            motivo_revelacion
+        )
+        
+        receipt_dict, raw_receipt = self._send_transaction(func)
+        
+        # Extraer request_id del evento
+        logs = contract.events.RevealRequested().process_receipt(raw_receipt)
+        request_id = logs[0].args.requestId if logs else None
+        
+        return {
+            "success": receipt_dict["status"] == 1,
+            "request_id": request_id,
+            "tx_hash": receipt_dict["tx_hash"],
+            "block_number": receipt_dict["block_number"],
+            "citizen_did": citizen_did,
+            "case_id": case_id,
+        }
+    
+    def get_reveal_request(self, request_id: int) -> Optional[Dict[str, Any]]:
+        """Obtiene el detalle de una solicitud de revelación."""
+        contract = self._load_identity_reveal_contract()
+        if not contract:
+            return None
+        
+        try:
+            req = contract.functions.getRequest(request_id).call()
+            state_labels = ["Pendiente", "Autorizada", "Revelada", "Rechazada", "Expirada"]
+            
+            return {
+                "id": req[0],
+                "citizen_did": req[1],
+                "case_id": req[2],
+                "requested_by_did": req[3],
+                "motivo_revelacion": req[4],
+                "timestamp": req[5],
+                "expires_at": req[6],
+                "state": req[7],
+                "state_label": state_labels[req[7]] if req[7] < len(state_labels) else "Desconocido",
+                "civil_identity_hash": req[8] if req[8] else None,
+                "revealed_at": req[9] if req[9] > 0 else None,
+                "revealed_by": req[10] if req[10] != "0x0000000000000000000000000000000000000000" else None,
+            }
+        except Exception:
+            return None
+    
+    def get_reveal_requests_by_citizen(self, citizen_did: str) -> List[Dict[str, Any]]:
+        """Obtiene todas las solicitudes de revelación de un ciudadano."""
+        contract = self._load_identity_reveal_contract()
+        if not contract:
+            return []
+        
+        try:
+            request_ids = contract.functions.getRequestsByCitizen(citizen_did).call()
+            requests = []
+            for rid in request_ids:
+                req = self.get_reveal_request(rid)
+                if req:
+                    requests.append(req)
+            return requests
+        except Exception:
+            return []
+    
+    def get_reveal_requests_by_case(self, case_id: str) -> List[Dict[str, Any]]:
+        """Obtiene todas las solicitudes de revelación para un caso."""
+        contract = self._load_identity_reveal_contract()
+        if not contract:
+            return []
+        
+        try:
+            request_ids = contract.functions.getRequestsByCase(case_id).call()
+            requests = []
+            for rid in request_ids:
+                req = self.get_reveal_request(rid)
+                if req:
+                    requests.append(req)
+            return requests
+        except Exception:
+            return []
+    
+    def get_total_reveals(self) -> int:
+        """Obtiene el total de revelaciones ejecutadas."""
+        contract = self._load_identity_reveal_contract()
+        if not contract:
+            return 0
+        
+        try:
+            return contract.functions.getTotalReveals().call()
+        except Exception:
+            return 0
+
 # Singleton
 web3_service = Web3Service()

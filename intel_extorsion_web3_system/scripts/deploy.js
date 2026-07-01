@@ -42,7 +42,14 @@ async function main() {
   const evidenceSealAddress = await evidenceSeal.getAddress();
   console.log('EvidenceSeal deployed to:', evidenceSealAddress);
 
-  // 6. Grant roles to deployer and cross-contract
+  // 6. Deploy IdentityReveal (explicit authorization for identity revelation)
+  const IdentityReveal = await ethers.getContractFactory('IdentityReveal');
+  const identityReveal = await IdentityReveal.deploy();
+  await identityReveal.waitForDeployment();
+  const identityRevealAddress = await identityReveal.getAddress();
+  console.log('IdentityReveal deployed to:', identityRevealAddress);
+
+  // 7. Grant roles to deployer and cross-contract
   console.log('Configuring roles...');
 
   // EvidenceRegistry roles
@@ -57,6 +64,9 @@ async function main() {
 
   // EvidenceSeal roles
   await evidenceSeal.grantRole(await evidenceSeal.SEALER_ROLE(), deployer.address);
+
+  // IdentityReveal roles - deployer gets DIVINCRI_ROLE for testing
+  await identityReveal.grantRole(await identityReveal.DIVINCRI_ROLE(), deployer.address);
 
   // CaseManager roles
   await caseManager.grantRole(await caseManager.FISCAL_ROLE(), deployer.address);
@@ -77,6 +87,7 @@ async function main() {
       CaseManager: caseManagerAddress,
       IntelExtorsionToken: ieTokenAddress,
       EvidenceSeal: evidenceSealAddress,
+      IdentityReveal: identityRevealAddress,
     },
   };
 
