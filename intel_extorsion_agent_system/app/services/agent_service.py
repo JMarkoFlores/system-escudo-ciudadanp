@@ -143,6 +143,14 @@ class AgentExecutionService:
         if final_state.seal_status:
             denuncia.seal_status = final_state.seal_status
         
+        # Guardar resultados de sellado por evidencia en metadata_json
+        if final_state.resultado_seal and final_state.resultado_seal.get("seal_results"):
+            meta = denuncia.metadata_json or {}
+            meta["seal_results"] = final_state.resultado_seal["seal_results"]
+            meta["seal_total_evidencias"] = final_state.resultado_seal.get("total_evidencias", 0)
+            meta["seal_sellados_exitosos"] = final_state.resultado_seal.get("sellados_exitosos", 0)
+            denuncia.metadata_json = meta
+        
         # Guardar nivel de riesgo
         if final_state.nivel_riesgo:
             denuncia.nivel_riesgo = NivelRiesgoDB(final_state.nivel_riesgo.value)
@@ -308,17 +316,38 @@ class AgentExecutionService:
         await self.db.commit()
 
     def _mapear_estado_final(self, state: AgenteState) -> EstadoDenuncia:
+        """
+        Mapea el estado del grafo a los 6 estados del ciclo de vida (RF-04):
+        1. en_ingesta → RECIBIDA
+        2. en_analisis → EN_ANÁLISIS
+        3. procesado → PROCESADA_AISLADA
+        4. correlacionado → CORRELACIONADA
+        5. en_seguimiento_policial → EN_SEGUIMIENTO_POLICIAL
+        6. archivado → ARCHIVADA
+        """
+        # Si el intake rechazó → archivado
+        if state.resultado_intake and not state.resultado_intake.get("valido", True):
+            return EstadoDenuncia.archivado
+
+        # Si hay alerta generada (riesgo alto/crítico) → en_seguimiento_policial
         if state.resultado_alerta and state.resultado_alerta.get("alerta_generada"):
-            return EstadoDenuncia.alerta_generada
-        if state.resultado_riesgo:
-            return EstadoDenuncia.riesgo_evaluado
-        if state.resultado_correlacion:
+            return EstadoDenuncia.en_seguimiento_policial
+
+        # Si el clustering encontró correlación → correlacionado
+        if state.resultado_cluster and state.resultado_cluster.get("cluster_id"):
             return EstadoDenuncia.correlacionado
+
+        # Si el NLP procesó el contenido → procesado (aislado, sin correlación)
         if state.resultado_nlp:
             return EstadoDenuncia.procesado
-        if state.resultado_intake:
-            # Si el intake rechazó la denuncia, se archiva para no dejarla congelada
-            if not state.resultado_intake.get("valido", True):
-                return EstadoDenuncia.archivado
+
+        # Si pasó por risk pero no hay alerta → procesado
+        if state.resultado_riesgo:
             return EstadoDenuncia.procesado
+
+        # Si está en intake → en_ingesta
+        if state.resultado_intake:
+            return EstadoDenuncia.en_ingesta
+
+        # Default → en_analisis
         return EstadoDenuncia.en_analisis

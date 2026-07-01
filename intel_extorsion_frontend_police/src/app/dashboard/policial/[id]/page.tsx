@@ -636,41 +636,80 @@ export default function DetalleDenunciaPage() {
             <h2 className="text-base font-semibold text-slate-800 mb-4 flex items-center">
               <Lock size={18} className="mr-2 text-slate-500" /> Preservación Blockchain
             </h2>
-            {denuncia.seal_tx_hash ? (
-              <div className="space-y-4">
-                <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-xs space-y-3 font-mono text-slate-700">
-                  <div className="flex justify-between">
-                    <span className="text-slate-400 font-sans">Estado Custodia:</span>
-                    <span className="text-green-700 font-semibold flex items-center">
-                      <CheckCircle2 size={12} className="mr-1 text-green-600" /> {denuncia.seal_status || 'Completado'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400 font-sans">Bloque:</span>
-                    <span className="font-semibold text-slate-800">{denuncia.seal_block || '—'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400 font-sans">Red:</span>
-                    <span className="font-semibold text-slate-800">zkSYS Testnet</span>
-                  </div>
-                  <div className="pt-2 border-t border-blue-100">
-                    <span className="text-slate-400 font-sans block mb-1">Hash de la Transacción:</span>
-                    <span className="text-[10px] text-blue-800 break-all select-all font-semibold block bg-white p-2 border rounded">
-                      {denuncia.seal_tx_hash}
-                    </span>
-                  </div>
-                </div>
+            {denuncia.seal_tx_hash ? (() => {
+              const sealAgent = denuncia.resultados?.find((r: any) => r.agente === 'seal');
+              const sealResults = sealAgent?.seal_results || [];
+              const totalEvidences = sealAgent?.total_evidencias || sealResults.length || 1;
+              const sealedCount = sealAgent?.sellados_exitosos || sealResults.length || 1;
 
-                <a
-                  href={`https://explorer-zk.tanenbaum.io/tx/${denuncia.seal_tx_hash}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition text-xs shadow-sm cursor-pointer"
-                >
-                  Ver en zkSYS Explorer <ExternalLink size={12} className="ml-1.5" />
-                </a>
-              </div>
-            ) : (
+              return (
+                <div className="space-y-4">
+                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-xs space-y-3 font-mono text-slate-700">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400 font-sans">Evidencias Selladas:</span>
+                      <span className="text-green-700 font-semibold flex items-center">
+                        <CheckCircle2 size={12} className="mr-1 text-green-600" /> {sealedCount} / {totalEvidences}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400 font-sans">Bloque Principal:</span>
+                      <span className="font-semibold text-slate-800">{denuncia.seal_block || '—'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400 font-sans">Red:</span>
+                      <span className="font-semibold text-slate-800">zkSYS Tanenbaum Testnet</span>
+                    </div>
+                    <div className="pt-2 border-t border-blue-100">
+                      <span className="text-slate-400 font-sans block mb-1">Hash Principal:</span>
+                      <span className="text-[10px] text-blue-800 break-all select-all font-semibold block bg-white p-2 border rounded">
+                        {denuncia.seal_tx_hash}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Individual seal results */}
+                  {sealResults.length > 1 && (
+                    <div className="space-y-2">
+                      {sealResults.map((seal: any, idx: number) => (
+                        <div key={idx} className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-slate-500 font-sans">
+                              {seal.tipo || 'Evidencia'} {idx + 1}
+                            </span>
+                            {seal.success ? (
+                              <span className="text-green-600 font-semibold flex items-center">
+                                <CheckCircle2 size={10} className="mr-1" /> Sellado
+                              </span>
+                            ) : (
+                              <span className="text-yellow-600">Pendiente</span>
+                            )}
+                          </div>
+                          {seal.tx_hash && (
+                            <a
+                              href={`https://explorer-zk.tanenbaum.io/tx/${seal.tx_hash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-500 font-mono text-[10px] break-all"
+                            >
+                              Tx: {seal.tx_hash.slice(0, 24)}... <ExternalLink size={9} className="ml-1 inline" />
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <a
+                    href={`https://explorer-zk.tanenbaum.io/tx/${denuncia.seal_tx_hash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition text-xs shadow-sm cursor-pointer"
+                  >
+                    Ver en zkSYS Explorer <ExternalLink size={12} className="ml-1.5" />
+                  </a>
+                </div>
+              );
+            })() : (
               <div className="text-center py-6 text-slate-400 border border-dashed rounded-lg bg-slate-50/50">
                 <Lock size={28} className="mx-auto mb-2 opacity-50 text-slate-400" />
                 <span className="text-xs block px-4">Evidencia no preservada en blockchain</span>

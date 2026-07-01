@@ -230,52 +230,99 @@ function TrackingContent() {
               </div>
             </div>
 
-            {/* Blockchain Seal Info */}
-            {denuncia.seal_tx_hash && (
-              <div className="bg-blue-950/20 border border-blue-500/30 rounded-2xl p-6 shadow-xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
-                <h3 className="text-lg font-bold mb-4 flex items-center text-blue-400">
-                  <Lock className="mr-2 text-blue-400 animate-pulse" size={20} /> Preservación Blockchain Activa (Custodia Web3)
-                </h3>
-                <div className="grid md:grid-cols-2 gap-4 text-sm">
-                  <div className="space-y-3">
-                    <div className="flex justify-between border-b border-slate-800 pb-2">
-                      <span className="text-slate-400">Nivel de Riesgo Evaluado:</span>
-                      <span className={`font-semibold capitalize px-2 py-0.5 rounded text-xs ${
-                        denuncia.nivel_riesgo === 'critico' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
-                        denuncia.nivel_riesgo === 'alto' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
-                        denuncia.nivel_riesgo === 'medio' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
-                        'bg-green-500/20 text-green-400 border border-green-500/30'
-                      }`}>
-                        {denuncia.nivel_riesgo}
-                      </span>
+            {/* Blockchain Seal Info - Per Evidence */}
+            {denuncia.seal_tx_hash && (() => {
+              const sealAgent = denuncia.resultados?.find(r => r.agente === 'seal');
+              const sealResults = sealAgent?.seal_results || [];
+              const totalEvidences = sealAgent?.total_evidencias || sealResults.length || 1;
+              const sealedCount = sealAgent?.sellados_exitosos || sealResults.length || 1;
+
+              return (
+                <div className="bg-blue-950/20 border border-blue-500/30 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
+                  <h3 className="text-lg font-bold mb-4 flex items-center text-blue-400">
+                    <Lock className="mr-2 text-blue-400 animate-pulse" size={20} /> Preservación Blockchain Activa (Custodia Web3)
+                  </h3>
+                  <div className="mb-3 text-sm text-slate-300">
+                    <span className="text-blue-400 font-semibold">{sealedCount}</span> de <span className="font-semibold">{totalEvidences}</span> evidencia{totalEvidences !== 1 ? 's' : ''} sellada{sealedCount !== 1 ? 's' : ''} en zkSYS Tanenbaum
+                  </div>
+
+                  {/* Seal summary */}
+                  <div className="grid md:grid-cols-2 gap-4 text-sm mb-4">
+                    <div className="space-y-3">
+                      <div className="flex justify-between border-b border-slate-800 pb-2">
+                        <span className="text-slate-400">Nivel de Riesgo:</span>
+                        <span className={`font-semibold capitalize px-2 py-0.5 rounded text-xs ${
+                          denuncia.nivel_riesgo === 'critico' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                          denuncia.nivel_riesgo === 'alto' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
+                          'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                        }`}>
+                          {denuncia.nivel_riesgo}
+                        </span>
+                      </div>
+                      <div className="flex justify-between border-b border-slate-800 pb-2">
+                        <span className="text-slate-400">Bloque Principal:</span>
+                        <span className="font-mono text-slate-200">{denuncia.seal_block || 'Pendiente'}</span>
+                      </div>
+                      <div className="flex justify-between pb-2">
+                        <span className="text-slate-400">Estado:</span>
+                        <span className="text-green-400 font-semibold">{denuncia.seal_status || 'Completado'}</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between border-b border-slate-800 pb-2">
-                      <span className="text-slate-400">Bloque de Registro:</span>
-                      <span className="font-mono text-slate-200">{denuncia.seal_block || 'Pendiente'}</span>
-                    </div>
-                    <div className="flex justify-between pb-2">
-                      <span className="text-slate-400">Estado del Sellado:</span>
-                      <span className="text-green-400 font-semibold">{denuncia.seal_status || 'Completado'}</span>
+                    <div className="space-y-2 flex flex-col justify-end">
+                      <span className="text-slate-400 text-xs block">Hash Principal de Transacción:</span>
+                      <div className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 font-mono text-[11px] text-blue-300 break-all select-all">
+                        <span>{denuncia.seal_tx_hash}</span>
+                      </div>
+                      <a
+                        href={`${process.env.NEXT_PUBLIC_EXPLORER_URL || 'https://explorer-zk.tanenbaum.io'}/tx/${denuncia.seal_tx_hash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-lg transition mt-2 cursor-pointer"
+                      >
+                        Ver en Explorador zkSYS <ExternalLink size={12} className="ml-1.5" />
+                      </a>
                     </div>
                   </div>
-                  <div className="space-y-2 flex flex-col justify-end">
-                    <span className="text-slate-400 text-xs block">Hash de Transacción (SHA-256 zkSYS):</span>
-                    <div className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 font-mono text-[11px] text-blue-300 break-all select-all flex items-center justify-between">
-                      <span>{denuncia.seal_tx_hash}</span>
+
+                  {/* Individual evidence seals */}
+                  {sealResults.length > 1 && (
+                    <div className="mt-4">
+                      <h4 className="text-sm font-semibold text-slate-300 mb-2">Evidencias Selladas Individuales:</h4>
+                      <div className="space-y-2">
+                        {sealResults.map((seal: any, idx: number) => (
+                          <div key={idx} className="bg-slate-900/50 border border-slate-800 rounded-lg p-3 text-xs">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-slate-400">
+                                {seal.tipo || 'Evidencia'} {idx + 1}
+                              </span>
+                              {seal.success ? (
+                                <span className="text-green-400 font-semibold">Sellado</span>
+                              ) : (
+                                <span className="text-yellow-400">Pendiente</span>
+                              )}
+                            </div>
+                            <div className="font-mono text-[10px] text-slate-500 break-all">
+                              Hash: {seal.hash}
+                            </div>
+                            {seal.tx_hash && (
+                              <a
+                                href={`${process.env.NEXT_PUBLIC_EXPLORER_URL || 'https://explorer-zk.tanenbaum.io'}/tx/${seal.tx_hash}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-400 hover:text-blue-300 mt-1 inline-flex items-center"
+                              >
+                                Tx: {seal.tx_hash.slice(0, 20)}... <ExternalLink size={10} className="ml-1" />
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <a
-                      href={`${process.env.NEXT_PUBLIC_EXPLORER_URL || 'https://explorer-zk.tanenbaum.io'}/tx/${denuncia.seal_tx_hash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-lg transition mt-2 cursor-pointer"
-                    >
-                      Ver en Explorador zkSYS <ExternalLink size={12} className="ml-1.5" />
-                    </a>
-                  </div>
+                  )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* AI Agent Timeline */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
