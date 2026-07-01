@@ -242,11 +242,13 @@ async def node_ocr(state: AgenteState) -> Dict[str, Any]:
     if state.url_archivo:
         ocr_result = await extract_text_from_image(state.url_archivo, idioma="spa")
     
+    texto_ocr = ocr_result.get('texto_extraido', '')
+    if not texto_ocr.strip():
+        texto_ocr = "[Sin texto legible en la imagen]"
+    
     prompt = AGENT_PROMPTS["ocr"]
     user_msg = (
-        f"URL del archivo: {state.url_archivo}\n"
-        f"Hash: {state.hash_archivo}\n"
-        f"Texto extraído por Tesseract OCR:\n{ocr_result.get('texto_extraido', 'Sin texto extraído')}\n"
+        f"Texto extraído por Tesseract OCR:\n{texto_ocr}\n"
         f"Confianza OCR: {ocr_result.get('confianza', 0)}"
     )
     
@@ -271,11 +273,14 @@ async def node_speech(state: AgenteState) -> Dict[str, Any]:
     if state.url_archivo:
         stt_result = await transcribe_audio(state.url_archivo, idioma="es")
     
+    transcripcion = stt_result.get('transcripcion', '')
+    if not transcripcion.strip():
+        transcripcion = "[Sin transcripción - audio sin contenido legible]"
+    
     prompt = AGENT_PROMPTS["speech"]
     user_msg = (
-        f"URL del audio: {state.url_archivo}\n"
         f"Duración estimada: {state.metadata.get('duracion_seg', stt_result.get('duracion_segundos', 'desconocida'))}\n"
-        f"Transcripción Groq Whisper:\n{stt_result.get('transcripcion', 'Sin transcripción')}\n"
+        f"Transcripción Groq Whisper:\n{transcripcion}\n"
         f"Confianza STT: {stt_result.get('confianza', 0)}"
     )
     
