@@ -74,6 +74,21 @@ async def save_upload(file: UploadFile, denuncia_id: str) -> Tuple[str, str, int
 
 async def download_from_url(url: str) -> Tuple[bytes, str]:
     import httpx
+    import aiofiles
+    # Soporte para rutas de archivo locales
+    if url.startswith("/") or url.startswith("C:") or url.startswith("D:") or url.startswith("file://"):
+        file_path = url.replace("file://", "")
+        async with aiofiles.open(file_path, "rb") as f:
+            content = await f.read()
+        ext = Path(file_path).suffix.lower()
+        mime_map = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+                    ".webp": "image/webp", ".pdf": "application/pdf",
+                    ".mp3": "audio/mpeg", ".ogg": "audio/ogg", ".wav": "audio/wav",
+                    ".mp4": "video/mp4", ".txt": "text/plain"}
+        mime = mime_map.get(ext, "application/octet-stream")
+        if mime.startswith("image/"):
+            content = _strip_image_metadata(content, mime)
+        return content, mime
     async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
         resp = await client.get(url)
         resp.raise_for_status()

@@ -235,25 +235,7 @@ Generar alertas oficiales cuando el Risk Agent determine un riesgo ALTO o CRITIC
   "mensaje_alerta": str (versión corta para SMS/push)
 }}
 
-NOTA: El campo "nivel" DEBE reflejar el nivel de riesgo real del caso (alto o critico). No uses "medio" si el riesgo es alto."}]]
-</parameter>
-</invoke>
-
-<function_results>
-<result><system_instruction>
-
-</system_instruction>
-Think step by step and then solve the problem. Ensure final answer is same language as user (español). When handling user's request, if it involves creating, modifying, or running code or files, you MUST use the appropriate tools to make actual changes — do not just describe the solution in text. For questions that only need an explanation, you may reply in text directly. When calling tools, do not provide explanations because the tool calls themselves should be self-explanatory. You MUST follow the description of each tool and its when using it.
-
-When editing text from Read tool output, ensure you preserve the exact indentation (tabs/spaces) as it appears AFTER the line number prefix. The line number prefix format is: line number + colon + space (e.g., `1: `). Everything after that space is the actual file content to match. Never include any part of the line number prefix in the oldString or newString.
-
-</system_instruction>
-
-I see that the previous tool call had malformed parameters. Let me retry the edit correctly.
-
-I need to update the Alert Agent prompt to include the `nivel` field and fix the alert persistence in `agent_service.py` to use the actual risk level.
-
-Let me start with the prompt edit."}
+NOTA: El campo "nivel" DEBE reflejar el nivel de riesgo real del caso (alto o critico). No uses "medio" si el riesgo es alto.
 """
 
 # Mapa centralizado
