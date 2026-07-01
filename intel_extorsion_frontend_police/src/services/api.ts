@@ -166,10 +166,14 @@ export const heatmapService = {
 };
 
 export const authService = {
-  login: (data: { username: string; password: string }) =>
-    agentApi.post<LoginResponse>('/auth/login', data, {
+  login: (data: { username: string; password: string }) => {
+    const params = new URLSearchParams();
+    params.append('username', data.username);
+    params.append('password', data.password);
+    return agentApi.post<LoginResponse>('/auth/login', params, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    }),
+    });
+  },
   me: () => agentApi.get<{ username: string; rol: string; nombre_completo: string }>('/auth/me'),
   logout: () => {
     if (typeof window !== 'undefined') {
