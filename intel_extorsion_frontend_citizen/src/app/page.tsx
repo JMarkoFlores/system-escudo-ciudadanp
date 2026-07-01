@@ -9,6 +9,10 @@ import {
   ShieldAlert,
   Wallet,
   FileText,
+  MessageSquare,
+  Phone,
+  Send,
+  ArrowRight,
 } from 'lucide-react';
 
 export default function LandingPage() {
@@ -125,6 +129,125 @@ export default function LandingPage() {
                 <p className="text-slate-400 text-sm">{c.desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Canales de Denuncia */}
+      <section id="canales" className="py-24 relative overflow-hidden">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-purple-500/3 rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-blue-500/10 text-blue-400 text-xs font-bold mb-6 border border-blue-500/20 uppercase tracking-wider">
+              <MessageCircle size={14} className="mr-2" /> Canales de Denuncia
+            </div>
+            <h2 className="text-3xl md:text-4xl font-extrabold mb-4">Reporta de Forma Anónima</h2>
+            <p className="text-slate-400 max-w-3xl mx-auto leading-relaxed">
+              Usa <strong className="text-white">WhatsApp, Telegram o Discord</strong> para enviar tu denuncia de extorsión. 
+              El bot te guía paso a paso y genera un <strong className="text-white">código de seguimiento</strong> sin recopilar ningún dato personal.
+            </p>
+          </div>
+
+          {/* Why no wallet explanation */}
+          <div className="bg-gradient-to-r from-slate-900 to-blue-950/20 border border-blue-500/15 rounded-2xl p-8 max-w-3xl mx-auto mb-12">
+            <div className="flex items-start space-x-4">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Lock className="text-blue-400" size={20} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold mb-2">¿Por qué no se usa wallet aquí?</h3>
+                <p className="text-slate-400 text-sm leading-relaxed">
+                  Los canales de WhatsApp, Telegram y Discord son <strong className="text-white">canal de denuncia anónima</strong>: 
+                  el ciudadano no necesita conectar wallet ni crear identidad. El sistema recibe el reporte, lo procesa con IA forense y genera un código de seguimiento (ej. <code className="bg-slate-800 px-1.5 py-0.5 rounded text-blue-300">TRJ-4X9K</code>). 
+                  La <strong className="text-white">DApp Web3</strong> (sección inferior) es para quien desee custodiar evidencia con trazabilidad judicial y firma blockchain — eso sí requiere Pali Wallet.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Channel Cards */}
+          <div className="grid md:grid-cols-3 gap-6 mb-12">
+            {[
+              { 
+                icon: MessageSquare, 
+                title: 'WhatsApp', 
+                desc: 'Envía un mensaje directo al bot de WhatsApp. Acepta texto, imágenes de cartas extorsivas y notas de voz.',
+                action: 'Abrir WhatsApp',
+                href: 'https://wa.me/message/YOUR_WHATSAPP_NUMBER',
+                color: 'from-green-500/15 to-green-500/5',
+                borderColor: 'border-green-500/20 hover:border-green-500/40',
+                iconColor: 'text-green-400',
+                available: false,
+              },
+              { 
+                icon: Send, 
+                title: 'Telegram', 
+                desc: 'Busca el bot en Telegram y envía tu denuncia. Soporta texto, audios y documentos. Respuestas inmediatas.',
+                action: 'Abrir Telegram',
+                href: 'https://t.me/YOUR_TELEGRAM_BOT',
+                color: 'from-sky-500/15 to-sky-500/5',
+                borderColor: 'border-sky-500/20 hover:border-sky-500/40',
+                iconColor: 'text-sky-400',
+                available: false,
+              },
+              { 
+                icon: MessageCircle, 
+                title: 'Discord', 
+                desc: 'Únete al servidor y usa el canal de denuncias. Ideal para reportes con múltiples archivos adjuntos.',
+                action: 'Unirse a Discord',
+                href: 'https://discord.gg/4DQ27gaYW',
+                color: 'from-indigo-500/15 to-indigo-500/5',
+                borderColor: 'border-indigo-500/20 hover:border-indigo-500/40',
+                iconColor: 'text-indigo-400',
+                available: true,
+              },
+            ].map((f) => (
+              <div key={f.title} className={`bg-gradient-to-br from-slate-900 to-slate-900/80 border ${f.borderColor} rounded-2xl p-6 transition-all duration-300 hover:shadow-xl group relative overflow-hidden`}>
+                <div className={`absolute -top-16 -right-16 w-32 h-32 bg-gradient-to-br ${f.color} rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none`} />
+                <div className="relative z-10">
+                  <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${f.color} border ${f.borderColor} flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-300 mb-4`}>
+                    <f.icon className={f.iconColor} size={24} />
+                  </div>
+                  <h3 className="text-lg font-bold mb-2 group-hover:text-white transition">{f.title}</h3>
+                  <p className="text-slate-400 text-sm leading-relaxed mb-4">{f.desc}</p>
+                  {f.available ? (
+                    <a 
+                      href={f.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white px-4 py-2 rounded-lg font-bold text-sm transition-all duration-300"
+                    >
+                      <span>{f.action}</span>
+                      <ArrowRight size={14} />
+                    </a>
+                  ) : (
+                    <span className="inline-flex items-center space-x-2 bg-slate-800 text-slate-500 px-4 py-2 rounded-lg text-sm cursor-not-allowed">
+                      <span>Próximamente</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* How it works */}
+          <div className="bg-gradient-to-r from-slate-900 to-slate-900/80 border border-slate-700/50 rounded-2xl p-8 max-w-3xl mx-auto">
+            <h3 className="text-lg font-bold mb-4 text-center">Cómo funciona</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+              {[
+                { step: '1', title: 'Envía tu reporte', desc: 'Escribe, envía una foto o un audio con los detalles de la extorsión.' },
+                { step: '2', title: 'Recibe tu código', desc: 'El bot genera un código único TRJ-XXXX para dar seguimiento anónimo.' },
+                { step: '3', title: 'Consulta el estado', desc: 'Envía tu código cuando quieras saber qué está pasando con tu caso.' },
+              ].map((s) => (
+                <div key={s.step} className="flex flex-col items-center">
+                  <div className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center mb-3">{s.step}</div>
+                  <h4 className="font-semibold text-sm mb-1">{s.title}</h4>
+                  <p className="text-slate-400 text-xs leading-relaxed">{s.desc}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>

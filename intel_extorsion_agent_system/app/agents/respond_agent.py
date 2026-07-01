@@ -5,7 +5,7 @@ from app.schemas.agent_schemas import AgenteState
 
 def generate_tracking_code() -> str:
     chars = string.ascii_uppercase + string.digits
-    suffix = ''.join(secrets.choice(chars) for _ in range(8))
+    suffix = ''.join(secrets.choice(chars) for _ in range(4))
     return f"TRJ-{suffix}"
 
 async def node_respond(state: AgenteState) -> Dict[str, Any]:

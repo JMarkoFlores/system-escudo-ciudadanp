@@ -103,7 +103,7 @@ class MockLLM:
         },
         "respond": {
             "enviado": True,
-            "tracking_code": "TRJ-TEST01",
+            "tracking_code": "TRJ-TEST",
             "mensaje_ciudadano": "Denuncia registrada con código TRJ-TEST01",
         },
     }
