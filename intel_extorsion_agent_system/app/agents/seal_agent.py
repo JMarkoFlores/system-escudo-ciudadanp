@@ -7,14 +7,6 @@ async def node_seal(state: AgenteState) -> Dict[str, Any]:
     if "seal" in state.saltar_agentes:
         return {"resultado_seal": None}
 
-    if state.nivel_riesgo and state.nivel_riesgo.value not in ["alto", "critico"]:
-        return {
-            "resultado_seal": {
-                "sellado": False,
-                "motivo": f"Riesgo {state.nivel_riesgo.value} no requiere sellado blockchain"
-            }
-        }
-
     content_hash = state.content_hash
     if not content_hash and state.contenido_raw:
         content_hash = web3_client.compute_content_hash(

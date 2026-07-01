@@ -493,10 +493,8 @@ def router_post_intake(state: AgenteState) -> str:
         return "nlp"
 
 def router_post_risk(state: AgenteState) -> str:
-    """Después de risk, decide si sellar en blockchain o ir directo a respond"""
-    if state.nivel_riesgo and state.nivel_riesgo.value in ["alto", "critico"]:
-        return "seal"
-    return "respond"
+    """Después de risk, sella TODAS las evidencias en blockchain para preservar cadena de custodia"""
+    return "seal"
 
 # ==========================================
 # Construcción del Grafo
