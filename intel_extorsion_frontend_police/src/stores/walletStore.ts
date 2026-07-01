@@ -9,13 +9,18 @@ interface WalletState {
   reputation: number;
   error: string | null;
   connect: () => Promise<void>;
-  disconnect: () => void;
+  disconnect: () => Promise<void>;
   switchToZkSYS: () => Promise<void>;
   setDID: (did: string) => void;
+  init: () => void;
 }
 
 const ZKSYS_CHAIN_ID = 57057;
 const ZKSYS_HEX = '0xdf01';
+
+function formatDID(address: string): string {
+  return `did:zsys:tanenbaum:${address.toLowerCase()}`;
+}
 
 export const useWalletStore = create<WalletState>((set, get) => ({
   account: null,
@@ -26,7 +31,60 @@ export const useWalletStore = create<WalletState>((set, get) => ({
   reputation: 0,
   error: null,
 
+  init: () => {
+    if (typeof window === 'undefined') return;
+    const pali = (window as any).pali;
+    if (!pali) return;
+
+    if (get().provider && get().provider === pali) return;
+
+    const handleAccountsChanged = (accounts: string[]) => {
+      if (accounts.length === 0) {
+        get().disconnect();
+      } else {
+        set({
+          account: accounts[0],
+          did: formatDID(accounts[0]),
+        });
+      }
+    };
+
+    const handleChainChanged = (chainIdHex: string) => {
+      const chainId = parseInt(chainIdHex, 16);
+      set({
+        chainId,
+        error: chainId !== ZKSYS_CHAIN_ID ? 'Por favor cambia a la red zkSYS Tanenbaum Testnet (Chain ID 57057)' : null,
+      });
+    };
+
+    if (pali.on) {
+      pali.on('accountsChanged', handleAccountsChanged);
+      pali.on('chainChanged', handleChainChanged);
+    }
+
+    pali.request({ method: 'eth_accounts' }).then((accounts: string[]) => {
+      if (accounts && accounts.length > 0) {
+        set({
+          account: accounts[0],
+          provider: pali,
+          isConnected: true,
+          did: formatDID(accounts[0]),
+        });
+        pali.request({ method: 'eth_chainId' }).then((chainIdHex: string) => {
+          const chainId = parseInt(chainIdHex, 16);
+          set({
+            chainId,
+            error: chainId !== ZKSYS_CHAIN_ID ? 'Por favor cambia a la red zkSYS Tanenbaum Testnet (Chain ID 57057)' : null,
+          });
+        });
+      }
+    }).catch(() => {});
+
+    set({ provider: pali });
+  },
+
   connect: async () => {
+    if (typeof window === 'undefined') return;
     const pali = (window as any).pali;
     if (!pali) {
       set({ error: 'Pali Wallet no detectada. Instálala desde https://paliwallet.com' });
@@ -45,20 +103,29 @@ export const useWalletStore = create<WalletState>((set, get) => ({
         error: chainId !== ZKSYS_CHAIN_ID ? 'Por favor cambia a la red zkSYS Tanenbaum Testnet (Chain ID 57057)' : null,
       });
 
-      // Auto-resolve DID
-      const did = `did:zksys:${accounts[0]}`;
+      const did = formatDID(accounts[0]);
       set({ did });
+
+      get().init();
     } catch (err: any) {
       set({ error: err.message || 'Error al conectar' });
     }
   },
 
-  disconnect: () => {
+  disconnect: async () => {
+    if (typeof window !== 'undefined') {
+      const pali = (window as any).pali;
+      if (pali) {
+        try {
+          await pali.request({ method: 'wallet_revokePermissions', params: [{ eth_accounts: {} }] });
+        } catch {}
+      }
+    }
     set({
       account: null,
       chainId: null,
-      provider: null,
       isConnected: false,
+      provider: null,
       did: null,
       reputation: 0,
       error: null,
@@ -66,6 +133,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
   },
 
   switchToZkSYS: async () => {
+    if (typeof window === 'undefined') return;
     const pali = (window as any).pali;
     if (!pali) return;
     try {

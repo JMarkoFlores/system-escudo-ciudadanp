@@ -40,7 +40,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const router = useRouter();
   const { sidebarOpen, toggleSidebar } = useAppStore();
-  const { account, isConnected, connect, disconnect, did } = useWalletStore();
+  const { account, isConnected, connect, disconnect, did, init, error, switchToZkSYS, chainId } = useWalletStore();
   const [user, setUser] = useState<PoliceUser | null>(null);
 
   useEffect(() => {
@@ -57,6 +57,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       }
     }
   }, [router]);
+
+  useEffect(() => {
+    init();
+  }, [init]);
 
   const handleLogout = () => {
     localStorage.removeItem('police_token');
@@ -118,23 +122,46 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           )}
 
+          {error && (
+            <div className="bg-red-900/30 border border-red-500/30 rounded-lg p-2 text-[10px] text-red-300">
+              {error}
+              {error.includes('zkSYS') && (
+                <button
+                  onClick={switchToZkSYS}
+                  className="mt-1 w-full bg-red-600 hover:bg-red-500 text-white text-[10px] font-medium py-1 px-2 rounded transition"
+                >
+                  Cambiar a zkSYS
+                </button>
+              )}
+            </div>
+          )}
+
           {isConnected ? (
             <div className={cn('space-y-2', !sidebarOpen && 'flex flex-col items-center')}>
               {sidebarOpen && (
-                <div className="text-xs text-slate-300 break-all">
-                  <span className="text-slate-500">Cuenta:</span> {account?.slice(0, 10)}...
-                </div>
-              )}
-              {sidebarOpen && did && (
-                <div className="text-xs text-slate-300 break-all">
-                  <span className="text-slate-500">DID:</span> {did.slice(0, 20)}...
-                </div>
+                <>
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-block w-2 h-2 bg-green-500 rounded-full" />
+                    <span className="text-[10px] text-green-400 font-medium">Conectada</span>
+                    {chainId === 57057 && (
+                      <span className="bg-green-900/30 text-green-300 text-[9px] px-1.5 py-0.5 rounded-full">zkSYS</span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-slate-400 break-all">
+                    <span className="text-slate-500">Cuenta:</span> {account?.slice(0, 10)}...
+                  </div>
+                  {did && (
+                    <div className="text-[10px] text-slate-400 break-all">
+                      <span className="text-slate-500">DID:</span> {did.slice(0, 24)}...
+                    </div>
+                  )}
+                </>
               )}
               <button
                 onClick={disconnect}
-                className="flex items-center text-xs text-red-400 hover:text-red-300 transition"
+                className="flex items-center text-[10px] text-red-400 hover:text-red-300 transition"
               >
-                <LogOut size={14} className={sidebarOpen ? 'mr-2' : ''} />
+                <LogOut size={12} className={sidebarOpen ? 'mr-1.5' : ''} />
                 {sidebarOpen && 'Desconectar'}
               </button>
             </div>
@@ -142,7 +169,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <button
               onClick={connect}
               className={cn(
-                'flex items-center text-sm bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded transition',
+                'flex items-center text-sm bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-lg transition w-full',
                 !sidebarOpen && 'justify-center px-2'
               )}
             >
