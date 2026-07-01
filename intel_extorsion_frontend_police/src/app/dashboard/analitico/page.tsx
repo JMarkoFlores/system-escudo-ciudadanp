@@ -30,9 +30,10 @@ export default function DashboardAnaliticoPage() {
       try {
         setLoadingMap(true);
         const { data } = await heatmapService.obtener({ periodo });
-        setHeatmapData(data.puntos);
+        setHeatmapData(data?.puntos || []);
       } catch (e) {
         console.error('Error cargando heatmap:', e);
+        setHeatmapData([]);
       } finally {
         setLoadingMap(false);
       }

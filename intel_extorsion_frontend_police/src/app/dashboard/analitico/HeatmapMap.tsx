@@ -19,13 +19,17 @@ interface HeatmapMapProps {
 }
 
 export default function HeatmapMap({ puntos }: HeatmapMapProps) {
+  const validPoints = puntos.filter(
+    (p) => p && typeof p.lat === 'number' && typeof p.lng === 'number' && !isNaN(p.lat) && !isNaN(p.lng)
+  );
+
   return (
     <MapContainer center={[-8.1, -79.05]} zoom={11} style={{ height: '100%', width: '100%' }}>
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      {puntos.map((punto, idx) => (
+      {validPoints.map((punto, idx) => (
         <CircleMarker
           key={idx}
           center={[punto.lat, punto.lng]}
