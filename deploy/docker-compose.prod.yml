@@ -51,7 +51,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-agent_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?ERROR: POSTGRES_PASSWORD requerido}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-IntelExtorsion2026!}
       POSTGRES_DB: ${POSTGRES_DB:-intel_extorsion}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -91,7 +91,7 @@ services:
     environment:
       API_HOST: "0.0.0.0"
       API_PORT: "8000"
-      GROQ_API_KEY: ${GROQ_API_KEY:?ERROR: GROQ_API_KEY requerido}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
       GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
       GROQ_TEMPERATURE: "0.2"
       GROQ_MAX_TOKENS: "4096"
@@ -147,7 +147,7 @@ services:
       CHAIN_ID: ${CHAIN_ID:-57057}
       EXPLORER_URL: ${EXPLORER_URL:-https://explorer-zk.tanenbaum.io}
       NETWORK_NAME: ${NETWORK_NAME:-zkSYS Tanenbaum Testnet}
-      PRIVATE_KEY: ${PRIVATE_KEY:?ERROR: PRIVATE_KEY requerido}
+      PRIVATE_KEY: ${PRIVATE_KEY:-0x0000000000000000000000000000000000000000000000000000000000000001}
       CONTRACT_EVIDENCE_REGISTRY: ${CONTRACT_EVIDENCE_REGISTRY}
       CONTRACT_CASE_MANAGER: ${CONTRACT_CASE_MANAGER}
       CONTRACT_DID_REGISTRY: ${CONTRACT_DID_REGISTRY}
