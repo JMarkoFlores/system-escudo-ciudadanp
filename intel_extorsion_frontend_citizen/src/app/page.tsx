@@ -110,29 +110,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Canales */}
-      <section id="canales" className="py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold mb-4">Canales de Denuncia</h2>
-            <p className="text-slate-400">Reporta por el canal que más te convenga. Todos convergen en una misma plataforma inteligente.</p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              { icon: MessageCircle, name: 'WhatsApp', color: 'text-green-500', desc: 'Envía mensajes, audios, imágenes o documentos directamente a nuestro bot oficial.' },
-              { icon: MessageCircle, name: 'Telegram', color: 'text-sky-500', desc: 'Denuncia de forma anónima o identificada mediante nuestro bot de Telegram.' },
-              { icon: MessageCircle, name: 'Discord', color: 'text-indigo-500', desc: 'Canal seguro para comunidades y grupos de apoyo con atención especializada.' },
-            ].map((c) => (
-              <div key={c.name} className="bg-slate-800/50 border border-slate-700 rounded-xl p-8 text-center hover:bg-slate-800 transition">
-                <c.icon className={`mx-auto mb-4 ${c.color}`} size={40} />
-                <h3 className="text-xl font-bold mb-2">{c.name}</h3>
-                <p className="text-slate-400 text-sm">{c.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Canales de Denuncia */}
       <section id="canales" className="py-24 relative overflow-hidden">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
