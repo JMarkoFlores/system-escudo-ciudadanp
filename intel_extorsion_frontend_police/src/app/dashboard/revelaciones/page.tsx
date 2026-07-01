@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { 
   Shield, 
   Search, 
@@ -28,15 +29,16 @@ interface RevealRequest {
   revealed_at?: number;
 }
 
-const STATE_CONFIG: Record<number, { label: string; color: string; bgColor: string; icon: React.ReactNode }> = {
-  0: { label: 'Pendiente', color: 'text-amber-700', bgColor: 'bg-amber-100', icon: <Clock size={14} /> },
-  1: { label: 'Autorizada', color: 'text-green-700', bgColor: 'bg-green-100', icon: <CheckCircle2 size={14} /> },
-  2: { label: 'Revelada', color: 'text-blue-700', bgColor: 'bg-blue-100', icon: <Shield size={14} /> },
-  3: { label: 'Rechazada', color: 'text-red-700', bgColor: 'bg-red-100', icon: <AlertTriangle size={14} /> },
-  4: { label: 'Expirada', color: 'text-gray-700', bgColor: 'bg-gray-100', icon: <Clock size={14} /> },
+const STATE_CONFIG: Record<number, { labelKey: string; color: string; bgColor: string; icon: React.ReactNode }> = {
+  0: { labelKey: 'revelaciones.statePending', color: 'text-amber-700', bgColor: 'bg-amber-100', icon: <Clock size={14} /> },
+  1: { labelKey: 'revelaciones.stateAuthorized', color: 'text-green-700', bgColor: 'bg-green-100', icon: <CheckCircle2 size={14} /> },
+  2: { labelKey: 'revelaciones.stateRevealed', color: 'text-blue-700', bgColor: 'bg-blue-100', icon: <Shield size={14} /> },
+  3: { labelKey: 'revelaciones.stateRejected', color: 'text-red-700', bgColor: 'bg-red-100', icon: <AlertTriangle size={14} /> },
+  4: { labelKey: 'revelaciones.stateExpired', color: 'text-gray-700', bgColor: 'bg-gray-100', icon: <Clock size={14} /> },
 };
 
 export default function RevelacionesPage() {
+  const { t } = useTranslation();
   const [requests, setRequests] = useState<RevealRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -97,10 +99,10 @@ export default function RevelacionesPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
             <Shield className="text-blue-600" size={28} />
-            Solicitudes de Revelación de Identidad
+            {t('revelaciones.title')}
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Gestiona las solicitudes para vincular DIDs con identidades civiles
+            {t('revelaciones.subtitle')}
           </p>
         </div>
       </div>
@@ -112,11 +114,9 @@ export default function RevelacionesPage() {
             <Shield size={16} className="text-blue-600" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-blue-800">¿Cómo funciona?</h3>
+            <h3 className="text-sm font-semibold text-blue-800">{t('revelaciones.howItWorks')}</h3>
             <p className="text-xs text-blue-700 mt-1 leading-relaxed">
-              Cuando necesites vincular el DID (seudónimo) de un ciudadano con su identidad civil para un caso, 
-              envías una solicitud. El ciudadano recibirá una notificación en su DApp y deberá autorizar 
-              <strong> explícitamente</strong> antes de que puedas acceder a su identidad.
+              {t('revelaciones.howItWorksDesc')}
             </p>
           </div>
         </div>
@@ -129,7 +129,7 @@ export default function RevelacionesPage() {
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Buscar por DID, caso o motivo..."
+              placeholder={t('common.search')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -140,12 +140,12 @@ export default function RevelacionesPage() {
             onChange={(e) => setFilterState(e.target.value ? Number(e.target.value) : null)}
             className="px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="">Todos los estados</option>
-            <option value="0">Pendientes</option>
-            <option value="1">Autorizadas</option>
-            <option value="2">Reveladas</option>
-            <option value="3">Rechazadas</option>
-            <option value="4">Expiradas</option>
+            <option value="">{t('revelaciones.allStates')}</option>
+            <option value="0">{t('revelaciones.statePending')}</option>
+            <option value="1">{t('revelaciones.stateAuthorized')}</option>
+            <option value="2">{t('revelaciones.stateRevealed')}</option>
+            <option value="3">{t('revelaciones.stateRejected')}</option>
+            <option value="4">{t('revelaciones.stateExpired')}</option>
           </select>
         </div>
       </div>
@@ -155,14 +155,14 @@ export default function RevelacionesPage() {
         {loading ? (
           <div className="p-12 text-center">
             <Loader2 size={32} className="animate-spin mx-auto text-blue-600 mb-3" />
-            <p className="text-sm text-slate-500">Cargando solicitudes...</p>
+            <p className="text-sm text-slate-500">{t('revelaciones.loading')}</p>
           </div>
         ) : filteredRequests.length === 0 ? (
           <div className="p-12 text-center">
             <Shield size={48} className="mx-auto text-slate-300 mb-3" />
-            <p className="text-sm font-medium text-slate-600">No hay solicitudes de revelación</p>
+            <p className="text-sm font-medium text-slate-600">{t('revelaciones.noRequests')}</p>
             <p className="text-xs text-slate-400 mt-1">
-              Las solicitudes aparecerán aquí cuando las envíes desde un caso
+              {t('revelaciones.noRequestsDesc')}
             </p>
           </div>
         ) : (
@@ -176,7 +176,7 @@ export default function RevelacionesPage() {
                       <div className="flex items-center gap-2 mb-2">
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${stateConfig.bgColor} ${stateConfig.color}`}>
                           {stateConfig.icon}
-                          {stateConfig.label}
+                          {t(stateConfig.labelKey)}
                         </span>
                         <span className="text-xs text-slate-400">#{req.id}</span>
                       </div>
@@ -209,12 +209,12 @@ export default function RevelacionesPage() {
                     <div className="flex items-center gap-2 ml-4">
                       {req.state === 0 && (
                         <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">
-                          Esperando autorización
+                          {t('revelaciones.waitingAuth')}
                         </span>
                       )}
                       {req.state === 1 && (
                         <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
-                          Lista para ejecutar
+                          {t('revelaciones.readyToExecute')}
                         </span>
                       )}
                       {req.state === 2 && (
@@ -224,7 +224,7 @@ export default function RevelacionesPage() {
                           rel="noopener noreferrer"
                           className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
                         >
-                          Ver en explorer <ExternalLink size={10} />
+                          {t('revelaciones.viewInExplorer')} <ExternalLink size={10} />
                         </a>
                       )}
                     </div>
@@ -242,25 +242,25 @@ export default function RevelacionesPage() {
           <div className="text-2xl font-bold text-slate-800">
             {requests.filter(r => r.state === 0).length}
           </div>
-          <div className="text-xs text-slate-500">Pendientes</div>
+          <div className="text-xs text-slate-500">{t('revelaciones.statePending')}</div>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
           <div className="text-2xl font-bold text-green-600">
             {requests.filter(r => r.state === 1).length}
           </div>
-          <div className="text-xs text-slate-500">Autorizadas</div>
+          <div className="text-xs text-slate-500">{t('revelaciones.stateAuthorized')}</div>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
           <div className="text-2xl font-bold text-blue-600">
             {requests.filter(r => r.state === 2).length}
           </div>
-          <div className="text-xs text-slate-500">Reveladas</div>
+          <div className="text-xs text-slate-500">{t('revelaciones.stateRevealed')}</div>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
           <div className="text-2xl font-bold text-red-600">
             {requests.filter(r => r.state === 3).length}
           </div>
-          <div className="text-xs text-slate-500">Rechazadas</div>
+          <div className="text-xs text-slate-500">{t('revelaciones.stateRejected')}</div>
         </div>
       </div>
     </div>

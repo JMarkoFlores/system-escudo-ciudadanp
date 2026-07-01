@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/stores/appStore';
 import { alertaService, dashboardService } from '@/services/api';
 import { Alerta } from '@/types';
@@ -17,6 +18,7 @@ const nivelConfig = {
 };
 
 export default function AlertasPage() {
+  const { t } = useTranslation();
   const { alertas, setAlertas, marcarAlertaLeida, marcarAlertaAtendida, setMetricas } = useAppStore();
   const [filter, setFilter] = useState<'todas' | 'no_leidas' | 'criticas'>('todas');
 
@@ -95,8 +97,8 @@ export default function AlertasPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Centro de Alertas</h1>
-          <p className="text-slate-500 text-sm">Alertas generadas por el sistema de agentes autónomos</p>
+          <h1 className="text-2xl font-bold text-slate-800">{t('alertas.title')}</h1>
+          <p className="text-slate-500 text-sm">{t('alertas.subtitle')}</p>
         </div>
         <div className="flex space-x-2">
           {(['todas', 'no_leidas', 'criticas'] as const).map((f) => (

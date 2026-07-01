@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import dynamic from 'next/dynamic';
 import { useAppStore } from '@/stores/appStore';
 import { graphService } from '@/services/api';
@@ -9,6 +10,7 @@ import { CriminalGraph } from '@/types';
 const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), { ssr: false });
 
 export default function GrafosPage() {
+  const { t } = useTranslation();
   const { grafoActivo, setGrafoActivo, clusters, setClusters } = useAppStore();
   const [loading, setLoading] = useState(true);
   const [selectedNode, setSelectedNode] = useState<any>(null);
@@ -37,13 +39,13 @@ export default function GrafosPage() {
     evidencia: '#64748b',
   };
 
-  if (loading) return <div className="text-center py-20 text-slate-500">Cargando red criminal...</div>;
+  if (loading) return <div className="text-center py-20 text-slate-500">{t('dashboard.grafos.loading')}</div>;
 
   return (
     <div className="space-y-4 h-[calc(100vh-8rem)]">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Redes Criminales</h1>
-        <p className="text-slate-500 text-sm">Visualización de grafos de correlación entre denuncias, sospechosos y evidencias</p>
+        <h1 className="text-2xl font-bold text-slate-800">{t('dashboard.grafos.title')}</h1>
+        <p className="text-slate-500 text-sm">{t('dashboard.grafos.subtitle')}</p>
       </div>
 
       <div className="flex space-x-4 text-xs">

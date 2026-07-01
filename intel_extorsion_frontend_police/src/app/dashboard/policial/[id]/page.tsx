@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { denunciaService, alertaService } from '@/services/api';
@@ -48,6 +49,7 @@ interface AgentResult {
 }
 
 export default function DetalleDenunciaPage() {
+  const { t } = useTranslation();
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
@@ -125,7 +127,7 @@ export default function DetalleDenunciaPage() {
           href="/dashboard/policial"
           className="inline-flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg transition text-sm"
         >
-          <ArrowLeft size={16} className="mr-2" /> Volver al listado
+           <ArrowLeft size={16} className="mr-2" /> {t('detalle.backToList')}
         </Link>
       </div>
     );
@@ -133,16 +135,16 @@ export default function DetalleDenunciaPage() {
 
   // Agentes que se muestran en el acordeón
   const agentes = [
-    { key: 'intake', name: 'Intake Agent', desc: 'Validación forense e ingesta' },
-    { key: 'ocr', name: 'OCR Agent', desc: 'Extracción de textos en capturas de pantalla o imágenes' },
-    { key: 'speech', name: 'Speech Agent', desc: 'Transcripción Whisper de notas de voz/audios de extorsión' },
-    { key: 'nlp', name: 'NLP Agent', desc: 'Clasificación de intenciones, resúmenes y score de amenaza' },
-    { key: 'osint', name: 'OSINT Agent', desc: 'Correlación de teléfonos, cuentas y redes sociales' },
-    { key: 'correlation', name: 'Correlation Agent', desc: 'Detección de patrones y modus operandi criminal' },
-    { key: 'risk', name: 'Risk Agent', desc: 'Evaluación del nivel de riesgo policial' },
-    { key: 'seal', name: 'Seal Agent', desc: 'Custodia digital y sellado en zkSYS Blockchain' },
-    { key: 'alert', name: 'Alert Agent', desc: 'Generación de alertas y escalamiento a unidades' },
-    { key: 'respond', name: 'Respond Agent', desc: 'Retorno de código y mensaje conversacional' },
+    { key: 'intake', name: 'Intake Agent', descKey: 'agents.intake' },
+    { key: 'ocr', name: 'OCR Agent', descKey: 'agents.ocr' },
+    { key: 'speech', name: 'Speech Agent', descKey: 'agents.speech' },
+    { key: 'nlp', name: 'NLP Agent', descKey: 'agents.nlp' },
+    { key: 'osint', name: 'OSINT Agent', descKey: 'agents.osint' },
+    { key: 'correlation', name: 'Correlation Agent', descKey: 'agents.correlation' },
+    { key: 'risk', name: 'Risk Agent', descKey: 'agents.risk' },
+    { key: 'seal', name: 'Seal Agent', descKey: 'agents.seal' },
+    { key: 'alert', name: 'Alert Agent', descKey: 'agents.alert' },
+    { key: 'respond', name: 'Respond Agent', descKey: 'agents.respond' },
   ];
 
   const getAgentResult = (agentKey: string) => {
@@ -164,7 +166,7 @@ export default function DetalleDenunciaPage() {
           </Link>
           <div>
             <div className="flex items-center space-x-2">
-              <h1 className="text-xl font-bold text-slate-800">Expediente Denuncia</h1>
+              <h1 className="text-xl font-bold text-slate-800">{t('detalle.title')}</h1>
               {denuncia.tracking_code && (
                 <span className="font-mono text-xs bg-blue-100 text-blue-800 font-semibold px-2 py-0.5 rounded uppercase tracking-wider">
                   {denuncia.tracking_code}
@@ -204,7 +206,7 @@ export default function DetalleDenunciaPage() {
           <div className="bg-white border rounded-xl shadow-sm p-6 relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 to-indigo-600" />
             <h2 className="text-base font-semibold text-slate-800 mb-4 flex items-center">
-              <FileText size={18} className="mr-2 text-slate-500" /> Información General
+              <FileText size={18} className="mr-2 text-slate-500" /> {t('detalle.generalInfo')}
             </h2>
             <div className="grid sm:grid-cols-2 gap-4 text-sm">
               <div className="space-y-3">
@@ -239,7 +241,7 @@ export default function DetalleDenunciaPage() {
                   </span>
                 </div>
                 <div className="flex justify-between border-b pb-2">
-                  <span className="text-slate-400">DID Denunciante:</span>
+                  <span className="text-slate-400">{t('detalle.didReporter')}</span>
                   <span className="font-mono text-xs text-slate-600 truncate max-w-[150px]" title={denuncia.did_denunciante || 'Anónimo'}>
                     {denuncia.did_denunciante || 'Anónimo / Sin DID'}
                   </span>
@@ -252,7 +254,7 @@ export default function DetalleDenunciaPage() {
                     denuncia.nivel_riesgo === 'medio' ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' :
                     'bg-green-100 text-green-800 border border-green-200'
                   }`}>
-                    {denuncia.nivel_riesgo || 'No Evaluado'}
+                    {denuncia.nivel_riesgo ? t(`riesgo.${denuncia.nivel_riesgo}`) : t('detalle.notEvaluated')}
                   </span>
                 </div>
               </div>
@@ -287,7 +289,7 @@ export default function DetalleDenunciaPage() {
                           isExecuted ? (res.exitoso !== false ? 'bg-green-500' : 'bg-red-500') : 'bg-slate-300'
                         }`} />
                         <span className="font-semibold text-sm text-slate-700">{ag.name}</span>
-                        <span className="text-xs text-slate-400 hidden sm:inline">— {ag.desc}</span>
+                        <span className="text-xs text-slate-400 hidden sm:inline">— {t(ag.descKey)}</span>
                       </div>
                       <span className={`text-[10px] font-semibold px-2 py-0.5 rounded uppercase ${
                         isExecuted ? 'bg-green-100 text-green-800' : 'bg-slate-200 text-slate-600'
@@ -350,7 +352,7 @@ export default function DetalleDenunciaPage() {
                         )}
                         {ag.key === 'osint' && (
                           <div className="space-y-2 text-slate-700">
-                            <div><span className="text-slate-400">Riesgo OSINT:</span> <span className="font-semibold">{res.riesgo_osint} / 5</span></div>
+                            <div><span className="text-slate-400">{t('detalle.osintRisk')}</span> <span className="font-semibold">{res.riesgo_osint} / 5</span></div>
                             {res.telefonos && res.telefonos.length > 0 && (
                               <div>
                                 <span className="text-slate-400 block mb-1">Teléfonos Implicados:</span>
@@ -358,7 +360,7 @@ export default function DetalleDenunciaPage() {
                                   {res.telefonos.map((tel: any, i: number) => (
                                     <div key={i} className="flex justify-between max-w-md border-b pb-1 font-mono text-xs">
                                       <span className="font-semibold">{tel.numero}</span>
-                                      <span className="text-slate-400 text-[10px]">({tel.riesgo || tel.compania || 'Riesgo No Identificado'})</span>
+                                      <span className="text-slate-400 text-[10px]">({tel.riesgo || tel.compania || t('detalle.unidentifiedRisk')})</span>
                                     </div>
                                   ))}
                                 </div>
@@ -637,7 +639,7 @@ export default function DetalleDenunciaPage() {
               <Lock size={18} className="mr-2 text-slate-500" /> Preservación Blockchain
             </h2>
             {denuncia.seal_tx_hash ? (() => {
-              const sealAgent = denuncia.resultados?.find((r: any) => r.agente === 'seal');
+              const sealAgent = denuncia.resultados?.find((r: any) => r.agente === 'seal') as any;
               const sealResults = sealAgent?.seal_results || [];
               const totalEvidences = sealAgent?.total_evidencias || sealResults.length || 1;
               const sealedCount = sealAgent?.sellados_exitosos || sealResults.length || 1;
@@ -646,7 +648,7 @@ export default function DetalleDenunciaPage() {
                 <div className="space-y-4">
                   <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-xs space-y-3 font-mono text-slate-700">
                     <div className="flex justify-between">
-                      <span className="text-slate-400 font-sans">Evidencias Selladas:</span>
+                      <span className="text-slate-400 font-sans">{t('detalle.sealedEvidences')}</span>
                       <span className="text-green-700 font-semibold flex items-center">
                         <CheckCircle2 size={12} className="mr-1 text-green-600" /> {sealedCount} / {totalEvidences}
                       </span>
@@ -712,9 +714,9 @@ export default function DetalleDenunciaPage() {
             })() : (
               <div className="text-center py-6 text-slate-400 border border-dashed rounded-lg bg-slate-50/50">
                 <Lock size={28} className="mx-auto mb-2 opacity-50 text-slate-400" />
-                <span className="text-xs block px-4">Evidencia no preservada en blockchain</span>
+                <span className="text-xs block px-4">{t('detalle.notSealed')}</span>
                 <span className="text-[10px] text-slate-400 block px-4 mt-1">
-                  (El sellado Web3 se realiza de forma automática únicamente para casos de riesgo ALTO o CRÍTICO)
+                  {t('detalle.sealedAutoInfo')}
                 </span>
               </div>
             )}
@@ -724,7 +726,7 @@ export default function DetalleDenunciaPage() {
           {alertasDenuncia.some((a) => a.atendida && a.metadata_json?.mensaje_resolucion) && (
             <div className="bg-white border rounded-xl shadow-sm p-6">
               <h2 className="text-base font-semibold text-slate-800 mb-4 flex items-center">
-                <CheckCircle2 size={18} className="mr-2 text-green-500" /> Resoluciones Oficiales
+                <CheckCircle2 size={18} className="mr-2 text-green-500" /> {t('detalle.officialResolutions')}
               </h2>
               <div className="space-y-3">
                 {alertasDenuncia

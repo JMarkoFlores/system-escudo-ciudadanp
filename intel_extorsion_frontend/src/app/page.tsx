@@ -26,9 +26,6 @@ export default function LandingPage() {
             <Link href="/portal" className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-md font-medium transition">
               Portal Ciudadano
             </Link>
-            <Link href="/dashboard/policial" className="text-slate-300 hover:text-white transition">
-              Acceso Policial
-            </Link>
           </div>
         </div>
       </nav>

@@ -1,4 +1,7 @@
+'use client';
+
 import Link from 'next/link';
+import { useTranslation } from 'react-i18next';
 import {
   Shield,
   MessageCircle,
@@ -14,8 +17,10 @@ import {
   Send,
   ArrowRight,
 } from 'lucide-react';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 export default function LandingPage() {
+  const { t } = useTranslation();
   return (
     <div className="min-h-screen bg-slate-900 text-white">
       {/* Navbar */}
@@ -26,16 +31,17 @@ export default function LandingPage() {
             <span className="font-bold text-xl tracking-tight">IntelExtorsión</span>
           </div>
           <div className="hidden md:flex items-center space-x-8 text-sm text-slate-300">
-            <a href="#features" className="hover:text-white transition">Características</a>
-            <a href="#canales" className="hover:text-white transition">Canales</a>
-            <a href="#web3" className="hover:text-white transition">Web3</a>
-            <Link href="/tracking" className="hover:text-white transition">Rastrear Código</Link>
+            <a href="#features" className="hover:text-white transition">{t('nav.features')}</a>
+            <a href="#canales" className="hover:text-white transition">{t('nav.channels')}</a>
+            <a href="#web3" className="hover:text-white transition">{t('nav.web3')}</a>
+            <Link href="/tracking" className="hover:text-white transition">{t('nav.trackCode')}</Link>
             <Link href="/portal" className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-md font-medium transition">
-              Portal Ciudadano
+              {t('nav.citizenPortal')}
             </Link>
-            <a href="http://localhost:3001" className="text-slate-300 hover:text-white transition">
-              Acceso Policial
-            </a>
+            <LanguageSwitcher compact />
+          </div>
+          <div className="flex md:hidden items-center space-x-2">
+            <LanguageSwitcher compact />
           </div>
         </div>
       </nav>
@@ -46,20 +52,20 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
               <div className="inline-flex items-center px-3 py-1 rounded-full bg-blue-500/10 text-blue-400 text-xs font-semibold mb-6 border border-blue-500/20">
-                <Shield size={14} className="mr-2" /> Plataforma de Inteligencia Policial
+                <Shield size={14} className="mr-2" /> {t('landing.badge')}
               </div>
               <h1 className="text-4xl md:text-6xl font-extrabold leading-tight mb-6">
-                Combatiendo la <span className="text-blue-500">extorsión</span> con tecnología de punta
+                {t('landing.heroTitle')}
               </h1>
               <p className="text-lg text-slate-400 mb-8 leading-relaxed">
-                IntelExtorsión integra agentes autónomos de IA, procesamiento NLP, OCR, análisis de audio y blockchain Web3 para la recepción, correlación y preservación de evidencias digitales.
+                {t('landing.heroSubtitle')}
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link href="/portal" className="inline-flex items-center justify-center bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-lg font-semibold transition">
-                  Realizar Denuncia <ChevronRight size={18} className="ml-2" />
+                  {t('landing.ctaReport')} <ChevronRight size={18} className="ml-2" />
                 </Link>
                 <Link href="/tracking" className="inline-flex items-center justify-center border border-slate-600 hover:border-slate-400 text-slate-300 hover:text-white px-6 py-3 rounded-lg font-semibold transition">
-                  Rastrear Denuncia
+                  {t('landing.ctaTrack')}
                 </Link>
               </div>
             </div>
@@ -89,16 +95,16 @@ export default function LandingPage() {
       <section id="features" className="py-20 bg-slate-950">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold mb-4">Arquitectura Inteligente</h2>
+            <h2 className="text-3xl font-bold mb-4">{t('landing.featuresTitle')}</h2>
             <p className="text-slate-400 max-w-2xl mx-auto">
-              Ocho agentes autónomos trabajan en conjunto para analizar, correlacionar y preservar cada evidencia.
+              {t('landing.featuresSubtitle')}
             </p>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
             {[
-              { icon: BrainCircuit, title: 'Agentes Autónomos', desc: 'Intake, OCR, Speech, NLP, Correlation, OSINT, Risk y Alert Agent con LangGraph y GPT-5.5.' },
-              { icon: BarChart3, title: 'Análisis Predictivo', desc: 'Correlación de patrones, detección de redes criminales y scoring de riesgo en tiempo real.' },
-              { icon: Lock, title: 'Custodia Blockchain', desc: 'Evidencias inmutables en zkSYS Tanenbaum Testnet con hash SHA-256, DID y tokens soulbound.' },
+              { icon: BrainCircuit, title: t('landing.feature1Title'), desc: t('landing.feature1Desc') },
+              { icon: BarChart3, title: t('landing.feature2Title'), desc: t('landing.feature2Desc') },
+              { icon: Lock, title: t('landing.feature3Title'), desc: t('landing.feature3Desc') },
             ].map((f) => (
               <div key={f.title} className="bg-slate-900 border border-slate-800 rounded-xl p-6 hover:border-blue-500/50 transition">
                 <f.icon className="text-blue-500 mb-4" size={32} />
@@ -118,12 +124,11 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center mb-16">
             <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-blue-500/10 text-blue-400 text-xs font-bold mb-6 border border-blue-500/20 uppercase tracking-wider">
-              <MessageCircle size={14} className="mr-2" /> Canales de Denuncia
+              <MessageCircle size={14} className="mr-2" /> {t('landing.channelsTitle')}
             </div>
-            <h2 className="text-3xl md:text-4xl font-extrabold mb-4">Reporta de Forma Anónima</h2>
+            <h2 className="text-3xl md:text-4xl font-extrabold mb-4">{t('landing.channelsSubtitle')}</h2>
             <p className="text-slate-400 max-w-3xl mx-auto leading-relaxed">
-              Usa <strong className="text-white">WhatsApp, Telegram o Discord</strong> para enviar tu denuncia de extorsión. 
-              El bot te guía paso a paso y genera un <strong className="text-white">código de seguimiento</strong> sin recopilar ningún dato personal.
+              {t('landing.channelsDesc')}
             </p>
           </div>
 
@@ -134,11 +139,9 @@ export default function LandingPage() {
                 <Lock className="text-blue-400" size={20} />
               </div>
               <div>
-                <h3 className="text-lg font-bold mb-2">¿Por qué no se usa wallet aquí?</h3>
+                <h3 className="text-lg font-bold mb-2">{t('landing.whyNoWallet')}</h3>
                 <p className="text-slate-400 text-sm leading-relaxed">
-                  Los canales de WhatsApp, Telegram y Discord son <strong className="text-white">canal de denuncia anónima</strong>: 
-                  el ciudadano no necesita conectar wallet ni crear identidad. El sistema recibe el reporte, lo procesa con IA forense y genera un código de seguimiento (ej. <code className="bg-slate-800 px-1.5 py-0.5 rounded text-blue-300">TRJ-4X9K</code>). 
-                  La <strong className="text-white">DApp Web3</strong> (sección inferior) es para quien desee custodiar evidencia con trazabilidad judicial y firma blockchain — eso sí requiere Pali Wallet.
+                  {t('landing.whyNoWalletDesc')}
                 </p>
               </div>
             </div>
@@ -149,9 +152,9 @@ export default function LandingPage() {
             {[
               { 
                 icon: MessageSquare, 
-                title: 'WhatsApp', 
-                desc: 'Envía un mensaje directo al bot de WhatsApp. Acepta texto, imágenes de cartas extorsivas y notas de voz.',
-                action: 'Abrir WhatsApp',
+                title: t('landing.channelWhatsapp'), 
+                desc: t('landing.channelWhatsappDesc'),
+                action: t('landing.channelWhatsappBtn'),
                 href: 'https://wa.me/51902455346?text=Start',
                 color: 'from-green-500/15 to-green-500/5',
                 borderColor: 'border-green-500/20 hover:border-green-500/40',
@@ -160,9 +163,9 @@ export default function LandingPage() {
               },
               { 
                 icon: Send, 
-                title: 'Telegram', 
-                desc: 'Busca el bot en Telegram y envía tu denuncia. Soporta texto, audios y documentos. Respuestas inmediatas.',
-                action: 'Abrir Telegram',
+                title: t('landing.channelTelegram'), 
+                desc: t('landing.channelTelegramDesc'),
+                action: t('landing.channelTelegramBtn'),
                 href: 'https://t.me/intelextorsion_bot',
                 color: 'from-sky-500/15 to-sky-500/5',
                 borderColor: 'border-sky-500/20 hover:border-sky-500/40',
@@ -171,9 +174,9 @@ export default function LandingPage() {
               },
               { 
                 icon: MessageCircle, 
-                title: 'Discord', 
-                desc: 'Únete al servidor y usa el canal de denuncias. Ideal para reportes con múltiples archivos adjuntos.',
-                action: 'Unirse a Discord',
+                title: t('landing.channelDiscord'), 
+                desc: t('landing.channelDiscordDesc'),
+                action: t('landing.channelDiscordBtn'),
                 href: 'https://discord.gg/4DQ27gaYW',
                 color: 'from-indigo-500/15 to-indigo-500/5',
                 borderColor: 'border-indigo-500/20 hover:border-indigo-500/40',
@@ -201,7 +204,7 @@ export default function LandingPage() {
                     </a>
                   ) : (
                     <span className="inline-flex items-center space-x-2 bg-slate-800 text-slate-500 px-4 py-2 rounded-lg text-sm cursor-not-allowed">
-                      <span>Próximamente</span>
+                      <span>{t('landing.channelComingSoon')}</span>
                     </span>
                   )}
                 </div>
@@ -211,12 +214,12 @@ export default function LandingPage() {
 
           {/* How it works */}
           <div className="bg-gradient-to-r from-slate-900 to-slate-900/80 border border-slate-700/50 rounded-2xl p-8 max-w-3xl mx-auto">
-            <h3 className="text-lg font-bold mb-4 text-center">Cómo funciona</h3>
+            <h3 className="text-lg font-bold mb-4 text-center">{t('landing.howItWorks')}</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
               {[
-                { step: '1', title: 'Envía tu reporte', desc: 'Escribe, envía una foto o un audio con los detalles de la extorsión.' },
-                { step: '2', title: 'Recibe tu código', desc: 'El bot genera un código único TRJ-XXXX para dar seguimiento anónimo.' },
-                { step: '3', title: 'Consulta el estado', desc: 'Envía tu código cuando quieras saber qué está pasando con tu caso.' },
+                { step: '1', title: t('landing.step1Title'), desc: t('landing.step1Desc') },
+                { step: '2', title: t('landing.step2Title'), desc: t('landing.step2Desc') },
+                { step: '3', title: t('landing.step3Title'), desc: t('landing.step3Desc') },
               ].map((s) => (
                 <div key={s.step} className="flex flex-col items-center">
                   <div className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center mb-3">{s.step}</div>
@@ -240,11 +243,9 @@ export default function LandingPage() {
             <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-teal-500/10 text-teal-400 text-xs font-bold mb-6 border border-teal-500/20 uppercase tracking-wider">
               <Lock size={14} className="mr-2" /> DApp Web3
             </div>
-            <h2 className="text-3xl md:text-4xl font-extrabold mb-4">Custodia Forense Descentralizada</h2>
+            <h2 className="text-3xl md:text-4xl font-extrabold mb-4">{t('landing.web3Title')}</h2>
             <p className="text-slate-400 max-w-3xl mx-auto leading-relaxed">
-              Tu canal para aportar evidencia con <strong className="text-white">trazabilidad judicial</strong>, usando una{' '}
-              <strong className="text-white">Identidad Descentralizada (DID)</strong> que te permite ser{' '}
-              <strong className="text-emerald-300">seudónimo</strong> — identificable ante la DIVINCRI La Libertad solo si tú lo autorizas, sin exposición de tu identidad civil.
+              {t('landing.web3Desc')}
             </p>
           </div>
 
@@ -253,24 +254,24 @@ export default function LandingPage() {
             {[
               { 
                 icon: Wallet, 
-                title: 'Identidad Descentralizada', 
-                desc: 'Conecta tu Pali Wallet V2 y firma un challenge criptográfico para generar tu DID. No se recopilan nombre, DNI ni correo.',
+                title: t('landing.web3Card1Title'), 
+                desc: t('landing.web3Card1Desc'),
                 color: 'from-purple-500/15 to-purple-500/5',
                 borderColor: 'border-purple-500/20 hover:border-purple-500/40',
                 iconColor: 'text-purple-400',
               },
               { 
                 icon: Lock, 
-                title: 'Sellado en Blockchain', 
-                desc: 'Sube tu archivo. Se captura hash SHA-256, timestamp UTC, tipo MIME y metadatos técnicos. El hash se sella en la blockchain zkSYS.',
+                title: t('landing.web3Card2Title'), 
+                desc: t('landing.web3Card2Desc'),
                 color: 'from-emerald-500/15 to-emerald-500/5',
                 borderColor: 'border-emerald-500/20 hover:border-emerald-500/40',
                 iconColor: 'text-emerald-400',
               },
               { 
                 icon: FileText, 
-                title: 'Acta Forense PDF', 
-                desc: 'Descarga el acta digital compatible con el artículo 158-B del CPP peruano: hash, timestamp, DID, bloque y firma del sistema.',
+                title: t('landing.web3Card3Title'), 
+                desc: t('landing.web3Card3Desc'),
                 color: 'from-blue-500/15 to-blue-500/5',
                 borderColor: 'border-blue-500/20 hover:border-blue-500/40',
                 iconColor: 'text-blue-400',
@@ -293,16 +294,16 @@ export default function LandingPage() {
           <div className="bg-gradient-to-r from-slate-900 to-teal-950/20 border border-teal-500/15 rounded-2xl p-8 max-w-2xl mx-auto text-center">
             <div className="flex items-center justify-center space-x-2 mb-3">
               <ShieldAlert className="text-teal-400" size={20} />
-              <span className="text-sm font-bold text-teal-300">Listo para comenzar</span>
+              <span className="text-sm font-bold text-teal-300">{t('landing.web3CtaTitle')}</span>
             </div>
             <p className="text-slate-400 text-sm mb-5 leading-relaxed">
-              Conecta tu wallet desde el Portal Ciudadano para acceder a la custodia forense descentralizada con trazabilidad judicial completa.
+              {t('landing.web3CtaDesc')}
             </p>
             <Link 
               href="/portal"
               className="inline-flex items-center space-x-2 bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-500 hover:to-teal-400 text-white px-6 py-3 rounded-xl font-bold text-sm transition-all duration-300 shadow-lg hover:shadow-[0_4px_20px_rgba(13,148,136,0.3)]"
             >
-              <span>Abrir Portal Ciudadano</span>
+              <span>{t('landing.web3CtaBtn')}</span>
               <ChevronRight size={16} />
             </Link>
           </div>
@@ -317,7 +318,7 @@ export default function LandingPage() {
             <span className="font-bold text-lg">IntelExtorsión</span>
           </div>
           <p className="text-slate-500 text-sm">
-            Plataforma de inteligencia policial. Tecnología de punta contra la extorsión.
+            {t('landing.footer')}
           </p>
         </div>
       </footer>

@@ -497,6 +497,12 @@ def router_post_intake(state: AgenteState) -> str:
     else:
         return "nlp"
 
+def router_post_ocr(state: AgenteState) -> str:
+    """Después de OCR, si el contenido es mixto (texto+audio), va a speech"""
+    if state.tipo_contenido == "mixto" and "speech" not in state.saltar_agentes:
+        return "speech"
+    return "nlp"
+
 def router_post_risk(state: AgenteState) -> str:
     """Después de risk, sella TODAS las evidencias en blockchain para preservar cadena de custodia"""
     return "seal"
@@ -535,8 +541,15 @@ workflow.add_conditional_edges(
     }
 )
 
-# Desde OCR -> NLP
-workflow.add_edge("ocr", "nlp")
+# Desde OCR -> (condicional) -> Speech si mixto, NLP si no
+workflow.add_conditional_edges(
+    "ocr",
+    router_post_ocr,
+    {
+        "speech": "speech",
+        "nlp": "nlp"
+    }
+)
 
 # Desde Speech -> NLP
 workflow.add_edge("speech", "nlp")

@@ -3,7 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
 import { denunciaService } from '@/services/api';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 import {
   ShieldAlert,
   Search,
@@ -66,6 +68,7 @@ export default function TrackingPage() {
 }
 
 function TrackingContent() {
+  const { t } = useTranslation();
   const searchParams = useSearchParams();
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -97,7 +100,7 @@ function TrackingContent() {
     } catch (err: any) {
       setError(
         err.response?.data?.detail || 
-        'No se pudo encontrar el código de seguimiento especificado. Verifica que sea correcto.'
+        t('tracking.errorNotFound')
       );
     } finally {
       setLoading(false);
@@ -106,16 +109,16 @@ function TrackingContent() {
 
   // Mapear agentes para la línea de tiempo
   const agentesDisponibles = [
-    { key: 'intake', name: 'Intake Agent', desc: 'Validación de estructura y pertinencia forense' },
-    { key: 'ocr', name: 'OCR Agent', desc: 'Extracción de textos en imágenes o documentos' },
-    { key: 'speech', name: 'Speech Agent', desc: 'Transcripción y análisis acústico con Groq Whisper' },
-    { key: 'nlp', name: 'NLP Agent', desc: 'Análisis de intenciones, resúmenes y score de amenaza' },
-    { key: 'osint', name: 'OSINT Agent', desc: 'Correlación de números de teléfono, cuentas y redes sociales' },
-    { key: 'correlation', name: 'Correlation Agent', desc: 'Análisis predictivo de patrones y modus operandi' },
-    { key: 'risk', name: 'Risk Agent', desc: 'Cálculo del nivel de riesgo policial' },
-    { key: 'seal', name: 'Seal Agent', desc: 'Custodia digital y sellado en la blockchain zkSYS' },
-    { key: 'alert', name: 'Alert Agent', desc: 'Notificación y escalamiento a dependencias policiales' },
-    { key: 'respond', name: 'Respond Agent', desc: 'Generación de código TRJ y respuesta al ciudadano' },
+    { key: 'intake', name: 'Intake Agent', desc: t('agents.intake') },
+    { key: 'ocr', name: 'OCR Agent', desc: t('agents.ocr') },
+    { key: 'speech', name: 'Speech Agent', desc: t('agents.speech') },
+    { key: 'nlp', name: 'NLP Agent', desc: t('agents.nlp') },
+    { key: 'osint', name: 'OSINT Agent', desc: t('agents.osint') },
+    { key: 'correlation', name: 'Correlation Agent', desc: t('agents.correlation') },
+    { key: 'risk', name: 'Risk Agent', desc: t('agents.risk') },
+    { key: 'seal', name: 'Seal Agent', desc: t('agents.seal') },
+    { key: 'alert', name: 'Alert Agent', desc: t('agents.alert') },
+    { key: 'respond', name: 'Respond Agent', desc: t('agents.respond') },
   ];
 
   const getAgentStatus = (agentKey: string) => {
@@ -156,11 +159,14 @@ function TrackingContent() {
               <ArrowLeft size={20} />
             </Link>
             <ShieldAlert className="text-blue-500" size={24} />
-            <span className="font-bold text-lg tracking-tight">Rastreo de Denuncia</span>
+            <span className="font-bold text-lg tracking-tight">{t('tracking.title')}</span>
           </div>
-          <Link href="/portal" className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 transition">
-            Portal Ciudadano
-          </Link>
+          <div className="flex items-center space-x-2">
+            <LanguageSwitcher compact />
+            <Link href="/portal" className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 transition">
+              {t('tracking.citizenPortal')}
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -170,15 +176,15 @@ function TrackingContent() {
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-8 shadow-xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
           <h2 className="text-xl font-bold mb-2 flex items-center">
-            <Search className="mr-2 text-blue-500" size={20} /> Consulta tu código
+            <Search className="mr-2 text-blue-500" size={20} /> {t('tracking.searchTitle')}
           </h2>
           <p className="text-slate-400 text-sm mb-4">
-            Ingresa el código en formato <span className="font-mono text-blue-400">TRJ-XXXX</span> provisto por el bot de Telegram o el Portal para verificar su estado de análisis y preservación.
+            {t('tracking.searchDesc')}
           </p>
           <form onSubmit={handleSearch} className="flex gap-2">
             <input
               type="text"
-              placeholder="Ej: TRJ-AFEZ"
+              placeholder={t('tracking.searchPlaceholder')}
               value={code}
               onChange={(e) => setCode(e.target.value)}
               className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm font-mono focus:border-blue-500 outline-none uppercase tracking-widest text-center text-blue-400"
@@ -191,7 +197,7 @@ function TrackingContent() {
               {loading ? (
                 <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-white" />
               ) : (
-                'Consultar'
+                t('tracking.searchBtn')
               )}
             </button>
           </form>
@@ -212,18 +218,18 @@ function TrackingContent() {
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl grid md:grid-cols-3 gap-6 relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-600" />
               <div>
-                <span className="text-xs text-slate-500 block mb-1">Código de Seguimiento</span>
+                <span className="text-xs text-slate-500 block mb-1">{t('tracking.trackingCode')}</span>
                 <span className="font-mono text-xl font-bold tracking-widest text-blue-400">{denuncia.tracking_code}</span>
               </div>
               <div>
-                <span className="text-xs text-slate-500 block mb-1">Fecha de Registro</span>
+                <span className="text-xs text-slate-500 block mb-1">{t('tracking.registrationDate')}</span>
                 <div className="flex items-center text-slate-300 font-medium">
                   <Calendar size={14} className="mr-1.5 text-slate-400" />
                   {new Date(denuncia.created_at).toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' })}
                 </div>
               </div>
               <div>
-                <span className="text-xs text-slate-500 block mb-1">Canal de Entrada</span>
+                <span className="text-xs text-slate-500 block mb-1">{t('tracking.inputChannel')}</span>
                 <div className="capitalize text-slate-300 font-medium">
                   {denuncia.canal}
                 </div>
@@ -241,17 +247,17 @@ function TrackingContent() {
                 <div className="bg-blue-950/20 border border-blue-500/30 rounded-2xl p-6 shadow-xl relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
                   <h3 className="text-lg font-bold mb-4 flex items-center text-blue-400">
-                    <Lock className="mr-2 text-blue-400 animate-pulse" size={20} /> Preservación Blockchain Activa (Custodia Web3)
+                    <Lock className="mr-2 text-blue-400 animate-pulse" size={20} /> {t('tracking.blockchainTitle')}
                   </h3>
                   <div className="mb-3 text-sm text-slate-300">
-                    <span className="text-blue-400 font-semibold">{sealedCount}</span> de <span className="font-semibold">{totalEvidences}</span> evidencia{totalEvidences !== 1 ? 's' : ''} sellada{sealedCount !== 1 ? 's' : ''} en zkSYS Tanenbaum
+                    <span className="text-blue-400 font-semibold">{sealedCount}</span> {t('common.of')} <span className="font-semibold">{totalEvidences}</span> evidencia{totalEvidences !== 1 ? 's' : ''} sellada{sealedCount !== 1 ? 's' : ''} en zkSYS Tanenbaum
                   </div>
 
                   {/* Seal summary */}
                   <div className="grid md:grid-cols-2 gap-4 text-sm mb-4">
                     <div className="space-y-3">
                       <div className="flex justify-between border-b border-slate-800 pb-2">
-                        <span className="text-slate-400">Nivel de Riesgo:</span>
+                        <span className="text-slate-400">{t('tracking.riskLevel')}:</span>
                         <span className={`font-semibold capitalize px-2 py-0.5 rounded text-xs ${
                           denuncia.nivel_riesgo === 'critico' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
                           denuncia.nivel_riesgo === 'alto' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
@@ -261,16 +267,16 @@ function TrackingContent() {
                         </span>
                       </div>
                       <div className="flex justify-between border-b border-slate-800 pb-2">
-                        <span className="text-slate-400">Bloque Principal:</span>
-                        <span className="font-mono text-slate-200">{denuncia.seal_block || 'Pendiente'}</span>
+                        <span className="text-slate-400">{t('tracking.mainBlock')}:</span>
+                        <span className="font-mono text-slate-200">{denuncia.seal_block || t('common.pending')}</span>
                       </div>
                       <div className="flex justify-between pb-2">
-                        <span className="text-slate-400">Estado:</span>
-                        <span className="text-green-400 font-semibold">{denuncia.seal_status || 'Completado'}</span>
+                        <span className="text-slate-400">{t('common.status')}:</span>
+                        <span className="text-green-400 font-semibold">{denuncia.seal_status || t('common.success')}</span>
                       </div>
                     </div>
                     <div className="space-y-2 flex flex-col justify-end">
-                      <span className="text-slate-400 text-xs block">Hash Principal de Transacción:</span>
+                      <span className="text-slate-400 text-xs block">{t('tracking.mainHash')}:</span>
                       <div className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 font-mono text-[11px] text-blue-300 break-all select-all">
                         <span>{denuncia.seal_tx_hash}</span>
                       </div>
@@ -280,7 +286,7 @@ function TrackingContent() {
                         rel="noopener noreferrer"
                         className="inline-flex items-center justify-center text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-lg transition mt-2 cursor-pointer"
                       >
-                        Ver en Explorador zkSYS <ExternalLink size={12} className="ml-1.5" />
+                        {t('tracking.viewExplorer')} <ExternalLink size={12} className="ml-1.5" />
                       </a>
                     </div>
                   </div>
@@ -288,7 +294,7 @@ function TrackingContent() {
                   {/* Individual evidence seals */}
                   {sealResults.length > 1 && (
                     <div className="mt-4">
-                      <h4 className="text-sm font-semibold text-slate-300 mb-2">Evidencias Selladas Individuales:</h4>
+                      <h4 className="text-sm font-semibold text-slate-300 mb-2">{t('tracking.individualSeals')}</h4>
                       <div className="space-y-2">
                         {sealResults.map((seal: any, idx: number) => (
                           <div key={idx} className="bg-slate-900/50 border border-slate-800 rounded-lg p-3 text-xs">
@@ -327,7 +333,7 @@ function TrackingContent() {
             {/* AI Agent Timeline */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
               <h3 className="text-lg font-bold mb-6 flex items-center">
-                <Cpu className="mr-2 text-indigo-500" size={20} /> Proceso de Análisis de Inteligencia
+                <Cpu className="mr-2 text-indigo-500" size={20} /> {t('tracking.aiProcessTitle')}
               </h3>
               <div className="relative border-l border-slate-800 ml-4 space-y-8 pb-4">
                 {agentesDisponibles.map((ag) => {
@@ -364,9 +370,9 @@ function TrackingContent() {
                             status === 'skipped' ? 'bg-slate-950 text-slate-600' :
                             'bg-slate-950 text-slate-500 border border-slate-800 animate-pulse'
                           }`}>
-                            {status === 'success' ? 'Ejecutado' : 
-                             status === 'failed' ? 'Fallo' : 
-                             status === 'skipped' ? 'Omitido' : 'Pendiente'}
+                            {status === 'success' ? t('tracking.agentExecuted') : 
+                             status === 'failed' ? t('tracking.agentFailed') : 
+                             status === 'skipped' ? t('tracking.agentSkipped') : t('tracking.agentPending')}
                           </span>
                         </div>
                         <p className="text-slate-500 text-xs mt-0.5">{ag.desc}</p>
@@ -428,10 +434,10 @@ function TrackingContent() {
               <div className="bg-gradient-to-r from-emerald-950/25 to-teal-950/25 border border-emerald-500/20 rounded-2xl p-6 shadow-xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none" />
                 <h3 className="text-lg font-bold mb-2 flex items-center text-emerald-400">
-                  <CheckCircle2 className="mr-2 text-emerald-400" size={20} /> Análisis Finalizado
+                  <CheckCircle2 className="mr-2 text-emerald-400" size={20} /> {t('tracking.analysisComplete')}
                 </h3>
                 <p className="text-slate-300 text-sm leading-relaxed mb-4">
-                  El sistema de agentes autónomos ha completado el análisis forense y el registro legal de la evidencia. Tu código de seguimiento e identidad digital (DID) resguardan tus derechos y la veracidad del proceso.
+                  {t('tracking.analysisCompleteDesc')}
                 </p>
               </div>
             )}
@@ -441,10 +447,10 @@ function TrackingContent() {
               <div className="bg-gradient-to-r from-green-950/40 to-emerald-950/40 border border-green-500/30 rounded-2xl p-6 shadow-xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/10 rounded-full blur-2xl pointer-events-none" />
                 <h3 className="text-lg font-bold mb-2 flex items-center text-green-400">
-                  <CheckCircle2 className="mr-2 text-green-400" size={20} /> Caso Resuelto
+                  <CheckCircle2 className="mr-2 text-green-400" size={20} /> {t('tracking.caseResolved')}
                 </h3>
                 <p className="text-slate-300 text-sm leading-relaxed">
-                  La Policía Nacional ha atendido y resuelto tu denuncia. El caso ha sido archivado con éxito. Agradecemos tu colaboración ciudadana.
+                  {t('tracking.caseResolvedDesc')}
                 </p>
               </div>
             )}
@@ -455,7 +461,7 @@ function TrackingContent() {
       {/* Footer */}
       <footer className="border-t border-slate-900 py-8 bg-slate-950 text-center">
         <p className="text-xs text-slate-600">
-          IntelExtorsión. Custodia y preservación de denuncias ciudadanas. Encriptación Web3 zkSYS Tanenbaum Testnet.
+          {t('tracking.footer')}
         </p>
       </footer>
     </div>

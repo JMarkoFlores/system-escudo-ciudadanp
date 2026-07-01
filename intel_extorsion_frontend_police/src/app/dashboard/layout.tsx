@@ -3,8 +3,10 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
 import { useWalletStore } from '@/stores/walletStore';
 import { useAppStore } from '@/stores/appStore';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 import {
   LayoutDashboard,
   ShieldAlert,
@@ -22,13 +24,13 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 
-const navItems = [
-  { label: 'Dashboard', href: '/dashboard/policial', icon: LayoutDashboard },
-  { label: 'Analítico', href: '/dashboard/analitico', icon: BarChart3 },
-  { label: 'Redes Criminales', href: '/dashboard/grafos', icon: Network },
-  { label: 'Alertas', href: '/dashboard/alertas', icon: ShieldAlert },
-  { label: 'Revelaciones', href: '/dashboard/revelaciones', icon: Users },
-  { label: 'Usuarios', href: '/dashboard/usuarios', icon: Users, adminOnly: true },
+const getNavItems = (t: any) => [
+  { label: t('dashboard.navDashboard'), href: '/dashboard/policial', icon: LayoutDashboard },
+  { label: t('dashboard.navAnalytics'), href: '/dashboard/analitico', icon: BarChart3 },
+  { label: t('dashboard.navCriminalNetworks'), href: '/dashboard/grafos', icon: Network },
+  { label: t('dashboard.navAlerts'), href: '/dashboard/alertas', icon: ShieldAlert },
+  { label: t('dashboard.navRevelations'), href: '/dashboard/revelaciones', icon: Users },
+  { label: t('dashboard.navUsers'), href: '/dashboard/usuarios', icon: Users, adminOnly: true },
 ];
 
 interface PoliceUser {
@@ -38,6 +40,7 @@ interface PoliceUser {
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation();
   const pathname = usePathname();
   const router = useRouter();
   const { sidebarOpen, toggleSidebar } = useAppStore();
@@ -70,6 +73,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   if (!user) return null;
+
+  const navItems = getNavItems(t);
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
@@ -119,7 +124,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="border-t border-slate-700 p-4 space-y-3">
           {sidebarOpen && (
             <div className="text-xs text-slate-400 uppercase tracking-wider font-semibold">
-              Web3 Identity
+              {t('dashboard.web3Identity')}
             </div>
           )}
 
@@ -131,7 +136,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   onClick={switchToZkSYS}
                   className="mt-1 w-full bg-red-600 hover:bg-red-500 text-white text-[10px] font-medium py-1 px-2 rounded transition"
                 >
-                  Cambiar a zkSYS
+                  {t('dashboard.switchToZkSYS')}
                 </button>
               )}
             </div>
@@ -143,13 +148,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <>
                   <div className="flex items-center gap-1.5">
                     <span className="inline-block w-2 h-2 bg-green-500 rounded-full" />
-                    <span className="text-[10px] text-green-400 font-medium">Conectada</span>
+                    <span className="text-[10px] text-green-400 font-medium">{t('dashboard.connected')}</span>
                     {chainId === 57057 && (
                       <span className="bg-green-900/30 text-green-300 text-[9px] px-1.5 py-0.5 rounded-full">zkSYS</span>
                     )}
                   </div>
                   <div className="text-[10px] text-slate-400 break-all">
-                    <span className="text-slate-500">Cuenta:</span> {account?.slice(0, 10)}...
+                    <span className="text-slate-500">{t('dashboard.account')}</span> {account?.slice(0, 10)}...
                   </div>
                   {did && (
                     <div className="text-[10px] text-slate-400 break-all">
@@ -163,7 +168,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 className="flex items-center text-[10px] text-red-400 hover:text-red-300 transition"
               >
                 <LogOut size={12} className={sidebarOpen ? 'mr-1.5' : ''} />
-                {sidebarOpen && 'Desconectar'}
+                {sidebarOpen && t('dashboard.disconnect')}
               </button>
             </div>
           ) : (
@@ -175,7 +180,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               )}
             >
               <Wallet size={16} className={sidebarOpen ? 'mr-2' : ''} />
-              {sidebarOpen && 'Conectar Pali'}
+              {sidebarOpen && t('dashboard.connectPali')}
             </button>
           )}
         </div>
@@ -191,14 +196,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <header className="h-16 bg-white border-b flex items-center justify-between px-6 sticky top-0 z-40">
           <div className="flex items-center space-x-4">
             <Link href="/" className="text-slate-500 hover:text-slate-800 flex items-center text-sm">
-              <Home size={16} className="mr-1" /> Inicio
+              <Home size={16} className="mr-1" /> {t('dashboard.home')}
             </Link>
             <a href="http://localhost:3000/portal" className="text-slate-500 hover:text-slate-800 flex items-center text-sm">
-              <MessageSquare size={16} className="mr-1" /> Portal Ciudadano
+              <MessageSquare size={16} className="mr-1" /> {t('dashboard.citizenPortal')}
             </a>
+            <LanguageSwitcher compact />
           </div>
           <div className="flex items-center space-x-4">
-            <span className="text-xs text-slate-400">zkSYS Tanenbaum</span>
+            <span className="text-xs text-slate-400">{t('common.network')} zkSYS Tanenbaum</span>
             <div className="flex items-center space-x-2">
               <div className="text-right hidden sm:block">
                 <div className="text-xs font-medium text-slate-700">{user.nombre_completo}</div>
@@ -208,7 +214,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <button
                 onClick={handleLogout}
                 className="text-slate-400 hover:text-red-500 transition"
-                title="Cerrar sesión"
+                title={t('common.logout')}
               >
                 <LogOut size={20} />
               </button>

@@ -2,9 +2,11 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import { useTranslation } from 'react-i18next';
 import { useWalletStore } from '@/stores/walletStore';
 import { denunciaService } from '@/services/api';
 import toast from 'react-hot-toast';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 import {
   ShieldAlert,
   Send,
@@ -30,6 +32,7 @@ import {
 import { Denuncia } from '@/types';
 
 export default function PortalPage() {
+  const { t } = useTranslation();
   const { account, isConnected, connect, did, error, switchToZkSYS, init, disconnect, provider } = useWalletStore();
 
   useEffect(() => {
@@ -45,7 +48,7 @@ export default function PortalPage() {
   const handleConnectWallet = async () => {
     const pali = (window as any).pali || (window as any).ethereum;
     if (!pali) {
-      toast.error('Pali Wallet no detectada. Instálala desde https://paliwallet.com');
+      toast.error(t('portal.walletNotDetected'));
       return;
     }
     try {
@@ -65,7 +68,7 @@ export default function PortalPage() {
           provider: pali,
           isConnected: true,
           did: `did:zsys:tanenbaum:${accounts[0].toLowerCase()}`,
-          error: chainId !== 57057 ? 'Por favor cambia a la red zkSYS Tanenbaum Testnet (Chain ID 57057)' : null,
+          error: chainId !== 57057 ? t('portal.wrongNetwork') : null,
         });
       }
     } catch (err: any) {
@@ -498,13 +501,13 @@ export default function PortalPage() {
                   <ShieldAlert className="text-teal-400" size={20} />
                 </div>
                 <div>
-                  <span className="text-xs text-teal-400 font-bold uppercase tracking-wider block">Identidad Descentralizada</span>
-                  <span className="text-[10px] text-slate-500 font-mono">W3C DID Core 1.0</span>
+                  <span className="text-xs text-teal-400 font-bold uppercase tracking-wider block">{t('portal.didCardLabel')}</span>
+                  <span className="text-[10px] text-slate-500 font-mono">{t('portal.didCardStandard')}</span>
                 </div>
               </div>
               <div className="flex items-center space-x-1.5 bg-teal-500/10 border border-teal-500/20 px-2.5 py-1 rounded-full">
                 <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
-                <span className="text-[10px] text-teal-400 font-bold uppercase tracking-wider">Activo</span>
+                <span className="text-[10px] text-teal-400 font-bold uppercase tracking-wider">{t('portal.didActive')}</span>
               </div>
             </div>
 
@@ -516,7 +519,7 @@ export default function PortalPage() {
                   className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2.5 rounded-xl border border-slate-700/50 transition flex items-center space-x-2 shrink-0 font-semibold shadow-sm hover:border-teal-500/30 active:scale-95"
                 >
                   <Copy size={14} />
-                  {isCopied ? <span className="text-teal-400">¡Copiado!</span> : <span>Copiar</span>}
+                  {isCopied ? <span className="text-teal-400">{t('common.copied')}</span> : <span>{t('common.copy')}</span>}
                 </button>
               </div>
             </div>
@@ -524,12 +527,12 @@ export default function PortalPage() {
             <div className="flex flex-wrap items-center gap-3 text-[10px]">
               <div className="flex items-center space-x-1.5 text-slate-400">
                 <CheckCircle2 size={12} className="text-teal-400" />
-                <span>Sin datos personales</span>
+                <span>{t('portal.didNoPersonalData')}</span>
               </div>
               <div className="w-px h-3 bg-slate-700" />
               <div className="flex items-center space-x-1.5 text-slate-400">
                 <CheckCircle2 size={12} className="text-teal-400" />
-                <span>Seudónimo verificable</span>
+                <span>{t('portal.didPseudonym')}</span>
               </div>
               <div className="w-px h-3 bg-slate-700" />
               <div className="flex items-center space-x-1.5 text-slate-400">
@@ -544,36 +547,36 @@ export default function PortalPage() {
         {/* KPIs Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-gradient-to-br from-slate-900 to-teal-950/20 border border-teal-500/15 rounded-2xl p-5 shadow-lg flex flex-col justify-between h-32 hover:border-teal-500/30 transition-all duration-300 group hover:shadow-[0_4px_24px_rgba(13,148,136,0.08)]">
-            <span className="text-xs text-teal-500/80 font-bold uppercase tracking-wider block">Evidencias Selladas</span>
+            <span className="text-xs text-teal-500/80 font-bold uppercase tracking-wider block">{t('portal.kpiSealed')}</span>
             <div className="flex items-baseline space-x-2 my-2">
               <span className="text-4xl font-extrabold text-white group-hover:text-teal-400 transition">{selladasCount}</span>
               <span className="text-sm text-teal-400 font-bold">✓</span>
             </div>
-            <span className="text-xs text-slate-500 font-mono">Blockchain zkSYS</span>
+            <span className="text-xs text-slate-500 font-mono">{t('portal.kpiBlockchain')}</span>
           </div>
 
           <div className="bg-gradient-to-br from-slate-900 to-amber-950/10 border border-amber-500/10 rounded-2xl p-5 shadow-lg flex flex-col justify-between h-32 hover:border-amber-500/25 transition-all duration-300 group hover:shadow-[0_4px_24px_rgba(245,158,11,0.06)]">
-            <span className="text-xs text-amber-500/70 font-bold uppercase tracking-wider block">En Proceso</span>
+            <span className="text-xs text-amber-500/70 font-bold uppercase tracking-wider block">{t('portal.kpiInProcess')}</span>
             <div className="flex items-baseline space-x-2 my-2">
               <span className="text-4xl font-extrabold text-white group-hover:text-amber-400 transition">{enProcesoCount}</span>
             </div>
-            <span className="text-xs text-slate-500">Agentes ejecutándose</span>
+            <span className="text-xs text-slate-500">{t('portal.kpiAgentsRunning')}</span>
           </div>
 
           <div className="bg-gradient-to-br from-slate-900 to-blue-950/10 border border-blue-500/10 rounded-2xl p-5 shadow-lg flex flex-col justify-between h-32 hover:border-blue-500/25 transition-all duration-300 group hover:shadow-[0_4px_24px_rgba(59,130,246,0.06)]">
-            <span className="text-xs text-blue-500/70 font-bold uppercase tracking-wider block">Autoridades Notif.</span>
+            <span className="text-xs text-blue-500/70 font-bold uppercase tracking-wider block">{t('portal.kpiNotified')}</span>
             <div className="flex items-baseline space-x-2 my-2">
               <span className="text-4xl font-extrabold text-white group-hover:text-blue-400 transition">{notificadasCount}</span>
             </div>
-            <span className="text-xs text-slate-500">Riesgo Alto / Crítico</span>
+            <span className="text-xs text-slate-500">{t('portal.kpiHighRisk')}</span>
           </div>
 
           <div className="bg-gradient-to-br from-slate-900 to-purple-950/10 border border-purple-500/10 rounded-2xl p-5 shadow-lg flex flex-col justify-between h-32 hover:border-purple-500/25 transition-all duration-300 group hover:shadow-[0_4px_24px_rgba(168,85,247,0.06)]">
-            <span className="text-xs text-purple-500/70 font-bold uppercase tracking-wider block">Clústeres Activos</span>
+            <span className="text-xs text-purple-500/70 font-bold uppercase tracking-wider block">{t('portal.kpiClusters')}</span>
             <div className="flex items-baseline space-x-2 my-2">
               <span className="text-4xl font-extrabold text-white group-hover:text-purple-400 transition">{clustersCount}</span>
             </div>
-            <span className="text-xs text-slate-500">Coincidencias en Trujillo</span>
+            <span className="text-xs text-slate-500">{t('portal.kpiMatches')}</span>
           </div>
         </div>
 
@@ -586,9 +589,9 @@ export default function PortalPage() {
               <div className="bg-red-950/20 border border-red-500/30 rounded-2xl p-5 shadow-lg flex items-start space-x-4">
                 <AlertTriangle className="text-red-400 mt-0.5 shrink-0 animate-pulse" size={24} />
                 <div>
-                  <h4 className="text-sm font-bold text-red-300 uppercase tracking-wider mb-1">Clúster Criminal Detectado</h4>
+                  <h4 className="text-sm font-bold text-red-300 uppercase tracking-wider mb-1">{t('portal.clusterDetected')}</h4>
                   <p className="text-xs md:text-sm text-red-400 leading-relaxed">
-                    Nuestros agentes de correlación han identificado un patrón activo de extorsión coincidente con tu caso en Trujillo. Tus evidencias han sido vinculadas de forma inmutable para robustecer la investigación penal de la fiscalía.
+                    {t('portal.clusterDesc')}
                   </p>
                 </div>
               </div>
@@ -598,7 +601,7 @@ export default function PortalPage() {
             <div className="bg-gradient-to-br from-slate-900 to-slate-900/80 backdrop-blur border border-slate-800/80 rounded-2xl p-6 shadow-xl">
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center space-x-2">
-                  <h4 className="text-sm font-bold text-slate-200 uppercase tracking-wider">Evidencias Recientes</h4>
+                  <h4 className="text-sm font-bold text-slate-200 uppercase tracking-wider">{t('portal.recentEvidences')}</h4>
                   {denuncias.length > 0 && (
                     <span className="text-[10px] bg-teal-500/10 text-teal-400 px-2 py-0.5 rounded-full font-bold border border-teal-500/20">{denuncias.length}</span>
                   )}
@@ -607,7 +610,7 @@ export default function PortalPage() {
                   onClick={() => setActiveTab('evidencias')}
                   className="text-xs text-teal-400 hover:text-teal-300 font-bold transition hover:underline"
                 >
-                  Ver todas →
+                  {t('common.viewAll')}
                 </button>
               </div>
 
@@ -617,7 +620,7 @@ export default function PortalPage() {
                 </div>
               ) : denuncias.length === 0 ? (
                 <div className="py-12 text-center text-slate-500 text-sm">
-                  No se han registrado evidencias con este DID.
+                  {t('portal.noEvidences')}
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -636,7 +639,7 @@ export default function PortalPage() {
                             </div>
                             <div className="truncate space-y-0.5">
                               <span className="text-sm font-bold text-slate-200 block group-hover:text-teal-400 transition">
-                                {d.tracking_code || 'Custodia en proceso...'}
+                                {d.tracking_code || t('portal.custodyInProcess')}
                               </span>
                               <div className="flex items-center flex-wrap gap-1.5 text-[10px] text-slate-500">
                                 <span>{new Date(d.created_at).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' })}</span>
@@ -667,7 +670,7 @@ export default function PortalPage() {
                                 : 'bg-slate-800/40 text-slate-400 border-slate-700/80'
                             }`}>
                               {isSealed && <div className="w-1 h-1 rounded-full bg-teal-400 animate-pulse" />}
-                              <span>{isSealed ? 'SELLADO' : 'CUSTODIA'}</span>
+                              <span>{isSealed ? t('portal.sealed') : t('portal.custodia')}</span>
                             </span>
 
                             {d.tracking_code && (
@@ -675,7 +678,7 @@ export default function PortalPage() {
                                 href={`/tracking?code=${d.tracking_code}`}
                                 className="text-[10px] bg-teal-600/80 hover:bg-teal-500 text-white px-3 py-1.5 rounded-lg transition font-bold flex items-center space-x-1 shadow-sm hover:shadow-[0_2px_8px_rgba(13,148,136,0.2)]"
                               >
-                                <span>Auditar</span>
+                                <span>{t('portal.auditIAWeb3')}</span>
                                 <ExternalLink size={10} />
                               </Link>
                             )}
@@ -708,8 +711,8 @@ export default function PortalPage() {
           <div className="space-y-6">
             {/* Quick Actions */}
             <div className="bg-gradient-to-br from-slate-900 to-slate-900/80 backdrop-blur border border-slate-800/80 rounded-2xl p-6 shadow-xl space-y-3">
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Acciones Rápidas</h4>
-              
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">{t('portal.quickActions')}</h4>
+               
               <button
                 onClick={() => setActiveTab('chat')}
                 className="w-full group bg-gradient-to-r from-teal-900/30 to-slate-800/50 border border-teal-500/20 hover:border-teal-500/40 rounded-xl p-4 text-left transition-all duration-300 flex items-center space-x-4 shadow-sm hover:shadow-[0_4px_16px_rgba(13,148,136,0.08)]"
@@ -718,8 +721,8 @@ export default function PortalPage() {
                   <PlusCircle size={20} />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-slate-200 group-hover:text-teal-300 transition">Subir Evidencia</h4>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Audio, chat, número extorsionador o documentos.</p>
+                  <h4 className="text-sm font-bold text-slate-200 group-hover:text-teal-300 transition">{t('portal.uploadEvidence')}</h4>
+                  <p className="text-[10px] text-slate-400 mt-0.5">{t('portal.uploadEvidenceDesc')}</p>
                 </div>
               </button>
 
@@ -731,8 +734,8 @@ export default function PortalPage() {
                   <FileText size={20} />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-slate-200 group-hover:text-white transition">Ver Mis Evidencias</h4>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Historial con enlaces de verificación blockchain.</p>
+                  <h4 className="text-sm font-bold text-slate-200 group-hover:text-white transition">{t('portal.viewMyEvidences')}</h4>
+                  <p className="text-[10px] text-slate-400 mt-0.5">{t('portal.viewMyEvidencesDesc')}</p>
                 </div>
               </button>
             </div>
@@ -743,20 +746,20 @@ export default function PortalPage() {
                 <div className="w-8 h-8 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
                   <ShieldAlert className="text-teal-400" size={16} />
                 </div>
-                <h4 className="font-bold text-teal-300 uppercase tracking-wider text-[10px]">Custodia Forense</h4>
+                <h4 className="font-bold text-teal-300 uppercase tracking-wider text-[10px]">{t('portal.forensicCustody')}</h4>
               </div>
               <div className="space-y-2.5 text-slate-400 leading-relaxed">
                 <div className="flex items-start space-x-2">
                   <CheckCircle2 size={12} className="text-teal-400 mt-0.5 shrink-0" />
-                  <span>Cada evidencia recibe un hash <strong className="text-teal-300 font-bold font-mono">SHA-256</strong> inmutable.</span>
+                  <span>{t('portal.forensicCustodyDesc1')}</span>
                 </div>
                 <div className="flex items-start space-x-2">
                   <CheckCircle2 size={12} className="text-teal-400 mt-0.5 shrink-0" />
-                  <span>El hash se sella en la <strong className="text-teal-300 font-bold">blockchain zkSYS</strong> (testnet).</span>
+                  <span>{t('portal.forensicCustodyDesc2')}</span>
                 </div>
                 <div className="flex items-start space-x-2">
                   <CheckCircle2 size={12} className="text-teal-400 mt-0.5 shrink-0" />
-                  <span>Se genera un <strong className="text-teal-300 font-bold">acta PDF</strong> compatible con el art. 158-B del CPP.</span>
+                  <span>{t('portal.forensicCustodyDesc3')}</span>
                 </div>
               </div>
               <div className="pt-2 mt-2 border-t border-teal-500/10 flex items-center space-x-1.5 text-[10px] text-slate-500">
@@ -788,16 +791,16 @@ export default function PortalPage() {
           <div className="w-16 h-16 rounded-2xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center mx-auto mb-4">
             <FileText className="text-teal-400" size={28} />
           </div>
-          <h3 className="font-bold text-slate-200 text-sm mb-2">Sin evidencias registradas</h3>
+          <h3 className="font-bold text-slate-200 text-sm mb-2">{t('portal.noEvidencesTitle')}</h3>
           <p className="text-xs text-slate-500 mb-6 max-w-xs mx-auto leading-relaxed">
-            Aún no has registrado ningún reporte de extorsión con este DID. Tu primera evidencia será sellada en blockchain zkSYS.
+            {t('portal.noEvidencesDesc')}
           </p>
           <button
             onClick={() => setActiveTab('chat')}
             className="bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-500 hover:to-teal-400 text-white text-xs font-bold px-6 py-3 rounded-xl transition-all duration-300 shadow-lg hover:shadow-[0_4px_16px_rgba(13,148,136,0.3)] flex items-center space-x-2 mx-auto"
           >
             <PlusCircle size={14} />
-            <span>Registrar Primera Evidencia</span>
+            <span>{t('portal.registerFirstEvidence')}</span>
           </button>
         </div>
       );
@@ -807,7 +810,7 @@ export default function PortalPage() {
       <div className="space-y-5 w-full animate-fadeIn">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-3">
-            <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">Historial de Evidencias</h3>
+            <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">{t('portal.evidenceHistory')}</h3>
             <span className="text-[10px] bg-teal-500/10 text-teal-400 px-2.5 py-0.5 rounded-full font-bold border border-teal-500/20">{denuncias.length} registros</span>
           </div>
           <button
@@ -815,7 +818,7 @@ export default function PortalPage() {
             className="text-xs bg-teal-600/80 hover:bg-teal-500 text-white px-3 py-1.5 rounded-lg transition font-bold flex items-center space-x-1"
           >
             <PlusCircle size={12} />
-            <span>Nueva</span>
+            <span>{t('portal.newEvidence')}</span>
           </button>
         </div>
 
@@ -892,7 +895,7 @@ export default function PortalPage() {
                           : 'bg-slate-800 text-slate-400 border-slate-700'
                       }`}>
                         {isSealed && <div className="w-1 h-1 rounded-full bg-teal-400 animate-pulse" />}
-                        <span>{isSealed ? 'SELLADO' : 'CUSTODIA'}</span>
+                              <span>{isSealed ? t('portal.sealed') : t('portal.custodia')}</span>
                       </span>
                     </div>
 
@@ -901,7 +904,7 @@ export default function PortalPage() {
                         href={`/tracking?code=${d.tracking_code}`}
                         className="bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-500 hover:to-teal-400 text-white font-bold px-4 py-2 rounded-xl text-xs transition-all duration-300 flex items-center space-x-1.5 shadow-md hover:shadow-[0_4px_16px_rgba(13,148,136,0.25)]"
                       >
-                        <span>Auditar IA & Web3</span>
+                        <span>{t('portal.auditIAWeb3')}</span>
                         <ExternalLink size={11} />
                       </Link>
                     )}
@@ -924,34 +927,34 @@ export default function PortalPage() {
             <div className="w-8 h-8 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
               <ShieldAlert className="text-teal-400" size={16} />
             </div>
-            <h3 className="font-bold text-sm text-slate-200 uppercase tracking-wider">Glosario de Seguridad</h3>
+            <h3 className="font-bold text-sm text-slate-200 uppercase tracking-wider">{t('portal.glossaryTitle')}</h3>
           </div>
           <div className="space-y-5 text-xs md:text-sm leading-relaxed text-slate-400">
             <div className="bg-slate-950/40 border border-slate-800/40 rounded-xl p-4">
               <div className="flex items-center space-x-2 mb-2">
                 <div className="w-6 h-6 rounded-md bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-[10px] font-bold text-purple-400">1</div>
-                <h4 className="font-bold text-slate-200">Identidad Descentralizada (DID)</h4>
+                <h4 className="font-bold text-slate-200">{t('portal.glossaryDID')}</h4>
               </div>
               <p className="text-slate-400 leading-relaxed">
-                Identificador único bajo estándar <strong className="text-slate-300">W3C DID Core 1.0</strong> generado desde tu Pali Wallet. No almacena nombres, correos ni datos personales. Tu reporte es <strong className="text-teal-400">seudónimo pero verificable</strong> ante la DIVINCRI si tú lo autorizas.
+                {t('portal.glossaryDIDDesc')}
               </p>
             </div>
             <div className="bg-slate-950/40 border border-slate-800/40 rounded-xl p-4">
               <div className="flex items-center space-x-2 mb-2">
                 <div className="w-6 h-6 rounded-md bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-[10px] font-bold text-emerald-400">2</div>
-                <h4 className="font-bold text-slate-200">Sellado en Blockchain</h4>
+                <h4 className="font-bold text-slate-200">{t('portal.glossarySeal')}</h4>
               </div>
               <p className="text-slate-400 leading-relaxed">
-                Tu evidencia se protege con un hash <strong className="text-emerald-400">SHA-256</strong> inmutable registrado en <strong className="text-slate-300">zkSYS Tanenbaum Testnet</strong>. Nadie puede alterar, borrar o manipular la evidencia — ni siquiera administradores o la policía.
+                {t('portal.glossarySealDesc')}
               </p>
             </div>
             <div className="bg-slate-950/40 border border-slate-800/40 rounded-xl p-4">
               <div className="flex items-center space-x-2 mb-2">
                 <div className="w-6 h-6 rounded-md bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-[10px] font-bold text-blue-400">3</div>
-                <h4 className="font-bold text-slate-200">Clústeres y Redes Criminales</h4>
+                <h4 className="font-bold text-slate-200">{t('portal.glossaryClusters')}</h4>
               </div>
               <p className="text-slate-400 leading-relaxed">
-                Los agentes de IA correlacionan teléfonos, cuentas bancarias y patrones lingüísticos. Si tu reporte coincide con otros en Trujillo, se detecta automáticamente un <strong className="text-blue-400">clúster o red delictiva activa</strong>.
+                {t('portal.glossaryClustersDesc')}
               </p>
             </div>
           </div>
@@ -963,34 +966,34 @@ export default function PortalPage() {
             <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
               <HelpCircle className="text-blue-400" size={16} />
             </div>
-            <h3 className="font-bold text-sm text-slate-200 uppercase tracking-wider">Preguntas Frecuentes</h3>
+            <h3 className="font-bold text-sm text-slate-200 uppercase tracking-wider">{t('portal.faqTitle')}</h3>
           </div>
           <div className="space-y-4 text-xs md:text-sm leading-relaxed text-slate-400">
             <div className="bg-slate-950/40 border border-slate-800/40 rounded-xl p-4">
               <h4 className="font-bold text-slate-200 mb-2 flex items-center space-x-2">
                 <span className="text-teal-400">Q.</span>
-                <span>¿Cómo puedo ver el estado de mi caso?</span>
+                <span>{t('portal.faqQ1')}</span>
               </h4>
               <p className="text-slate-400 pl-5">
-                Cada reporte recibe un código único <code className="text-teal-300 font-mono font-bold bg-slate-900 px-1.5 py-0.5 rounded">TRJ-XXXX</code>. Úsalo en "Mis Evidencias" → "Auditar IA & Web3" o en el Portal de Tracking.
+                {t('portal.faqA1')}
               </p>
             </div>
             <div className="bg-slate-950/40 border border-slate-800/40 rounded-xl p-4">
               <h4 className="font-bold text-slate-200 mb-2 flex items-center space-x-2">
                 <span className="text-teal-400">Q.</span>
-                <span>¿La policía puede ver mi clave privada?</span>
+                <span>{t('portal.faqQ2')}</span>
               </h4>
               <p className="text-slate-400 pl-5">
-                <strong className="text-red-400">No.</strong> Conectar Pali Wallet solo firma tu reporte de forma anónima. El sistema nunca accede a tus claves privadas ni fondos.
+                {t('portal.faqA2')}
               </p>
             </div>
             <div className="bg-slate-950/40 border border-slate-800/40 rounded-xl p-4">
               <h4 className="font-bold text-slate-200 mb-2 flex items-center space-x-2">
                 <span className="text-teal-400">Q.</span>
-                <span>¿Qué es el acta forense PDF?</span>
+                <span>{t('portal.faqQ3')}</span>
               </h4>
               <p className="text-slate-400 pl-5">
-                Documento digital con hash SHA-256, timestamp, DID, número de bloque y firma del sistema. Compatible con el <strong className="text-slate-300">artículo 158-B del CPP peruano</strong> para evidencia digital trazable.
+                {t('portal.faqA3')}
               </p>
             </div>
           </div>
@@ -1002,23 +1005,23 @@ export default function PortalPage() {
             <div className="w-8 h-8 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
               <MessageCircle className="text-teal-400" size={16} />
             </div>
-            <h3 className="font-bold text-sm text-teal-300 uppercase tracking-wider">Canales de Atención</h3>
+            <h3 className="font-bold text-sm text-teal-300 uppercase tracking-wider">{t('portal.channelsTitle')}</h3>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
             <div className="bg-slate-950/40 border border-slate-800/40 rounded-xl p-3 text-center">
               <span className="text-lg block mb-1">📱</span>
-              <span className="text-slate-300 font-bold block">WhatsApp</span>
-              <span className="text-slate-500">Envía un mensaje directo</span>
+              <span className="text-slate-300 font-bold block">{t('portal.channelsWhatsapp')}</span>
+              <span className="text-slate-500">{t('portal.channelsWhatsappDesc')}</span>
             </div>
             <div className="bg-slate-950/40 border border-slate-800/40 rounded-xl p-3 text-center">
               <span className="text-lg block mb-1">✈️</span>
-              <span className="text-slate-300 font-bold block">Telegram</span>
-              <span className="text-slate-500">@IntelExtorsion_bot</span>
+              <span className="text-slate-300 font-bold block">{t('portal.channelsTelegram')}</span>
+              <span className="text-slate-500">{t('portal.channelsTelegramDesc')}</span>
             </div>
             <div className="bg-slate-950/40 border border-slate-800/40 rounded-xl p-3 text-center">
               <span className="text-lg block mb-1">💬</span>
-              <span className="text-slate-300 font-bold block">Discord</span>
-              <span className="text-slate-500">Servidor oficial</span>
+              <span className="text-slate-300 font-bold block">{t('portal.channelsDiscord')}</span>
+              <span className="text-slate-500">{t('portal.channelsDiscordDesc')}</span>
             </div>
           </div>
         </div>
@@ -1027,10 +1030,10 @@ export default function PortalPage() {
   };
 
   const sidebarItems = [
-    { key: 'dashboard' as const, label: 'Panel Principal', icon: LayoutDashboard },
-    { key: 'chat' as const, label: 'Nueva Denuncia', icon: MessageCircle },
-    { key: 'evidencias' as const, label: 'Mis Evidencias', icon: FileText },
-    { key: 'ayuda' as const, label: 'Ayuda', icon: HelpCircle },
+    { key: 'dashboard' as const, label: t('portal.sidebarDashboard'), icon: LayoutDashboard },
+    { key: 'chat' as const, label: t('portal.sidebarNewReport'), icon: MessageCircle },
+    { key: 'evidencias' as const, label: t('portal.sidebarMyEvidences'), icon: FileText },
+    { key: 'ayuda' as const, label: t('portal.sidebarHelp'), icon: HelpCircle },
   ];
 
   const renderChat = () => {
@@ -1046,8 +1049,8 @@ export default function PortalPage() {
                   <ShieldAlert className="text-teal-400" size={16} />
                 </div>
                 <div>
-                  <span className="text-xs font-bold text-slate-200 block">Asistente de Ingesta</span>
-                  <span className="text-[10px] text-slate-500">Agentes de IA forense disponibles</span>
+                  <span className="text-xs font-bold text-slate-200 block">{t('portal.chatHeader')}</span>
+                  <span className="text-[10px] text-slate-500">{t('portal.chatSubheader')}</span>
                 </div>
               </div>
               <div className="flex items-center space-x-1.5">
@@ -1307,47 +1310,47 @@ export default function PortalPage() {
               <div className="w-7 h-7 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
                 <ShieldAlert className="text-teal-400" size={14} />
               </div>
-              <span className="text-[10px] font-bold text-teal-300 uppercase tracking-wider">Custodia Segura</span>
+              <span className="text-[10px] font-bold text-teal-300 uppercase tracking-wider">{t('portal.securityBadge')}</span>
             </div>
             <div className="space-y-2 text-[11px] text-slate-400">
               <div className="flex items-center space-x-2">
                 <CheckCircle2 size={11} className="text-teal-400 shrink-0" />
-                <span>Hash SHA-256 inmutable</span>
+                <span>{t('portal.securityHash')}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <CheckCircle2 size={11} className="text-teal-400 shrink-0" />
-                <span>Sellado en blockchain zkSYS</span>
+                <span>{t('portal.securitySealed')}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <CheckCircle2 size={11} className="text-teal-400 shrink-0" />
-                <span>Acta PDF forense</span>
+                <span>{t('portal.securityPDF')}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <CheckCircle2 size={11} className="text-teal-400 shrink-0" />
-                <span>Identidad pseudónima DID</span>
+                <span>{t('portal.securityDID')}</span>
               </div>
             </div>
           </div>
 
           {/* Tips */}
           <div className="bg-slate-900/50 border border-slate-800/40 rounded-2xl p-4 flex-1">
-            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Consejos para tu reporte</h4>
+            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">{t('portal.tipsTitle')}</h4>
             <div className="space-y-3 text-[11px] text-slate-400 leading-relaxed">
               <div className="bg-slate-950/30 border border-slate-800/30 rounded-lg p-3">
-                <span className="text-slate-300 font-semibold block mb-1">Teléfonos</span>
-                <span>Incluye todos los números desde los que te contactaron.</span>
+                <span className="text-slate-300 font-semibold block mb-1">{t('portal.tipsPhones')}</span>
+                <span>{t('portal.tipsPhonesDesc')}</span>
               </div>
               <div className="bg-slate-950/30 border border-slate-800/30 rounded-lg p-3">
-                <span className="text-slate-300 font-semibold block mb-1">Cuentas bancarias</span>
-                <span>Números de cuenta o CCI donde piden los depósitos.</span>
+                <span className="text-slate-300 font-semibold block mb-1">{t('portal.tipsBank')}</span>
+                <span>{t('portal.tipsBankDesc')}</span>
               </div>
               <div className="bg-slate-950/30 border border-slate-800/30 rounded-lg p-3">
-                <span className="text-slate-300 font-semibold block mb-1">Montos y fechas</span>
-                <span>Cuánto pidieron y cuándo ocurrió la extorsión.</span>
+                <span className="text-slate-300 font-semibold block mb-1">{t('portal.tipsAmounts')}</span>
+                <span>{t('portal.tipsAmountsDesc')}</span>
               </div>
               <div className="bg-slate-950/30 border border-slate-800/30 rounded-lg p-3">
-                <span className="text-slate-300 font-semibold block mb-1">Evidencia</span>
-                <span>Adjunta audios, capturas de chat o documentos.</span>
+                <span className="text-slate-300 font-semibold block mb-1">{t('portal.tipsEvidence')}</span>
+                <span>{t('portal.tipsEvidenceDesc')}</span>
               </div>
             </div>
           </div>
@@ -1382,9 +1385,12 @@ export default function PortalPage() {
               <ShieldAlert className="text-teal-400 animate-pulse" size={26} />
               <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-teal-400 to-blue-500 bg-clip-text text-transparent">IntelExtorsión</span>
             </div>
-            <Link href="/" className="text-xs text-slate-400 hover:text-white transition flex items-center space-x-1.5">
-              <ArrowLeft size={14} /> <span>Volver a Inicio</span>
-            </Link>
+            <div className="flex items-center space-x-2">
+              <LanguageSwitcher compact />
+              <Link href="/" className="text-xs text-slate-400 hover:text-white transition flex items-center space-x-1.5">
+                <ArrowLeft size={14} /> <span>{t('nav.backToHome')}</span>
+              </Link>
+            </div>
           </div>
         </header>
 
@@ -1394,19 +1400,19 @@ export default function PortalPage() {
             <ShieldAlert className="text-teal-400" size={32} />
           </div>
 
-          <h2 className="text-3xl font-extrabold text-center mb-1 tracking-tight text-white">IntelExtorsión</h2>
-          <p className="text-sm text-slate-500 text-center mb-8">Plataforma ciudadana de denuncia · Trujillo, Perú</p>
+          <h2 className="text-3xl font-extrabold text-center mb-1 tracking-tight text-white">{t('portal.title')}</h2>
+          <p className="text-sm text-slate-500 text-center mb-8">{t('portal.subtitle')}</p>
 
           <div className="bg-slate-900/60 backdrop-blur border border-slate-800/80 rounded-2xl p-6 w-full shadow-2xl">
-            <h3 className="font-bold text-base text-slate-200 mb-2">Conecta tu wallet</h3>
+            <h3 className="font-bold text-base text-slate-200 mb-2">{t('portal.connectWallet')}</h3>
             <p className="text-xs text-slate-400 mb-6 leading-relaxed">
-              Usa Pali Wallet V2 para conectarte de forma anónima. Se generará automáticamente un DID (Identidad Descentralizada) vinculado a tu denuncia.
+              {t('portal.connectWalletDesc')}
             </p>
 
             <div className="bg-teal-950/20 border border-teal-500/30 rounded-xl px-4 py-3 mb-6 flex items-start space-x-3">
               <CheckCircle2 size={16} className="text-teal-400 mt-0.5 shrink-0" />
               <p className="text-xs text-teal-300 leading-normal">
-                No se recopilan datos personales. Tu identidad permanece 100% anónima bajo criptografía W3C.
+                {t('portal.privacyNote')}
               </p>
             </div>
 
@@ -1415,7 +1421,7 @@ export default function PortalPage() {
               className="w-full bg-teal-600 hover:bg-teal-550 text-white font-semibold py-3 px-4 rounded-xl transition shadow-[0_4px_12px_rgba(13,148,136,0.25)] flex items-center justify-center space-x-2 text-sm font-bold"
             >
               <Wallet size={16} />
-              <span>Conectar Pali Wallet</span>
+              <span>{t('portal.connectWalletBtn')}</span>
             </button>
             
             {error && (
@@ -1432,8 +1438,8 @@ export default function PortalPage() {
                 <CheckCircle2 size={16} />
               </div>
               <div>
-                <h4 className="text-xs font-semibold text-slate-200">Anonimato garantizado</h4>
-                <p className="text-[10px] text-slate-505">Tu identidad nunca se almacena ni se expone públicamente.</p>
+                <h4 className="text-xs font-semibold text-slate-200">{t('portal.feature1Title')}</h4>
+                <p className="text-[10px] text-slate-505">{t('portal.feature1Desc')}</p>
               </div>
             </div>
 
@@ -1442,8 +1448,8 @@ export default function PortalPage() {
                 <Wallet size={16} />
               </div>
               <div>
-                <h4 className="text-xs font-semibold text-slate-200">DID automático</h4>
-                <p className="text-[10px] text-slate-550">Se genera un identificador descentralizado al conectar.</p>
+                <h4 className="text-xs font-semibold text-slate-200">{t('portal.feature2Title')}</h4>
+                <p className="text-[10px] text-slate-550">{t('portal.feature2Desc')}</p>
               </div>
             </div>
 
@@ -1452,8 +1458,8 @@ export default function PortalPage() {
                 <ShieldAlert size={16} />
               </div>
               <div>
-                <h4 className="text-xs font-semibold text-slate-200">Evidencia inmutable</h4>
-                <p className="text-[10px] text-slate-550">Cada denuncia queda sellada y protegida en zkSYS Genesis.</p>
+                <h4 className="text-xs font-semibold text-slate-200">{t('portal.feature3Title')}</h4>
+                <p className="text-[10px] text-slate-550">{t('portal.feature3Desc')}</p>
               </div>
             </div>
           </div>
@@ -1461,7 +1467,7 @@ export default function PortalPage() {
 
         {/* Footer */}
         <footer className="py-6 border-t border-slate-900 text-center text-[10px] text-slate-500 z-10">
-          IntelExtorsión v1.0.0 · Trujillo, Perú · Syscoin zkSYS Genesis Testnet
+          {t('portal.footerText')}
         </footer>
       </div>
     );
@@ -1503,7 +1509,7 @@ export default function PortalPage() {
           <div className="bg-gradient-to-br from-teal-950/30 to-slate-900 border border-teal-500/15 rounded-xl p-3.5 mb-6 shadow-inner relative overflow-hidden">
             <div className="absolute -top-8 -right-8 w-16 h-16 bg-teal-500/5 rounded-full blur-xl pointer-events-none" />
             <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-teal-400 select-none">Tu DID</span>
+              <span className="text-[10px] uppercase font-bold tracking-wider text-teal-400 select-none">{t('portal.didCardTitle')}</span>
               <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
             </div>
             <span className="text-[10px] font-mono text-teal-300/80 break-all select-all block leading-tight">
@@ -1550,7 +1556,7 @@ export default function PortalPage() {
             className="w-full flex items-center justify-center space-x-2 text-xs font-semibold text-slate-400 hover:text-red-400 transition bg-slate-800 hover:bg-red-500/10 py-2.5 rounded-xl border border-slate-700/60 hover:border-red-500/20"
           >
             <LogOut size={14} />
-            <span>Desconectar Wallet</span>
+            <span>{t('portal.disconnectWallet')}</span>
           </button>
         </div>
       </aside>
@@ -1569,20 +1575,21 @@ export default function PortalPage() {
             </button>
             <div className="flex items-center space-x-2">
               <h2 className="font-bold text-xs md:text-sm text-slate-200 uppercase tracking-wider">
-                {activeTab === 'dashboard' && 'Panel Principal'}
-                {activeTab === 'chat' && 'Nueva Denuncia'}
-                {activeTab === 'evidencias' && 'Mis Evidencias'}
-                {activeTab === 'ayuda' && 'Ayuda y Glosario'}
+                {activeTab === 'dashboard' && t('portal.sidebarDashboard')}
+                {activeTab === 'chat' && t('portal.sidebarNewReport')}
+                {activeTab === 'evidencias' && t('portal.sidebarMyEvidences')}
+                {activeTab === 'ayuda' && t('portal.sidebarHelp')}
               </h2>
               {activeTab === 'chat' && (
-                <span className="text-[9px] bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full border border-amber-500/20 font-bold uppercase tracking-wider">En vivo</span>
+                <span className="text-[9px] bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full border border-amber-500/20 font-bold uppercase tracking-wider">{t('common.online')}</span>
               )}
             </div>
           </div>
           <div className="flex items-center space-x-2.5">
+            <LanguageSwitcher compact />
             {error && (
               <span className="text-[10px] text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20 animate-pulse font-medium">
-                Red Errónea
+                {t('portal.wrongNetworkBadge')}
               </span>
             )}
             <div className="flex items-center space-x-2 bg-slate-800/50 border border-slate-700/40 px-3 py-1.5 rounded-full">

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import dynamic from 'next/dynamic';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -12,6 +13,7 @@ import { useAppStore } from '@/stores/appStore';
 const HeatmapMap = dynamic(() => import('./HeatmapMap'), { ssr: false });
 
 export default function DashboardAnaliticoPage() {
+  const { t } = useTranslation();
   const { heatmapData, setHeatmapData } = useAppStore();
   const [periodo, setPeriodo] = useState(30);
   const [loadingMap, setLoadingMap] = useState(true);
@@ -77,8 +79,8 @@ export default function DashboardAnaliticoPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Dashboard Analítico</h1>
-        <p className="text-slate-500 text-sm">Métricas, tendencias y patrones de denuncias de extorsión</p>
+        <h1 className="text-2xl font-bold text-slate-800">{t('dashboard.analitico.title')}</h1>
+        <p className="text-slate-500 text-sm">{t('dashboard.analitico.subtitle')}</p>
       </div>
 
       {/* Mapa de Calor */}

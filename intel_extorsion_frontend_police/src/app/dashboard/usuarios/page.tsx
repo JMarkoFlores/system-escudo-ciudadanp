@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Users, Plus, Edit, Trash2, Shield, Search } from 'lucide-react';
 import { agentApi } from '@/services/api';
 
@@ -22,6 +23,7 @@ interface UserFormData {
 }
 
 export default function UsuariosPage() {
+  const { t } = useTranslation();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -143,7 +145,7 @@ export default function UsuariosPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center">
             <Users className="mr-2" size={28} />
-            Gestión de Usuarios
+            {t('dashboard.usuarios.title')}
           </h1>
           <p className="text-slate-500 mt-1">Administrar usuarios del sistema policial</p>
         </div>

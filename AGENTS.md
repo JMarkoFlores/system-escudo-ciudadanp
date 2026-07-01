@@ -487,5 +487,36 @@ docker compose -f docker-compose.yml -f docker-compose.test.yml up test-runner -
 
 ---
 
+### Sesión de Internacionalización i18n (2026-07-01) - Español/Inglés
+- **Solicitud del usuario:** Implementar cambio de idioma Español/Inglés con persistencia en localStorage, manteniendo términos técnicos (blockchain, wallet, DID, Web3, etc.) sin traducir
+- **Cambios realizados (ambos frontends):**
+  1. **Instalación de dependencias** — `i18next`, `react-i18next`, `i18next-browser-languagedetector` en citizen y police
+  2. **`src/lib/i18n/`** — Configuración compartida: `i18n.ts` (detector de idioma por localStorage), `I18nProvider.tsx` (wrapper client-side), `locales/es.json` y `locales/en.json`
+  3. **`src/components/LanguageSwitcher.tsx`** — Componente reutilizable con modo compacto (solo bandera) y modo normal (bandera + texto)
+  4. **`I18nClientLayout.tsx`** — Cliente wrapper que combina `I18nProvider` + `ToastProvider` + actualiza `<html lang>` dinámicamente
+  5. **Layouts actualizados** — `layout.tsx` en ambos frontends usa `I18nClientLayout`, `suppressHydrationWarning`
+- **Frontend Ciudadano migrado:**
+  - **Landing (`page.tsx`):** Nav, hero, features, channels, "how it works", Web3 section, CTA, footer; `LanguageSwitcher` en nav desktop y mobile
+  - **Portal (`portal/page.tsx`):** Wallet connection, DID card, sidebar, tabs, KPIs, cluster, quick actions, custody, evidence history, help glossary, FAQ, chat, security, tips, disconnect, footer
+  - **Tracking (`tracking/page.tsx`):** Titles, agent status labels, blockchain summary, footer
+- **Frontend Policial migrado:**
+  - **Login (`page.tsx`):** Form, buttons, errors, footer; `LanguageSwitcher` en card header
+  - **Dashboard layout (`dashboard/layout.tsx`):** `navItems` convertido a función `getNavItems(t)`, header/sidebar textos con `t()`, `LanguageSwitcher` en header
+  - **Dashboard policial (`dashboard/policial/page.tsx`):** Título, subtítulo, stat cards, tabla, estados
+  - **Dashboard analítico (`dashboard/analitico/page.tsx`):** Título, subtítulo
+  - **Grafos (`dashboard/grafos/page.tsx`):** Título, subtítulo, loading text
+  - **Alertas (`dashboard/alertas/page.tsx`):** Título, subtítulo
+  - **Usuarios (`dashboard/usuarios/page.tsx`):** Título
+  - **Revelaciones (`dashboard/revelaciones/page.tsx`):** Título, subtítulo, cómo funciona, estados, loading, empty state, stats, labels
+  - **Detalle denuncia (`dashboard/policial/[id]/page.tsx`):** Título, info general, DID, nivel riesgo, agentes descripciones, OSINT risk, sellado, resoluciones
+- **Reglas de traducción:**
+  - Términos técnicos/Web3 (blockchain, wallet, DID, SHA-256, Web3, DApp, Pali Wallet, Testnet, zkSYS, hash, TRJ, etc.) permanecen en inglés en ambos idiomas
+  - Nombres de agentes (Intake Agent, OCR Agent, etc.) en inglés; solo descripciones traducidas
+  - Prefijos de claves: `common.*`, `landing.*`, `portal.*`, `tracking.*`, `login.*`, `dashboard.*`, `alertas.*`, `detalle.*`, `riesgo.*`, `agents.*`, `revelaciones.*`
+- **Bug corregido:** `seal_results` type error en `dashboard/policial/[id]/page.tsx:643` — añadido `as any` al resultado del `find`
+- **Resultado:** Ambos frontends build exitoso (citizen: 6 rutas, police: 10 rutas). Traducción funcional con persistencia localStorage.
+
+---
+
 *Última actualización: 2026-07-01*
-*Contexto generado tras sesión de despliegue a producción: VM DigitalOcean, nginx, Docker, 7 contenedores*
+*Contexto generado tras sesión de internacionalización i18n: Español/Inglés, persistencia localStorage, términos técnicos sin traducir*
