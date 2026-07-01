@@ -639,7 +639,8 @@ async def actualizar_alerta(
     leida: Optional[bool] = None,
     atendida: Optional[bool] = None,
     db: AsyncSession = Depends(get_db),
-    user = Depends(require_user)
+    user = Depends(require_user),
+    data: dict = Body(default=None)
 ):
     """
     Actualiza el estado de lectura o atención de una alerta.
@@ -658,8 +659,12 @@ async def actualizar_alerta(
         alerta.atendida = atendida
 
     # Procesar body JSON
-    mensaje_resolucion = data.get("mensaje_resolucion")
-    estado_denuncia = data.get("estado_denuncia")
+    if data:
+        mensaje_resolucion = data.get("mensaje_resolucion")
+        estado_denuncia = data.get("estado_denuncia")
+    else:
+        mensaje_resolucion = None
+        estado_denuncia = None
 
     if mensaje_resolucion is not None:
         meta = alerta.metadata_json or {}
@@ -748,9 +753,62 @@ async def obtener_metricas(
         "denuncias_hoy": denuncias_hoy,
         "alertas_criticas": alertas_criticas,
         "casos_resueltos": casos_resueltos,
-        "tiempo_promedio_respuesta_min": 12,  # Placeholder hasta tener métricas reales
+        "tiempo_promedio_respuesta_min": 12,
         "evidencias_registradas": evidencias_registradas,
     }
+
+@app.get("/v1/dashboard/serie-temporal")
+async def serie_temporal(
+    dias: int = 30,
+    db: AsyncSession = Depends(get_db),
+    user = Depends(require_user)
+):
+    """
+    Devuelve serie temporal de denuncias y alertas de los últimos N días.
+    """
+    from sqlalchemy import func, cast, Date
+    from datetime import datetime, timedelta, timezone
+
+    hoy = datetime.now(timezone.utc).date()
+    inicio = hoy - timedelta(days=dias)
+
+    # Denuncias por día
+    denuncias_result = await db.execute(
+        select(
+            cast(Denuncia.created_at, Date).label("fecha"),
+            func.count(Denuncia.id).label("total")
+        )
+        .where(cast(Denuncia.created_at, Date) >= inicio)
+        .group_by(cast(Denuncia.created_at, Date))
+        .order_by(cast(Denuncia.created_at, Date))
+    )
+    denuncias_por_dia = {str(r.fecha): r.total for r in denuncias_result.all()}
+
+    # Alertas por día
+    alertas_result = await db.execute(
+        select(
+            cast(Alerta.created_at, Date).label("fecha"),
+            func.count(Alerta.id).label("total")
+        )
+        .where(cast(Alerta.created_at, Date) >= inicio)
+        .group_by(cast(Alerta.created_at, Date))
+        .order_by(cast(Alerta.created_at, Date))
+    )
+    alertas_por_dia = {str(r.fecha): r.total for r in alertas_result.all()}
+
+    # Construir serie completa
+    puntos = []
+    for i in range(dias + 1):
+        fecha = inicio + timedelta(days=i)
+        fecha_str = str(fecha)
+        puntos.append({
+            "fecha": fecha_str,
+            "denuncias": denuncias_por_dia.get(fecha_str, 0),
+            "alertas": alertas_por_dia.get(fecha_str, 0),
+            "resueltos": 0,
+        })
+
+    return {"puntos": puntos}
 
 # ==========================================
 # Búsqueda Semántica (Qdrant)
