@@ -41,7 +41,7 @@ export default function UsuariosPage() {
 
   const fetchUsers = async () => {
     try {
-      const response = await agentApi.get('/v1/auth/users');
+      const response = await agentApi.get('/auth/users');
       setUsers(response.data);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -78,7 +78,7 @@ export default function UsuariosPage() {
     if (!confirm(`¿Estás seguro de eliminar al usuario ${username}?`)) return;
 
     try {
-      await agentApi.delete(`/v1/auth/users/${username}`);
+      await agentApi.delete(`/auth/users/${username}`);
       fetchUsers();
     } catch (error) {
       console.error('Error deleting user:', error);
@@ -92,7 +92,7 @@ export default function UsuariosPage() {
     try {
       if (editingUser) {
         // Update
-        await agentApi.put(`/v1/auth/users/${editingUser.username}`, {
+        await agentApi.put(`/auth/users/${editingUser.username}`, {
           nombre_completo: formData.nombre_completo || undefined,
           rol: formData.rol,
           activo: formData.activo,
@@ -100,7 +100,7 @@ export default function UsuariosPage() {
         });
       } else {
         // Create
-        await agentApi.post('/v1/auth/users', formData);
+        await agentApi.post('/auth/users', formData);
       }
       setShowModal(false);
       fetchUsers();
