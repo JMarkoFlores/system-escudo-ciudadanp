@@ -249,9 +249,16 @@ class TelegramBot:
 
         if not has_attachment:
             clean_text = text.lower().strip()
+
+            if clean_text in ["enviar", "/enviar", "listo", "/listo"]:
+                batch = self.pending_batches.get(chat_id)
+                if batch and batch["messages"]:
+                    await self._flush_batch(chat_id)
+                    return
+
             saludos = ["hola", "buenos dias", "buenas tardes", "buenas noches", "que tal", "buen dia", "hello", "hi", "saludos"]
             intencionesPuras = ["quiero denunciar", "quisiera hacer una denuncia", "hacer una denuncia", "hacer otra denuncia", "otra denuncia", "nueva denuncia", "registrar otra", "iniciar denuncia", "denunciar", "quiero hacer una denuncia", "quisiera denunciar", "quiero reportar", "quisiera reportar", "reportar una extorsion", "hacer un reporte", "quiero hacer un reporte", "ayuda por favor", "ayudeme", "quiero registrar una denuncia"]
-            frases_relleno = ["esta bien", "está bien", "ahora te envio", "ahora te envío", "te envio lo necesario", "te envío lo necesario", "ya te envio", "ya te envío", "te lo envio", "te lo envío", "un momento", "un minuto", "un segundo", "espera", "esperame", "espérame", "listo", "ok", "okay", "entendido", "vale", "bien", "espera un momento", "ya te mando", "ahora te mando", "te mando lo necesario", "te lo mando", "voy a redactar", "te envio", "te envío", "te mando", "ahora te paso lo necesario", "ahora te paso", "ya te lo envio", "ya te lo envío", "ya te lo paso"]
+            frases_relleno = ["esta bien", "está bien", "ahora te envio", "ahora te envío", "te envio lo necesario", "te envío lo necesario", "ya te envio", "ya te envío", "te lo envio", "te lo envío", "un momento", "un minuto", "un segundo", "espera", "esperame", "espérame", "ok", "okay", "entendido", "vale", "bien", "espera un momento", "ya te mando", "ahora te mando", "te mando lo necesario", "te lo mando", "voy a redactar", "te envio", "te envío", "te mando", "ahora te paso lo necesario", "ahora te paso", "ya te lo envio", "ya te lo envío", "ya te lo paso"]
 
             es_saludo = clean_text in saludos or any(s == clean_text for s in saludos)
             es_intencion = clean_text in intencionesPuras or any(i == clean_text for i in intencionesPuras) or (any(i in clean_text for i in intencionesPuras) and len(clean_text) < 50 and not any(c.isdigit() for c in clean_text))
@@ -267,25 +274,53 @@ class TelegramBot:
 
         batch = self.pending_batches.get(chat_id)
         if batch is None:
-            batch = {"messages": [], "timer": None}
+            batch = {"messages": [], "batch_msg_id": None}
             self.pending_batches[chat_id] = batch
 
         batch["messages"].append(message)
 
-        if batch["timer"]:
-            batch["timer"].cancel()
+        msg_count = len(batch["messages"])
+        batch_msg_id = batch.get("batch_msg_id")
 
-        async def _trigger():
-            await asyncio.sleep(3.0)
-            await self._flush_batch(chat_id)
+        markup = {
+            "inline_keyboard": [
+                [{"text": "✅ Listo", "callback_data": "batch_listo"}]
+            ]
+        }
 
-        batch["timer"] = asyncio.create_task(_trigger())
+        if batch_msg_id:
+            await self.edit_message_text(
+                chat_id, batch_msg_id,
+                f"📦 *Reporte en preparación* ({msg_count} elemento(s))\n\n"
+                f"Sigue agregando texto, imágenes o audios.\n"
+                f"Cuando termines, presiona *✅ Listo* o escribe *enviar*.",
+                reply_markup=markup
+            )
+        else:
+            sent = await self.send_message(
+                chat_id,
+                f"📦 *Reporte en preparación* (1 elemento)\n\n"
+                f"Puedes seguir agregando texto, imágenes o audios.\n"
+                f"Cuando termines, presiona *✅ Listo* o escribe *enviar*.",
+                reply_markup=markup
+            )
+            if sent and sent.get("message_id"):
+                batch["batch_msg_id"] = sent["message_id"]
+
         logger.info(f"[Telegram] Mensaje agregado a batch de {chat_id}. Total en batch: {len(batch['messages'])}")
 
     async def _flush_batch(self, chat_id: int):
         batch = self.pending_batches.pop(chat_id, None)
         if not batch or not batch["messages"]:
             return
+
+        if batch.get("timer"):
+            batch["timer"].cancel()
+
+        batch_msg_id = batch.get("batch_msg_id")
+        if batch_msg_id:
+            await self.edit_message_text(chat_id, batch_msg_id, "🔄 *Procesando reporte...*")
+
         messages = batch["messages"]
         logger.info(f"[Telegram] Procesando batch de {chat_id} con {len(messages)} mensaje(s)")
         try:
@@ -499,6 +534,11 @@ class TelegramBot:
         data = callback_query.get("data", "")
         query_id = callback_query["id"]
 
+        if data == "batch_listo":
+            await self.answer_callback_query(query_id, "✅ Enviando reporte...")
+            await self._flush_batch(chat_id)
+            return
+
         await self.answer_callback_query(query_id)
 
         if data == "clasif_1":
@@ -509,19 +549,47 @@ class TelegramBot:
             self.user_states[chat_id] = 'idle'
             await self.send_message(chat_id, "⚠️ *Canal especializado*\n\nLas denuncias contra funcionarios públicos o policías son atendidas por canales especializados:\n\n🏛️ *Inspectoría General PNP*\n📞 Línea: 1818 (Central de denuncias Mininter)\n📧 Email: lineas1818@mininter.gob.pe\n\n⚖️ *Fiscalía Anticorrupción*\n📞 Línea: 0800-00-205 (Línea de Integridad)\n📧 Email: denunciascorrupcion@mpfn.gob.pe\n\n_Tu reporte NO será registrado en el dashboard de la DIVINCRI para proteger la integridad de la investigación._")
 
-    async def answer_callback_query(self, query_id: int):
+    async def answer_callback_query(self, query_id: int, text: str = None):
         url = f"{self.api_url}/answerCallbackQuery"
+        payload = {"callback_query_id": query_id}
+        if text:
+            payload["text"] = text
         try:
-            await self.http_client.post(url, json={"callback_query_id": query_id})
+            await self.http_client.post(url, json=payload)
         except Exception as e:
             logger.error(f"Error answering callback query: {e}")
 
-    async def send_message(self, chat_id: int, text: str, reply_markup=None):
+    async def send_message(self, chat_id: int, text: str, reply_markup=None) -> Optional[dict]:
         url = f"{self.api_url}/sendMessage"
         payload = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
         if reply_markup:
             payload["reply_markup"] = reply_markup
         try:
-            await self.http_client.post(url, json=payload)
+            resp = await self.http_client.post(url, json=payload)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("ok"):
+                    return data.get("result")
         except Exception as e:
             logger.error(f"Error al enviar mensaje a Telegram: {e}")
+        return None
+
+    async def edit_message_text(self, chat_id: int, message_id: int, text: str, reply_markup=None):
+        url = f"{self.api_url}/editMessageText"
+        payload = {"chat_id": chat_id, "message_id": message_id, "text": text, "parse_mode": "Markdown"}
+        if reply_markup:
+            payload["reply_markup"] = reply_markup
+        try:
+            await self.http_client.post(url, json=payload)
+        except Exception as e:
+            logger.debug(f"Error editando texto del mensaje: {e}")
+
+    async def edit_message_reply_markup(self, chat_id: int, message_id: int, reply_markup=None):
+        url = f"{self.api_url}/editMessageReplyMarkup"
+        payload = {"chat_id": chat_id, "message_id": message_id}
+        if reply_markup:
+            payload["reply_markup"] = reply_markup
+        try:
+            await self.http_client.post(url, json=payload)
+        except Exception as e:
+            logger.debug(f"Error editando markup del mensaje: {e}")
