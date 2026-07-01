@@ -132,6 +132,36 @@
   5. **Túnel local** — Configuración exitosa de ngrok redirigiendo `https://duckbill-exit-detection.ngrok-free.dev` hacia `http://localhost:8000` para pruebas locales.
 - **Resultado:** Flujo de WhatsApp completado y listo para pruebas o presentación.
 
+### Sesión de Despliegue a Producción (2026-06-30/07-01)
+- **Solicitud del usuario:** Desplegar la plataforma completa en la VM de DigitalOcean (142.93.240.223) con dominio intelextorsion.duckdns.org
+- **Cambios realizados:**
+  1. **Creación de `deploy/`** — `docker-compose.prod.yml` (8 servicios), `.env.production`, nginx.conf, setup_vm.sh, quick_deploy.sh, deploy_vm.py, CHECKLIST_DEPLOY.md
+  2. **Variables de entorno configurables** — `SEED_ADMIN_PASSWORD`, `SEED_SUPERVISOR_PASSWORD`, `SEED_ANALISTA_PASSWORD` en settings.py
+  3. **DApp contractService.js** — Actualizado con interfaz EvidenceSeal (sealEvidence, getSeal, verifySeal)
+  4. **EvidenceUploader.jsx** — Firma blockchain con parámetros del nuevo contrato
+  5. **deploy.js** — EvidenceSeal deployment + SEALER_ROLE
+  6. **UI/UX del portal ciudadano** — Rediseño completo de todas las pestañas (DID, KPIs, evidencias, chat split-layout, ayuda, sidebar, header) con estilos premium
+  7. **Landing page `#web3`** — Reescrita con propósito claro, 3 cards de features, CTA. Sin labels RF
+  8. **Header** — Eliminado enlace "DApp Web3"
+  9. **Wallet connection** — `wallet_requestPermissions` para forzar selección de cuenta, `wallet_revokePermissions` para desconectar
+  10. **Git push resuelto** — GitHub bloqueaba push por API key en `.env`. Solución: `.gitignore`, `git rm --cached .env`, placeholder en deploy_vm.py
+  11. **VM configurada** — Docker instalado, todos los contenedores corriendo, firewall (22/80/443), nginx reverse proxy
+  12. **PostgreSQL reseteado** — Volumen recreado para sincronizar password
+  13. **Puertos expuestos** — agent-api:8000, web3-backend:8001, citizen:3000, police:3001 (localhost only)
+- **Resultado:** Plataforma desplegada y funcionando en http://intelextorsion.duckdns.org
+  - **Agent API:** http://intelextorsion.duckdns.org/api/health → `{"status":"ok","componentes":{"postgres":"ok","qdrant":"ok","groq":"ok","langgraph":"ok"}}`
+  - **Web3 Backend:** http://intelextorsion.duckdns.org/web3api/health → `{"blockchain_connected":true}`
+  - **Frontend Ciudadano:** http://intelextorsion.duckdns.org → 200
+  - **Frontend Policial:** http://intelextorsion.duckdns.org/policial/ → 200
+  - **7 contenedores Docker** corriendo (postgres, redis, qdrant, agent-api, web3-backend, citizen, police)
+  - **nginx** sirviendo como reverse proxy en puerto 80
+- **Bugs corregidos durante deploy:**
+  - `docker-compose.prod.yml` YAML syntax errors (`:?` validation syntax)
+  - Traefik incompatible con versión Docker API → reemplazado por nginx
+  - PostgreSQL volume reset para sincronizar password entre compose y DB
+  - Frontend-police port mapping (3001→3000) corregido
+  - Containers sin ports expuestos → añadidos `127.0.0.1:PORT:PORT`
+
 ### Sesión de Revisión Integral (2026-06-30)
 - **Solicitud del usuario:** Revisar el sistema completo, corregir bugs críticos, unificar red blockchain, actualizar documentación y dejar los tests verdes.
 - **Cambios realizados:**
@@ -412,9 +442,13 @@ docker compose -f docker-compose.yml -f docker-compose.test.yml up test-runner -
 15. ~~**Actualizar documentación y tests tras cambios~~ ✅ RESUELTO
 
 **Próximos pasos:**
-16. **Implementar Fase 2** (gas dinámico EIP-1559, firma digital real en acta PDF, seal secundario Sepolia) — ver Sección 7 en `IMPLEMENTACION.md`
-17. **Notificaciones SMS/SIRDIC-SIDPOL** cuando un clúster supere umbral
-18. **Obtener GeoJSON oficial** del Plan Cuadrante PNP (reemplazar polígonos demo por datos reales de la DIVINCRI)
+16. **Obtener PRIVATE_KEY real** para zkSYS Tanenbaum (actualmente usa placeholder `0x000...001`)
+17. **Configurar HTTPS/SSL** — certbot + Let's Encrypt para `intelextorsion.duckdns.org`
+18. **Configurar canales** — WhatsApp (WHATSAPP_API_TOKEN), Telegram (TELEGRAM_BOT_TOKEN), Discord (DISCORD_BOT_TOKEN) en `.env` de la VM
+19. **Implementar Fase 2** (gas dinámico EIP-1559, firma digital real en acta PDF, seal secundario Sepolia) — ver Sección 7 en `IMPLEMENTACION.md`
+20. **Notificaciones SMS/SIRDIC-SIDPOL** cuando un clúster supere umbral
+21. **Obtener GeoJSON oficial** del Plan Cuadrante PNP (reemplazar polígonos demo por datos reales de la DIVINCRI)
+22. **Domain HTTPS** — configurar DuckDNS + Let's Encrypt para HTTPS
 
 ---
 
@@ -453,5 +487,5 @@ docker compose -f docker-compose.yml -f docker-compose.test.yml up test-runner -
 
 ---
 
-*Última actualización: 2026-06-30*
-*Contexto generado tras sesión de revisión integral: auth JWT, notificaciones, heatmap PNP, tests verdes*
+*Última actualización: 2026-07-01*
+*Contexto generado tras sesión de despliegue a producción: VM DigitalOcean, nginx, Docker, 7 contenedores*
