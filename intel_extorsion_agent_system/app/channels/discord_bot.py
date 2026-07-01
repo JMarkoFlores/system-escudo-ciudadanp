@@ -280,7 +280,7 @@ class DiscordBot(discord.Client):
                                     f"⚖️ **Risk Level:** **{nivel_riesgo_str}**\n"
                                     f"📋 **Case Status:** `{denuncia.estado.value.upper()}`\n\n"
                                     f"You can audit the complete AI and blockchain history in our Tracking Portal:\n"
-                                    f"http://localhost:3000/tracking?code={tracking_code}"
+                                    f"{settings.TRACKING_URL}?code={tracking_code}"
                                 )
                                 await message.channel.send(msg)
                             else:
@@ -654,7 +654,7 @@ class DiscordBot(discord.Client):
                 f"⚖️ **Estimated Risk Level:** **{nivel_riesgo_str}**\n\n"
                 f"Your information will be analyzed by forensic AI and delivered to competent authorities for operational intelligence.\n\n"
                 f"You can check the analysis status of your report at:\n"
-                f"http://localhost:3000/tracking?code={tracking_code}\n\n"
+                f"{settings.TRACKING_URL}?code={tracking_code}\n\n"
                 f"⚠️ Remember: This is a citizen intelligence system. For formal complaints to the Prosecutor's Office or Police, use the 111 hotline or go to the police station."
             )
             await canal.send(reply_msg)

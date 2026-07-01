@@ -546,7 +546,7 @@ class WhatsAppBot:
                 f"⚖️ *Nivel de Riesgo Estimado:* *{nivel_riesgo_str}*\n\n"
                 f"Tu información será analizada por IA forense y entregada a las autoridades competentes para inteligencia operativa.\n\n"
                 f"Puedes consultar el estado de análisis de tu reporte en:\n"
-                f"http://localhost:3000/tracking?code={tracking_code}\n\n"
+                f"{settings.TRACKING_URL}?code={tracking_code}\n\n"
                 f"⚠️ Recuerda: Este sistema es de inteligencia ciudadana. Para denuncias formales ante la Fiscalía o PNP, utiliza la línea 111 o acude a la comisaría."
             )
             await self.send_message(chat_id, reply_msg)

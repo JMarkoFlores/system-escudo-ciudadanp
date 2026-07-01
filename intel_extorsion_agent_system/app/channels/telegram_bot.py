@@ -229,7 +229,7 @@ class TelegramBot:
                                     f"⚖️ *Nivel de Riesgo:* *{nivel_riesgo_str}*\n"
                                     f"📋 *Estado:* `{denuncia.estado.value.upper()}`\n\n"
                                     f"Puedes consultar el análisis completo de la IA y blockchain en:\n"
-                                    f"http://localhost:3000/tracking?code={tracking_code}"
+                                    f"{settings.TRACKING_URL}?code={tracking_code}"
                                 )
                                 await self.send_message(chat_id, msg)
                             else:
@@ -397,7 +397,7 @@ class TelegramBot:
                 f"⚖️ *Nivel de Riesgo Estimado:* *{nivel_riesgo_str}*\n\n"
                 f"Su información será analizada por IA forense y entregada a las autoridades competentes para inteligencia operativa.\n\n"
                 f"Puede consultar el estado de análisis de su reporte en:\n"
-                f"http://localhost:3000/tracking?code={tracking_code}\n\n"
+                f"{settings.TRACKING_URL}?code={tracking_code}\n\n"
                 f"⚠️ Recuerde: Este sistema es de inteligencia ciudadana. Para denuncias formales ante la Fiscalía o PNP, utiliza la línea 111 o acude a la comisaría."
             )
             await self.send_message(chat_id, msg_reply)

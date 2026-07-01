@@ -89,6 +89,9 @@ class Settings(BaseSettings):
     DISCORD_BOT_TOKEN: Optional[str] = None
     WHATSAPP_API_TOKEN: Optional[str] = None
     
+    # Tracking URL para ciudadanos
+    TRACKING_URL: str = "https://intelextorsion.duckdns.org/tracking"
+    
     # Usuarios seed (producción - cambiar passwords)
     SEED_ADMIN_PASSWORD: str = "Admin123!"
     SEED_SUPERVISOR_PASSWORD: str = "Super123!"
