@@ -50,22 +50,50 @@ class WhatsAppBot:
 
     async def send_message(self, chat_id: str, text: str, buttons=None):
         """Envía un mensaje de texto de WhatsApp a un chat específico"""
+        headers = {
+            "Authorization": f"Bearer {self.token}",
+            "Content-Type": "application/json"
+        }
+        if buttons:
+            # Whapi.cloud interactive buttons endpoint
+            url = f"{self.api_url}/messages/interactive"
+            payload = {
+                "to": chat_id,
+                "type": "button",
+                "body": {"text": text},
+                "buttons": buttons
+            }
+        else:
+            url = f"{self.api_url}/messages/text"
+            payload = {"to": chat_id, "body": text}
+        try:
+            resp = await self.http_client.post(url, json=payload, headers=headers)
+            if resp.status_code not in [200, 201]:
+                logger.error(f"Error al enviar mensaje de WhatsApp ({resp.status_code}): {resp.text}")
+                # Fallback: send as plain text without buttons
+                if buttons:
+                    logger.info("Fallback: enviando menú como texto plano")
+                    await self._send_plain_menu(chat_id, text)
+            else:
+                logger.debug(f"Mensaje enviado con éxito a {chat_id}")
+        except Exception as e:
+            logger.error(f"Error HTTP al enviar mensaje a WhatsApp: {e}")
+
+    async def _send_plain_menu(self, chat_id: str, text: str):
+        """Fallback: envía menú como texto plano sin botones"""
         url = f"{self.api_url}/messages/text"
         headers = {
             "Authorization": f"Bearer {self.token}",
             "Content-Type": "application/json"
         }
-        payload = {"to": chat_id, "body": text}
-        if buttons:
-            payload["buttons"] = buttons
+        plain_text = text + "\n\n1️⃣ *Particular / Banda criminal*\n2️⃣ *Funcionario público / Policía*\n\nResponde con *1* o *2*."
+        payload = {"to": chat_id, "body": plain_text}
         try:
             resp = await self.http_client.post(url, json=payload, headers=headers)
             if resp.status_code not in [200, 201]:
-                logger.error(f"Error al enviar mensaje de WhatsApp ({resp.status_code}): {resp.text}")
-            else:
-                logger.debug(f"Mensaje enviado con éxito a {chat_id}")
+                logger.error(f"Error fallback ({resp.status_code}): {resp.text}")
         except Exception as e:
-            logger.error(f"Error HTTP al enviar mensaje a WhatsApp: {e}")
+            logger.error(f"Error fallback: {e}")
 
     async def _send_classification_menu(self, chat_id: str):
         """Envía el menú de clasificación RF-01 y pasa a estado 'classifying'."""
@@ -166,11 +194,11 @@ class WhatsAppBot:
                 "⚠️ *Canal especializado*\n\n"
                 "Las denuncias contra funcionarios públicos o policías son atendidas por canales especializados:\n\n"
                 "🏛️ *Inspectoría General PNP*\n"
-                "📞 Línea: 0800-22221\n"
-                "📧 Email: igp@pnp.gob.pe\n\n"
+                "📞 Línea: 1818 (Central de denuncias Mininter)\n"
+                "📧 Email: lineas1818@mininter.gob.pe\n\n"
                 "⚖️ *Fiscalía Anticorrupción*\n"
-                "📞 Línea: 0800-22222\n"
-                "📧 Email: fiscalia@mpfn.gob.pe\n\n"
+                "📞 Línea: 0800-00-205 (Línea de Integridad)\n"
+                "📧 Email: denunciascorrupcion@mpfn.gob.pe\n\n"
                 "_Tu reporte NO será registrado en el dashboard de la DIVINCRI para proteger la integridad de la investigación._"
             )
 

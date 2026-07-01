@@ -367,8 +367,8 @@ class DiscordBot(discord.Client):
                     color=0xFF9900
                 )
                 redirect_embed.add_field(
-                    name="📞 Recommended channels",
-                    value="• **PNP Inspector General:** hotline 111 or https://www.pnp.gob.pe\n• **Anti-Corruption Prosecutor:** https://www.fiscalia.gob.pe",
+                    name="📞 Canales recomendados",
+                    value="• **Inspectoría General PNP:** Línea 1818 (Central de denuncias Mininter) | lineas1818@mininter.gob.pe\n• **Fiscalía Anticorrupción:** Línea 0800-00-205 (Línea de Integridad) | denunciascorrupcion@mpfn.gob.pe",
                     inline=False
                 )
                 redirect_embed.add_field(

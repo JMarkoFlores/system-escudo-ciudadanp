@@ -29,7 +29,8 @@ class TelegramBot:
         self.http_client = httpx.AsyncClient(timeout=30.0)
         self.is_running = False
         self._task = None
-        self.user_states = {}  # chat_id -> 'idle' | 'waiting_for_denuncia'
+        self.user_states = {}  # chat_id -> state
+        self.user_data = {}    # chat_id -> dict with extra data
         self.start_time = datetime.now()
 
     def start_background(self):
@@ -434,6 +435,9 @@ class TelegramBot:
         data = callback_query.get("data", "")
         query_id = callback_query["id"]
 
+        print(f"[Telegram] Callback query received: data={data}, chat_id={chat_id}", flush=True)
+        logger.info(f"Callback query: data={data}, chat_id={chat_id}")
+
         # Answer callback query to remove loading indicator
         await self.answer_callback_query(query_id)
 
@@ -458,11 +462,11 @@ class TelegramBot:
                 "⚠️ *Canal especializado*\n\n"
                 "Las denuncias contra funcionarios públicos o policías son atendidas por canales especializados:\n\n"
                 "🏛️ *Inspectoría General PNP*\n"
-                "📞 Línea: 0800-22221\n"
-                "📧 Email: igp@pnp.gob.pe\n\n"
+                "📞 Línea: 1818 (Central de denuncias Mininter)\n"
+                "📧 Email: lineas1818@mininter.gob.pe\n\n"
                 "⚖️ *Fiscalía Anticorrupción*\n"
-                "📞 Línea: 0800-22222\n"
-                "📧 Email: fiscalia@mpfn.gob.pe\n\n"
+                "📞 Línea: 0800-00-205 (Línea de Integridad)\n"
+                "📧 Email: denunciascorrupcion@mpfn.gob.pe\n\n"
                 "_Tu reporte NO será registrado en el dashboard de la DIVINCRI para proteger la integridad de la investigación._"
             )
 
