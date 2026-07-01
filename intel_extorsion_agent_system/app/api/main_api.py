@@ -342,6 +342,8 @@ async def obtener_denuncia_por_tracking(
     Busca una denuncia por su código de seguimiento TRJ-XXXX.
     """
     from sqlalchemy import select
+    from app.models.database import ESTADO_MENSAJES_CIUDADANO
+
     result = await db.execute(
         select(Denuncia).where(Denuncia.tracking_code == tracking_code)
     )
@@ -361,6 +363,10 @@ async def obtener_denuncia_por_tracking(
         res_dict["agente"] = r.agente
         resultados.append(res_dict)
 
+    # RF-04: Mensaje legible para el ciudadano
+    estado_key = denuncia.estado.value if denuncia.estado else "procesado"
+    mensaje_ciudadano = ESTADO_MENSAJES_CIUDADANO.get(estado_key, "Estado no disponible.")
+
     return DenunciaResponse(
         id=denuncia.id,
         canal=denuncia.canal,
@@ -379,6 +385,7 @@ async def obtener_denuncia_por_tracking(
         metadata_json=denuncia.metadata_json,
         zona_detectada=denuncia.zona_detectada,
         did_denunciante=denuncia.did_denunciante,
+        mensaje_ciudadano=mensaje_ciudadano,
     )
 
 @app.post("/v1/denuncias/{denuncia_id}/adjuntar", status_code=201)

@@ -86,6 +86,12 @@ class TelegramBot:
         return []
 
     async def process_update(self, update: dict):
+        # Handle callback queries (inline keyboard buttons)
+        callback_query = update.get("callback_query")
+        if callback_query:
+            await self.handle_callback_query(callback_query)
+            return
+
         message = update.get("message")
         if not message:
             return
@@ -168,6 +174,36 @@ class TelegramBot:
                 await self.send_message(chat_id, "⚠️ Por favor responda con *1* (particular/banda) o *2* (funcionario/policía).")
                 return
 
+        # --- FLUJO ESTADO: WAITING_ZONE (RF-03: zona opcional post-denuncia) ---
+        if chat_state == 'waiting_zone':
+            self.user_states[chat_id] = 'idle'
+            zone_data = self.user_data.pop(chat_id, {})
+            denuncia_id = zone_data.get('denuncia_id')
+
+            if clean_text in ["omitir", "saltar", "no", "skip"]:
+                await self.send_message(chat_id, "✅ *Zona omitida.* Su reporte ha sido registrado correctamente.")
+                return
+
+            # Guardar zona en la denuncia
+            if denuncia_id:
+                try:
+                    async with AsyncSessionLocal() as db:
+                        from sqlalchemy import update
+                        from app.models.database import Denuncia
+                        await db.execute(
+                            update(Denuncia)
+                            .where(Denuncia.id == denuncia_id)
+                            .values(zona_detectada=text.strip())
+                        )
+                        await db.commit()
+                    await self.send_message(chat_id, f"📍 *Zona registrada:* {text.strip()}\n\n✅ Su reporte ha sido actualizado con esta información.")
+                except Exception as e:
+                    logger.error(f"Error guardando zona: {e}")
+                    await self.send_message(chat_id, f"📍 *Zona recibida:* {text.strip()}\n\n✅ Su reporte ha sido registrado correctamente.")
+            else:
+                await self.send_message(chat_id, f"📍 *Zona recibida:* {text.strip()}\n\n✅ Su reporte ha sido registrado correctamente.")
+            return
+
         # --- FLUJO ESTADO: IDLE ---
         if chat_state == 'idle':
             if text:
@@ -214,13 +250,17 @@ class TelegramBot:
                 intencion_nueva = ["quiero denunciar", "hacer una denuncia", "hacer otra denuncia", "otra denuncia", "nueva denuncia", "registrar otra", "denunciar", "quiero reportar", "reportar", "aportar informacion", "aportar información", "/denunciar"]
                 if any(i in clean_text for i in intencion_nueva):
                     self.user_states[chat_id] = 'classifying'
+                    inline_keyboard = {
+                        "inline_keyboard": [
+                            [{"text": "👤 Particular / Banda criminal", "callback_data": "clasif_1"}],
+                            [{"text": "👮 Funcionario público / Policía", "callback_data": "clasif_2"}]
+                        ]
+                    }
                     await self.send_message(
                         chat_id,
                         "🛡️ *Menú de Clasificación del Reporte*\n\n"
-                        "¿La amenaza proviene de:\n\n"
-                        "1️⃣ *Particular / Banda criminal*\n"
-                        "2️⃣ *Funcionario público / Policía*\n\n"
-                        "Responda con el número *1* o *2*."
+                        "¿La amenaza proviene de:",
+                        reply_markup=inline_keyboard
                     )
                     return
 
@@ -360,6 +400,18 @@ class TelegramBot:
                 f"⚠️ Recuerde: Este sistema es de inteligencia ciudadana. Para denuncias formales ante la Fiscalía o PNP, utiliza la línea 111 o acude a la comisaría."
             )
             await self.send_message(chat_id, msg_reply)
+
+            # RF-03: Pregunta opcional de zona si no se detectó
+            zona = getattr(denuncia, 'zona_detectada', None)
+            if not zona:
+                self.user_states[chat_id] = 'waiting_zone'
+                self.user_data[chat_id] = {'denuncia_id': str(denuncia.id)}
+                await self.send_message(
+                    chat_id,
+                    "📍 *Una pregunta más (opcional):*\n\n"
+                    "¿En qué zona o cerro ocurrió esto?\n\n"
+                    "_Escribe la zona o responde *omitir* para saltar._"
+                )
         except Exception as e:
             logger.error(f"Error procesando denuncia de Telegram: {e}", exc_info=True)
             await self.send_message(chat_id, f"❌ Ocurrió un error al procesar tu denuncia: {str(e)}")
@@ -376,13 +428,60 @@ class TelegramBot:
             logger.error(f"Error al obtener información del archivo en Telegram: {e}")
         return None
 
-    async def send_message(self, chat_id: int, text: str):
+    async def handle_callback_query(self, callback_query: dict):
+        """Maneja botones inline (clasificación RF-01)"""
+        chat_id = callback_query["message"]["chat"]["id"]
+        data = callback_query.get("data", "")
+        query_id = callback_query["id"]
+
+        # Answer callback query to remove loading indicator
+        await self.answer_callback_query(query_id)
+
+        if data == "clasif_1":
+            # Particular / Banda criminal
+            self.user_states[chat_id] = 'waiting_content'
+            self.user_data[chat_id] = {'clasificacion': 'particular'}
+            await self.send_message(
+                chat_id,
+                "✅ *Clasificación registrada:* Particular / Banda criminal\n\n"
+                "📝 *Ahora envía tu reporte:*\n"
+                "• Escribe el texto con los detalles\n"
+                "• Envía una imagen de la carta/extorsión\n"
+                "• Envía una nota de voz o audio\n\n"
+                "_Puedes enviar múltiples archivos. Cuando termines, escribe *enviar*._"
+            )
+        elif data == "clasif_2":
+            # Funcionario público / Policía -> redirigir
+            self.user_states[chat_id] = 'idle'
+            await self.send_message(
+                chat_id,
+                "⚠️ *Canal especializado*\n\n"
+                "Las denuncias contra funcionarios públicos o policías son atendidas por canales especializados:\n\n"
+                "🏛️ *Inspectoría General PNP*\n"
+                "📞 Línea: 0800-22221\n"
+                "📧 Email: igp@pnp.gob.pe\n\n"
+                "⚖️ *Fiscalía Anticorrupción*\n"
+                "📞 Línea: 0800-22222\n"
+                "📧 Email: fiscalia@mpfn.gob.pe\n\n"
+                "_Tu reporte NO será registrado en el dashboard de la DIVINCRI para proteger la integridad de la investigación._"
+            )
+
+    async def answer_callback_query(self, query_id: int):
+        url = f"{self.api_url}/answerCallbackQuery"
+        try:
+            await self.http_client.post(url, json={"callback_query_id": query_id})
+        except Exception as e:
+            logger.error(f"Error answering callback query: {e}")
+
+    async def send_message(self, chat_id: int, text: str, reply_markup=None):
         url = f"{self.api_url}/sendMessage"
         payload = {
             "chat_id": chat_id,
             "text": text,
             "parse_mode": "Markdown"
         }
+        if reply_markup:
+            payload["reply_markup"] = reply_markup
         try:
             await self.http_client.post(url, json=payload)
         except Exception as e:

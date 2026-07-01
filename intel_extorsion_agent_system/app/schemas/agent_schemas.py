@@ -198,6 +198,7 @@ class DenunciaResponse(BaseModel):
     metadata_json: Optional[Dict[str, Any]] = None
     zona_detectada: Optional[str] = None
     did_denunciante: Optional[str] = None
+    mensaje_ciudadano: Optional[str] = None
 
 class EjecucionGrafoResponse(BaseModel):
     denuncia_id: uuid.UUID

@@ -48,7 +48,7 @@ class WhatsAppBot:
     # Envío de mensajes
     # -----------------------------------------
 
-    async def send_message(self, chat_id: str, text: str):
+    async def send_message(self, chat_id: str, text: str, buttons=None):
         """Envía un mensaje de texto de WhatsApp a un chat específico"""
         url = f"{self.api_url}/messages/text"
         headers = {
@@ -56,6 +56,8 @@ class WhatsAppBot:
             "Content-Type": "application/json"
         }
         payload = {"to": chat_id, "body": text}
+        if buttons:
+            payload["buttons"] = buttons
         try:
             resp = await self.http_client.post(url, json=payload, headers=headers)
             if resp.status_code not in [200, 201]:
@@ -68,14 +70,12 @@ class WhatsAppBot:
     async def _send_classification_menu(self, chat_id: str):
         """Envía el menú de clasificación RF-01 y pasa a estado 'classifying'."""
         self.user_states[chat_id] = 'classifying'
-        menu = (
-            "🛡️ *Menú de Clasificación del Reporte*\n\n"
-            "¿La amenaza proviene de:\n\n"
-            "1️⃣ *Particular / Banda criminal*\n"
-            "2️⃣ *Funcionario público / Policía*\n\n"
-            "Responde con el número *1* o *2*."
-        )
-        await self.send_message(chat_id, menu)
+        menu = "🛡️ *Menú de Clasificación del Reporte*\n\n¿La amenaza proviene de:"
+        buttons = [
+            {"type": "reply", "reply": {"id": "clasif_1", "title": "👤 Particular / Banda criminal"}},
+            {"type": "reply", "reply": {"id": "clasif_2", "title": "👮 Funcionario público / Policía"}}
+        ]
+        await self.send_message(chat_id, menu, buttons=buttons)
 
     # -----------------------------------------
     # Descarga de archivos
@@ -119,6 +119,14 @@ class WhatsAppBot:
 
             msg_type = msg.get("type", "text")
 
+            # Handle button replies (RF-01 classification)
+            if msg_type == "button" or msg.get("button"):
+                button = msg.get("button") or msg.get("selectedButtonId") or msg.get("data", "")
+                button_id = button.get("id") if isinstance(button, dict) else button
+                if button_id:
+                    await self._handle_button_reply(chat_id, button_id)
+                continue
+
             # Ignorar mensajes de tipo album (solo indicador de grupo de imágenes)
             if msg_type == "album":
                 logger.info(f"[WhatsApp] Ignorando mensaje tipo 'album' de {chat_id}")
@@ -136,6 +144,35 @@ class WhatsAppBot:
     # -----------------------------------------
     # Batching temporal
     # -----------------------------------------
+
+    async def _handle_button_reply(self, chat_id: str, button_id: str):
+        """Maneja respuestas de botones inline (clasificación RF-01)"""
+        if button_id == "clasif_1":
+            self.user_states[chat_id] = 'waiting_content'
+            self.user_data[chat_id] = {'clasificacion': 'particular'}
+            await self.send_message(
+                chat_id,
+                "✅ *Clasificación registrada:* Particular / Banda criminal\n\n"
+                "📝 *Ahora envía tu reporte:*\n"
+                "• Escribe el texto con los detalles\n"
+                "• Envía una imagen de la carta/extorsión\n"
+                "• Envía una nota de voz o audio\n\n"
+                "_Puedes enviar múltiples archivos. Cuando termines, escribe *enviar*._"
+            )
+        elif button_id == "clasif_2":
+            self.user_states[chat_id] = 'idle'
+            await self.send_message(
+                chat_id,
+                "⚠️ *Canal especializado*\n\n"
+                "Las denuncias contra funcionarios públicos o policías son atendidas por canales especializados:\n\n"
+                "🏛️ *Inspectoría General PNP*\n"
+                "📞 Línea: 0800-22221\n"
+                "📧 Email: igp@pnp.gob.pe\n\n"
+                "⚖️ *Fiscalía Anticorrupción*\n"
+                "📞 Línea: 0800-22222\n"
+                "📧 Email: fiscalia@mpfn.gob.pe\n\n"
+                "_Tu reporte NO será registrado en el dashboard de la DIVINCRI para proteger la integridad de la investigación._"
+            )
 
     async def _handle_incoming_message(self, msg: dict):
         """
@@ -232,12 +269,12 @@ class WhatsAppBot:
                 self.user_states[chat_id] = 'waiting_for_denuncia'
                 await self.send_message(
                     chat_id,
+                    "✅ *Clasificación:* Particular / Banda criminal\n\n"
                     "📝 *Asistente de Ingesta Activado.*\n\n"
                     "Por favor, descríbeme detalladamente los hechos *en tu siguiente mensaje*. Recuerda incluir:\n"
                     "• Teléfonos desde donde te contactaron\n"
                     "• Nombres o cuentas bancarias de cobro si te las dieron\n"
-                    "• Tipo de amenaza o exigencias de dinero\n"
-                    "• Zona o lugar donde ocurrieron los hechos\n\n"
+                    "• Tipo de amenaza o exigencias de dinero\n\n"
                     "También puedes adjuntar imágenes o documentos de evidencia.\n\n"
                     "⚠️ Tu información será analizada por IA forense y entregada a las autoridades competentes para inteligencia operativa. Si deseas abortar, escribe *cancelar*."
                 )
@@ -258,6 +295,36 @@ class WhatsAppBot:
             else:
                 await self.send_message(chat_id, "⚠️ Por favor responde con *1* (particular/banda) o *2* (funcionario/policía).")
                 return
+
+        # --- WAITING_ZONE (RF-03: zona opcional post-denuncia) ---
+        if chat_state == 'waiting_zone':
+            self.user_states[chat_id] = 'idle'
+            zone_data = self.user_data.pop(chat_id, {})
+            denuncia_id = zone_data.get('denuncia_id')
+
+            if clean_text in ["omitir", "saltar", "no", "skip"]:
+                await self.send_message(chat_id, "✅ *Zona omitida.* Tu reporte ha sido registrado correctamente.")
+                return
+
+            # Guardar zona en la denuncia
+            if denuncia_id:
+                try:
+                    async with AsyncSessionLocal() as db:
+                        from sqlalchemy import update
+                        from app.models.database import Denuncia
+                        await db.execute(
+                            update(Denuncia)
+                            .where(Denuncia.id == denuncia_id)
+                            .values(zona_detectada=text.strip())
+                        )
+                        await db.commit()
+                    await self.send_message(chat_id, f"📍 *Zona registrada:* {text.strip()}\n\n✅ Tu reporte ha sido actualizado con esta información.")
+                except Exception as e:
+                    logger.error(f"Error guardando zona: {e}")
+                    await self.send_message(chat_id, f"📍 *Zona recibida:* {text.strip()}\n\n✅ Tu reporte ha sido registrado correctamente.")
+            else:
+                await self.send_message(chat_id, f"📍 *Zona recibida:* {text.strip()}\n\n✅ Tu reporte ha sido registrado correctamente.")
+            return
 
         # --- IDLE ---
         if chat_state == 'idle':
@@ -455,6 +522,18 @@ class WhatsAppBot:
                 f"⚠️ Recuerda: Este sistema es de inteligencia ciudadana. Para denuncias formales ante la Fiscalía o PNP, utiliza la línea 111 o acude a la comisaría."
             )
             await self.send_message(chat_id, reply_msg)
+
+            # RF-03: Pregunta opcional de zona si no se detectó
+            zona = getattr(denuncia, 'zona_detectada', None)
+            if not zona:
+                self.user_states[chat_id] = 'waiting_zone'
+                self.user_data[chat_id] = {'denuncia_id': str(denuncia.id)}
+                await self.send_message(
+                    chat_id,
+                    "📍 *Una pregunta más (opcional):*\n\n"
+                    "¿En qué zona o cerro ocurrió esto?\n\n"
+                    "_Escribe la zona o responde *omitir* para saltar._"
+                )
 
         except Exception as e:
             logger.error(f"Error procesando denuncia de WhatsApp: {e}", exc_info=True)

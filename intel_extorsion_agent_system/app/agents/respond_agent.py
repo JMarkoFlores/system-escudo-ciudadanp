@@ -11,17 +11,26 @@ def generate_tracking_code() -> str:
 async def node_respond(state: AgenteState) -> Dict[str, Any]:
     tracking_code = generate_tracking_code()
 
+    # RF-04: Include SHA-256 hash for personal verification
+    content_hash = getattr(state, 'content_hash', None)
+    hash_line = ""
+    if content_hash:
+        short_hash = content_hash[:16] + "..."
+        hash_line = f"\n🔐 *Hash de verificación:* `{short_hash}`"
+
     if state.nivel_riesgo and state.nivel_riesgo.value in ["alto", "critico"]:
         mensaje = (
-            f"✅ Denuncia registrada con código {tracking_code}. "
+            f"✅ Denuncia registrada con código *{tracking_code}*. "
             f"Tu caso ha sido escalado a nuestra unidad de inteligencia. "
             f"La información será entregada a las autoridades competentes para acciones operativas."
+            f"{hash_line}"
         )
     else:
         mensaje = (
-            f"✅ Denuncia registrada con código {tracking_code}. "
+            f"✅ Denuncia registrada con código *{tracking_code}*. "
             f"Puedes dar seguimiento usando este código. "
             f"Te contactaremos si necesitamos más información."
+            f"{hash_line}"
         )
 
     return {

@@ -14,8 +14,22 @@ class EstadoDenuncia(str, enum.Enum):
     correlacionado = "correlacionado"
     riesgo_evaluado = "riesgo_evaluado"
     alerta_generada = "alerta_generada"
+    en_seguimiento_policial = "en_seguimiento_policial"
     error_procesamiento = "error_procesamiento"
     archivado = "archivado"
+
+# RF-04: Mensajes legibles para el ciudadano al consultar su código
+ESTADO_MENSAJES_CIUDADANO = {
+    "en_ingesta": "Tu denuncia fue recibida y está en cola de procesamiento.",
+    "en_analisis": "Tu denuncia está siendo analizada por nuestro sistema.",
+    "procesado": "Tu denuncia fue procesada. La información aportada ha sido registrada.",
+    "correlacionado": "Tu denuncia fue vinculada con otros reportes similares. La información está siendo analizada por el equipo especializado.",
+    "en_seguimiento_policial": "La información de tu denuncia está siendo utilizada activamente por las autoridades.",
+    "riesgo_evaluado": "Tu denuncia fue procesada. La información aportada ha sido registrada.",
+    "alerta_generada": "La información de tu denuncia está siendo utilizada activamente por las autoridades.",
+    "error_procesamiento": "Hubo un problema al procesar tu denuncia. Por favor, intenta reportar nuevamente.",
+    "archivado": "Tu denuncia ha sido archivada. Gracias por contribuir a la seguridad de tu comunidad.",
+}
 
 class NivelRiesgo(str, enum.Enum):
     bajo = "bajo"
