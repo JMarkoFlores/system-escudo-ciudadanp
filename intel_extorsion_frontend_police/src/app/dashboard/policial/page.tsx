@@ -57,15 +57,7 @@ export default function DashboardPolicialPage() {
         setDenuncias(denunciasData);
         setMetricas(metricasData);
       } catch (e) {
-        // fallback demo data
-        setMetricas({
-          total_denuncias: 1247,
-          denuncias_hoy: 23,
-          alertas_criticas: 7,
-          casos_resueltos: 89,
-          tiempo_promedio_respuesta_min: 12,
-          evidencias_registradas: 3421,
-        });
+        console.error('Error cargando datos del dashboard:', e);
       } finally {
         setLoading(false);
       }

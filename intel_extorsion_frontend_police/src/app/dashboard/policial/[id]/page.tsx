@@ -465,7 +465,7 @@ export default function DetalleDenunciaPage() {
                   {(() => {
                     const activo = archivos[archivoActivo];
                     const tipo = (activo?.tipo || '').toLowerCase();
-                    const src = `http://localhost:8000/v1/denuncias/${denuncia.id}/archivo?index=${activo?.index ?? 0}`;
+                    const src = `/api/agents/denuncias/${denuncia.id}/archivo?index=${activo?.index ?? 0}`;
 
                     if (tipo === 'imagen' || tipo === 'image' || tipo === 'mixto') {
                       return (
@@ -538,7 +538,7 @@ export default function DetalleDenunciaPage() {
                         >
                           {isImage ? (
                             <img
-                              src={`http://localhost:8000/v1/denuncias/${denuncia.id}/archivo?index=${arch.index}`}
+                              src={`/api/agents/denuncias/${denuncia.id}/archivo?index=${arch.index}`}
                               alt={arch.filename}
                               className="w-full h-full object-cover"
                             />
@@ -578,7 +578,7 @@ export default function DetalleDenunciaPage() {
                 <div className="border rounded-lg overflow-hidden bg-slate-50 p-2 flex items-center justify-center min-h-[150px]">
                 {denuncia.tipo_contenido === 'imagen' || denuncia.tipo_contenido === 'mixto' ? (
                   <img
-                    src={`http://localhost:8000/v1/denuncias/${denuncia.id}/archivo`}
+                    src={`/api/agents/denuncias/${denuncia.id}/archivo`}
                     alt="Captura de evidencia"
                     className="max-h-[250px] object-contain rounded border shadow-sm"
                   />
@@ -587,14 +587,14 @@ export default function DetalleDenunciaPage() {
                     <FileAudio size={48} className="text-blue-500 animate-pulse" />
                     <span className="text-xs text-slate-500">Nota de voz grabada de extorsión</span>
                     <audio
-                      src={`http://localhost:8000/v1/denuncias/${denuncia.id}/archivo`}
+                      src={`/api/agents/denuncias/${denuncia.id}/archivo`}
                       controls
                       className="w-full mt-2"
                     />
                   </div>
                 ) : denuncia.tipo_contenido === 'video' ? (
                   <video
-                    src={`http://localhost:8000/v1/denuncias/${denuncia.id}/archivo`}
+                    src={`/api/agents/denuncias/${denuncia.id}/archivo`}
                     controls
                     className="max-h-[250px] w-full rounded border shadow-sm"
                   />

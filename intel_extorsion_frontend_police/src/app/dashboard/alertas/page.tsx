@@ -33,40 +33,7 @@ export default function AlertasPage() {
         const { data } = await alertaService.listar();
         setAlertas(data);
       } catch {
-        const demo: Alerta[] = [
-          {
-            id: 'a1',
-            denuncia_id: 'd1',
-            nivel: 'critico',
-            titulo: 'Amenaza de secuestro virtual confirmada',
-            descripcion: 'El Risk Agent detectó datos personales exactos de la víctima y modus operandi coincidente con serie criminal activa.',
-            recomendacion: 'Activar unidad de reacción inmediata. Contactar a víctima para protección.',
-            leida: false,
-            atendida: false,
-            created_at: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
-          },
-          {
-            id: 'a2',
-            denuncia_id: 'd2',
-            nivel: 'alto',
-            titulo: 'Red de extorsión telefónica detectada',
-            descripcion: 'Correlation Agent identificó 5 denuncias relacionadas al mismo número telefónico.',
-            leida: false,
-            atendida: false,
-            created_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-          },
-          {
-            id: 'a3',
-            denuncia_id: 'd3',
-            nivel: 'medio',
-            titulo: 'Intento de fraude bancario',
-            descripcion: 'OSINT Agent confirmó cuenta bancaria reportada previamente en otras 3 denuncias.',
-            leida: true,
-            atendida: false,
-            created_at: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
-          },
-        ];
-        setAlertas(demo);
+        console.error('Error cargando alertas');
       }
     };
     fetch();

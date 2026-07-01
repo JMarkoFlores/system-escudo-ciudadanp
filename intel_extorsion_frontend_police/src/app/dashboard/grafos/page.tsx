@@ -19,31 +19,8 @@ export default function GrafosPage() {
         const { data } = await graphService.obtener();
         setGrafoActivo(data);
       } catch {
-        // Demo data fallback
-        const demo: CriminalGraph = {
-          nodes: [
-            { id: 'd1', label: 'Denuncia #1024', group: 'denunciante', val: 4 },
-            { id: 'd2', label: 'Denuncia #1041', group: 'denunciante', val: 3 },
-            { id: 'd3', label: 'Denuncia #1055', group: 'denunciante', val: 3 },
-            { id: 's1', label: 'Extorsionador A', group: 'sospechoso', val: 8 },
-            { id: 't1', label: '+52 55 1234 5678', group: 'telefono', val: 5 },
-            { id: 'c1', label: 'Cuenta BBVA 1234', group: 'cuenta', val: 4 },
-            { id: 'caso1', label: 'Caso Red Norte', group: 'caso', val: 6 },
-            { id: 'ev1', label: 'Audio Amenaza', group: 'evidencia', val: 2 },
-          ],
-          links: [
-            { source: 'd1', target: 's1', label: 'denuncia' },
-            { source: 'd2', target: 's1', label: 'denuncia' },
-            { source: 'd3', target: 's1', label: 'denuncia' },
-            { source: 's1', target: 't1', label: 'usa' },
-            { source: 's1', target: 'c1', label: 'usa' },
-            { source: 'caso1', target: 's1', label: 'involucra' },
-            { source: 'd1', target: 'ev1', label: 'tiene' },
-            { source: 'caso1', target: 'd1', label: 'agrupa' },
-            { source: 'caso1', target: 'd2', label: 'agrupa' },
-          ],
-        };
-        setGrafoActivo(demo);
+        console.error('Error cargando grafo criminal');
+        setGrafoActivo({ nodes: [], links: [] });
       } finally {
         setLoading(false);
       }
