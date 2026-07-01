@@ -5,7 +5,7 @@ networks:
 services:
   agent-api:
     build:
-      context: ./intel_extorsion_agent_system
+      context: ../intel_extorsion_agent_system
       dockerfile: deployments/Dockerfile
     container_name: intel_extorsion_agent_api
     depends_on:
